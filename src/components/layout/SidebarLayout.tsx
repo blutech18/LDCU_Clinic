@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '~/modules/auth';
 import Sidebar from './Sidebar';
+import { Footer } from './Footer';
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -61,7 +62,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
   const getPageTitle = (pathname: string) => {
     const found = Object.entries(pageLabels).find(([path]) => pathname.startsWith(path));
-    return found ? found[1] : 'Liceo Clinic';
+    return found ? found[1] : 'Liceo Medical and Dental Clinic';
   };
 
   return (
@@ -81,22 +82,22 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       </AnimatePresence>
 
       {/* Header - Fixed Top */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-50">
+      <header className="fixed top-0 left-0 right-0 h-14 bg-maroon-800 border-b border-maroon-700 flex items-center justify-between px-4 z-50 shadow-lg">
         <div className="flex items-center gap-4">
           {/* Toggle Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 focus:outline-none"
+            className="p-2 rounded-lg hover:bg-maroon-700 text-white focus:outline-none transition-colors"
             title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             {isOpen ? <Menu className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-maroon-900 rounded-full flex items-center justify-center text-white font-bold text-sm">
-              LC
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+              <img src="/ldcu-logo.png" alt="LDCU Logo" className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 hidden sm:block">
+            <h2 className="text-lg font-semibold text-white hidden sm:block">
               {getPageTitle(location.pathname)}
             </h2>
           </Link>
@@ -104,10 +105,10 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-gray-900">{profile?.first_name} {profile?.last_name}</p>
+            <p className="text-sm font-medium text-white">{profile?.first_name} {profile?.last_name}</p>
           </div>
-          <div className="w-8 h-8 bg-maroon-100 rounded-full flex items-center justify-center border border-maroon-200">
-            <span className="text-maroon-800 font-bold text-xs">
+          <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center">
+            <span className="text-maroon-900 font-bold text-xs">
               {profile?.first_name?.[0]}{profile?.last_name?.[0]}
             </span>
           </div>
@@ -119,14 +120,15 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
       {/* Main Content Area */}
       <main
-        className="flex-1 pt-14 transition-[margin-left] duration-300 ease-in-out"
+        className="flex-1 pt-14 transition-[margin-left] duration-300 ease-in-out flex flex-col"
         style={{
           marginLeft: isMobile ? 0 : (isOpen ? 260 : 72)
         }}
       >
-        <div className="p-4 lg:p-6">
+        <div className="p-4 lg:p-6 flex-1">
           {children}
         </div>
+        <Footer />
       </main>
     </div>
   );

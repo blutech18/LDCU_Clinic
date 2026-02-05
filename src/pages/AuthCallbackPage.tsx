@@ -67,7 +67,7 @@ export function AuthCallbackPage() {
             is_verified: false,
           };
 
-          const { data: createdProfile, error: createError } = await supabase
+          const { error: createError } = await supabase
             .from('profiles')
             .insert(newProfile)
             .select()

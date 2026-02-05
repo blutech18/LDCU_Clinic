@@ -26,7 +26,7 @@ interface AppointmentState {
 }
 
 export const useAppointmentStore = create<AppointmentState>()(
-  immer((set, get) => ({
+  immer((set) => ({
     appointments: [],
     selectedAppointment: null,
     filters: {},

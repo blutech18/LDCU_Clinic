@@ -1,36 +1,21 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store';
 import { Button } from '~/components/ui/Button';
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { login, loginWithGoogle, isLoading } = useAuthStore();
-  const navigate = useNavigate();
+  const { loginWithGoogle } = useAuthStore();
   const [searchParams] = useSearchParams();
 
   const pendingVerification = searchParams.get('pending') === 'true';
   const urlError = searchParams.get('error');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      await login(email, password);
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Failed to login');
-    }
-  };
-
   const handleGoogleLogin = async () => {
     setError('');
     setIsGoogleLoading(true);
-    
+
     try {
       await loginWithGoogle();
       // Navigation will be handled by OAuth callback
@@ -51,63 +36,18 @@ export function LoginForm() {
 
       {(error || urlError) && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-          {error || (urlError === 'auth_failed' ? 'Authentication failed. Please try again.' : 
-                     urlError === 'profile_creation_failed' ? 'Failed to create profile. Please contact support.' : 
-                     urlError)}
+          {error || (urlError === 'auth_failed' ? 'Authentication failed. Please try again.' :
+            urlError === 'profile_creation_failed' ? 'Failed to create profile. Please contact support.' :
+              urlError)}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email Address
-          </label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@liceo.edu.ph"
-            required
-            autoComplete="email"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-maroon-500 focus:outline-none focus:ring-maroon-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
-          </label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            required
-            autoComplete="current-password"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-maroon-500 focus:outline-none focus:ring-maroon-500"
-          />
-        </div>
-        <Button type="submit" disabled={isLoading || isGoogleLoading} className="w-full">
-          {isLoading ? 'Signing in...' : 'Sign In'}
-        </Button>
-      </form>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300" />
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or continue with</span>
-        </div>
-      </div>
-
-      <Button 
+      <Button
         type="button"
         onClick={handleGoogleLogin}
-        variant="outline" 
+        variant="outline"
         className="w-full flex items-center justify-center gap-2"
-        disabled={isLoading || isGoogleLoading}
+        disabled={isGoogleLoading}
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
