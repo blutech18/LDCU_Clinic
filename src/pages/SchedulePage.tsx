@@ -18,11 +18,11 @@ import { SidebarLayout } from '~/components/layout';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatLocalDate } from '~/lib/utils';
-import { sendAppointmentReminder } from '~/lib/email';
+import { sendBulkReminders } from '~/lib/email';
 
 export function SchedulePage() {
   const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, isLoading } = useAppointmentStore();
-  const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, emailTemplates, fetchEmailTemplates } = useScheduleStore();
+  const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, fetchEmailTemplates } = useScheduleStore();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -109,35 +109,22 @@ export function SchedulePage() {
   const selectedDateAppointments = selectedDate ? getDateAppointments(selectedDate) : [];
 
   const handleSendReminders = useCallback(async () => {
-    if (!selectedDate || selectedDateAppointments.length === 0) return;
+    if (!selectedDate || selectedDateAppointments.length === 0 || !selectedCampusId) return;
     setIsSendingReminders(true);
     setRemindersSent(false);
 
-    const scheduledAppts = selectedDateAppointments.filter(apt => apt.status === 'scheduled');
-    const reminderTemplate = emailTemplates.find(t => t.template_type === 'appointment_reminder');
-
-    let sentCount = 0;
-    for (const apt of scheduledAppts) {
-      if (apt.patient_email) {
-        try {
-          await sendAppointmentReminder(
-            apt.patient_email,
-            apt.patient_name || 'Patient',
-            format(selectedDate, 'MMMM d, yyyy'),
-            apt.appointment_type.replace('_', ' '),
-            reminderTemplate ? { subject: reminderTemplate.subject, body: reminderTemplate.body } : undefined
-          );
-          sentCount++;
-        } catch (err) {
-          console.warn(`Failed to send reminder to ${apt.patient_email}:`, err);
-        }
-      }
+    try {
+      const dateStr = formatLocalDate(selectedDate);
+      const result = await sendBulkReminders(dateStr, selectedCampusId);
+      console.log('Reminders result:', result);
+    } catch (err) {
+      console.error('Failed to send reminders:', err);
     }
 
     setIsSendingReminders(false);
     setRemindersSent(true);
     setTimeout(() => setRemindersSent(false), 3000);
-  }, [selectedDate, selectedDateAppointments, emailTemplates]);
+  }, [selectedDate, selectedDateAppointments, selectedCampusId]);
 
   return (
     <SidebarLayout>
