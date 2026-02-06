@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Check, X, Search, Settings, Save, Mail } from 'lucide-react';
+import { Users, Check, X, Search, Settings, Save, Mail, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { SidebarLayout } from '~/components/layout';
 import { supabase } from '~/lib/supabase';
 import { useScheduleStore } from '~/modules/schedule';
@@ -10,13 +10,20 @@ export function AdminPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
-    const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'templates'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'templates' | 'schedule'>('users');
     const [maxBookings, setMaxBookings] = useState<number>(50);
     const [selectedSettingsCampus, setSelectedSettingsCampus] = useState('');
     const [savingSettings, setSavingSettings] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
 
-    const { campuses, fetchCampuses, fetchBookingSetting, bookingSetting, updateBookingSetting, emailTemplates, fetchEmailTemplates, upsertEmailTemplate } = useScheduleStore();
+    const { campuses, fetchCampuses, fetchBookingSetting, bookingSetting, updateBookingSetting, emailTemplates, fetchEmailTemplates, upsertEmailTemplate, scheduleConfig, fetchScheduleConfig, updateScheduleConfig } = useScheduleStore();
+
+    const [includeSaturday, setIncludeSaturday] = useState(false);
+    const [includeSunday, setIncludeSunday] = useState(false);
+    const [holidayDates, setHolidayDates] = useState<string[]>([]);
+    const [newHolidayDate, setNewHolidayDate] = useState('');
+    const [savingScheduleConfig, setSavingScheduleConfig] = useState(false);
+    const [scheduleConfigSaved, setScheduleConfigSaved] = useState(false);
 
     const [confirmSubject, setConfirmSubject] = useState('Appointment Booking Confirmation - LDCU Clinic');
     const [confirmBody, setConfirmBody] = useState('Dear {{name}},\n\nYour appointment has been successfully booked!\n\nDate: {{date}}\nType: {{type}}\nService: First come, first served\n\nPlease arrive on time. If you need to cancel, please do so at least 24 hours in advance.\n\nThank you,\nLDCU University Clinic');
@@ -40,8 +47,44 @@ export function AdminPage() {
         if (selectedSettingsCampus) {
             fetchBookingSetting(selectedSettingsCampus);
             fetchEmailTemplates(selectedSettingsCampus);
+            fetchScheduleConfig(selectedSettingsCampus);
         }
-    }, [selectedSettingsCampus, fetchBookingSetting, fetchEmailTemplates]);
+    }, [selectedSettingsCampus, fetchBookingSetting, fetchEmailTemplates, fetchScheduleConfig]);
+
+    useEffect(() => {
+        setIncludeSaturday(scheduleConfig?.include_saturday || false);
+        setIncludeSunday(scheduleConfig?.include_sunday || false);
+        setHolidayDates(scheduleConfig?.holiday_dates || []);
+    }, [scheduleConfig]);
+
+    const handleSaveScheduleConfig = async () => {
+        if (!selectedSettingsCampus) return;
+        setSavingScheduleConfig(true);
+        try {
+            await updateScheduleConfig(selectedSettingsCampus, {
+                include_saturday: includeSaturday,
+                include_sunday: includeSunday,
+                holiday_dates: holidayDates,
+            });
+            setScheduleConfigSaved(true);
+            setTimeout(() => setScheduleConfigSaved(false), 2000);
+        } catch (error) {
+            console.error('Failed to save schedule config:', error);
+        } finally {
+            setSavingScheduleConfig(false);
+        }
+    };
+
+    const addHolidayDate = () => {
+        if (newHolidayDate && !holidayDates.includes(newHolidayDate)) {
+            setHolidayDates([...holidayDates, newHolidayDate].sort());
+            setNewHolidayDate('');
+        }
+    };
+
+    const removeHolidayDate = (dateToRemove: string) => {
+        setHolidayDates(holidayDates.filter(d => d !== dateToRemove));
+    };
 
     useEffect(() => {
         const confirmTpl = emailTemplates.find(t => t.template_type === 'booking_confirmation');
@@ -217,6 +260,15 @@ export function AdminPage() {
                     <Mail className="w-4 h-4" />
                     Email Templates
                 </button>
+                <button
+                    onClick={() => setActiveTab('schedule')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                        activeTab === 'schedule' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                    <CalendarDays className="w-4 h-4" />
+                    Schedule Config
+                </button>
             </div>
 
             {activeTab === 'settings' && (
@@ -281,6 +333,132 @@ export function AdminPage() {
                             Current setting: <span className="font-medium text-gray-700">{bookingSetting?.max_bookings_per_day || 50}</span> bookings per day
                             {bookingSetting ? '' : ' (default)'}
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'schedule' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5 text-maroon-800" />
+                        Schedule Configuration
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-6">Configure which days are available for appointments and set holiday dates.</p>
+
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
+                        <select
+                            value={selectedSettingsCampus}
+                            onChange={(e) => setSelectedSettingsCampus(e.target.value)}
+                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                        >
+                            {campuses.map((campus) => (
+                                <option key={campus.id} value={campus.id}>
+                                    {campus.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Day Toggles */}
+                    <div className="border rounded-lg p-4 mb-6">
+                        <h3 className="font-medium text-gray-900 mb-3">Available Days</h3>
+                        <p className="text-sm text-gray-500 mb-4">Monday to Friday are always enabled. Toggle Saturday and Sunday below.</p>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <div className="relative">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeSaturday}
+                                        onChange={(e) => setIncludeSaturday(e.target.checked)}
+                                        className="sr-only"
+                                    />
+                                    <div className={`w-11 h-6 rounded-full transition-colors ${
+                                        includeSaturday ? 'bg-maroon-800' : 'bg-gray-300'
+                                    }`}>
+                                        <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform mt-0.5 ${
+                                            includeSaturday ? 'translate-x-[22px]' : 'translate-x-0.5'
+                                        }`} />
+                                    </div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">Include Saturday</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <div className="relative">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeSunday}
+                                        onChange={(e) => setIncludeSunday(e.target.checked)}
+                                        className="sr-only"
+                                    />
+                                    <div className={`w-11 h-6 rounded-full transition-colors ${
+                                        includeSunday ? 'bg-maroon-800' : 'bg-gray-300'
+                                    }`}>
+                                        <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform mt-0.5 ${
+                                            includeSunday ? 'translate-x-[22px]' : 'translate-x-0.5'
+                                        }`} />
+                                    </div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">Include Sunday</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Holiday Dates */}
+                    <div className="border rounded-lg p-4 mb-6">
+                        <h3 className="font-medium text-gray-900 mb-3">Holiday Dates</h3>
+                        <p className="text-sm text-gray-500 mb-4">Add dates when the clinic is closed. No appointments will be scheduled on these dates.</p>
+                        <div className="flex items-center gap-2 mb-4">
+                            <input
+                                type="date"
+                                value={newHolidayDate}
+                                onChange={(e) => setNewHolidayDate(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                            />
+                            <button
+                                onClick={addHolidayDate}
+                                disabled={!newHolidayDate}
+                                className="px-3 py-2 bg-maroon-800 text-white rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-1 text-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add
+                            </button>
+                        </div>
+                        {holidayDates.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No holiday dates set</p>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {holidayDates.map((hd) => (
+                                    <div key={hd} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">
+                                        <span>{new Date(hd + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                        <button onClick={() => removeHolidayDate(hd)} className="ml-1 hover:text-red-900 transition-colors">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleSaveScheduleConfig}
+                            disabled={savingScheduleConfig}
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        >
+                            {savingScheduleConfig ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            {savingScheduleConfig ? 'Saving...' : 'Save Configuration'}
+                        </button>
+                        {scheduleConfigSaved && (
+                            <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                                <Check className="w-4 h-4" />
+                                Configuration saved!
+                            </span>
+                        )}
                     </div>
                 </div>
             )}

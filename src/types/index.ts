@@ -99,6 +99,16 @@ export interface College {
   created_at: string;
 }
 
+export interface ScheduleConfig {
+  id: string;
+  campus_id: string;
+  include_saturday: boolean;
+  include_sunday: boolean;
+  holiday_dates: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EmailTemplate {
   id: string;
   campus_id: string;

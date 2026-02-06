@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { ScheduleSetting, Campus, BookingSetting, Department, EmailTemplate } from '~/types';
+import type { ScheduleSetting, Campus, BookingSetting, Department, EmailTemplate, ScheduleConfig } from '~/types';
 import { supabase } from '~/lib/supabase';
 
 interface TimeSlot {
@@ -16,6 +16,7 @@ interface ScheduleState {
   departments: Department[];
   bookingSetting: BookingSetting | null;
   emailTemplates: EmailTemplate[];
+  scheduleConfig: ScheduleConfig | null;
   selectedCampusId: string | null;
   timeSlots: TimeSlot[];
   selectedDate: Date | null;
@@ -29,6 +30,8 @@ interface ScheduleState {
   updateBookingSetting: (campusId: string, maxPerDay: number) => Promise<void>;
   fetchEmailTemplates: (campusId: string) => Promise<void>;
   upsertEmailTemplate: (template: Partial<EmailTemplate> & { campus_id: string; template_type: string }) => Promise<void>;
+  fetchScheduleConfig: (campusId: string) => Promise<void>;
+  updateScheduleConfig: (campusId: string, config: { include_saturday: boolean; include_sunday: boolean; holiday_dates: string[] }) => Promise<void>;
   setSelectedCampus: (campusId: string | null) => void;
   generateTimeSlots: (date: Date, campusId: string) => Promise<void>;
   setSelectedDate: (date: Date | null) => void;
@@ -42,6 +45,7 @@ export const useScheduleStore = create<ScheduleState>()(
     departments: [],
     bookingSetting: null,
     emailTemplates: [],
+    scheduleConfig: null,
     selectedCampusId: null,
     timeSlots: [],
     selectedDate: null,
@@ -177,6 +181,50 @@ export const useScheduleStore = create<ScheduleState>()(
         set({ emailTemplates: data || [] });
       } catch (error) {
         console.error('Error upserting email template:', error);
+        throw error;
+      }
+    },
+
+    fetchScheduleConfig: async (campusId) => {
+      try {
+        const { data, error } = await supabase
+          .from('schedule_config')
+          .select('*')
+          .eq('campus_id', campusId)
+          .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        set({ scheduleConfig: data || null });
+      } catch (error) {
+        console.error('Error fetching schedule config:', error);
+        set({ scheduleConfig: null });
+      }
+    },
+
+    updateScheduleConfig: async (campusId, config) => {
+      try {
+        const { data: existing } = await supabase
+          .from('schedule_config')
+          .select('id')
+          .eq('campus_id', campusId)
+          .single();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('schedule_config')
+            .update({ ...config, updated_at: new Date().toISOString() })
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('schedule_config')
+            .insert({ campus_id: campusId, ...config });
+          if (error) throw error;
+        }
+
+        set({ scheduleConfig: { campus_id: campusId, ...config } as ScheduleConfig });
+      } catch (error) {
+        console.error('Error updating schedule config:', error);
         throw error;
       }
     },

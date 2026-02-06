@@ -44,7 +44,7 @@ export function AuthCallbackPage() {
 
         if (existingProfile) {
           // Profile exists - check verification
-          if ('is_verified' in existingProfile && !existingProfile.is_verified && existingProfile.role !== 'admin') {
+          if ('is_verified' in existingProfile && !existingProfile.is_verified && existingProfile.role !== 'admin' && existingProfile.role !== 'student') {
             await supabase.auth.signOut();
             setError('Your account is pending verification. Please wait for admin approval.');
             setTimeout(() => navigate('/login'), 3000);

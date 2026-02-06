@@ -33,7 +33,7 @@ const APPOINTMENT_TYPES = [
 export function StudentBookingPage() {
     const { profile, logout } = useAuthStore();
     const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, createAppointment, isLoading, isSaving } = useAppointmentStore();
-    const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting } = useScheduleStore();
+    const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting, scheduleConfig, fetchScheduleConfig } = useScheduleStore();
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -95,13 +95,14 @@ export function StudentBookingPage() {
         }
     }, [campuses, selectedCampus, profile?.campus_id]);
 
-    // Fetch departments and booking settings when campus changes
+    // Fetch departments, booking settings, and schedule config when campus changes
     useEffect(() => {
         if (selectedCampus) {
             fetchDepartments(selectedCampus);
             fetchBookingSetting(selectedCampus);
+            fetchScheduleConfig(selectedCampus);
         }
-    }, [selectedCampus, fetchDepartments, fetchBookingSetting]);
+    }, [selectedCampus, fetchDepartments, fetchBookingSetting, fetchScheduleConfig]);
 
     // Pre-fill form fields from profile
     useEffect(() => {
@@ -154,12 +155,27 @@ export function StudentBookingPage() {
         return getBookingCount(date) >= maxBookingsPerDay;
     };
 
-    // Check if date is bookable (not in past, not weekend, not full)
+    // Check if date is a holiday
+    const isHoliday = (date: Date) => {
+        const dateStr = formatLocalDate(date);
+        return (scheduleConfig?.holiday_dates || []).includes(dateStr);
+    };
+
+    // Check if date is bookable (not in past, respects schedule config, not full, not holiday)
     const isDateBookable = (date: Date) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        if (isBefore(date, today)) return false;
+        if (isDateFull(date)) return false;
+        if (isHoliday(date)) return false;
+
         const dayOfWeek = date.getDay();
-        return !isBefore(date, today) && dayOfWeek !== 0 && dayOfWeek !== 6 && !isDateFull(date);
+        // Sunday
+        if (dayOfWeek === 0 && !(scheduleConfig?.include_sunday)) return false;
+        // Saturday
+        if (dayOfWeek === 6 && !(scheduleConfig?.include_saturday)) return false;
+
+        return true;
     };
 
     const handleDateClick = (date: Date) => {
@@ -327,7 +343,12 @@ export function StudentBookingPage() {
                                             const isCurrentMonth = isSameMonth(day, currentMonth);
                                             const count = getBookingCount(day);
                                             const full = isDateFull(day);
-                                            const isWeekday = day.getDay() !== 0 && day.getDay() !== 6;
+                                            const dow = day.getDay();
+                                            const isSat = dow === 6;
+                                            const isSun = dow === 0;
+                                            const isOffDay = (isSun && !scheduleConfig?.include_sunday) || (isSat && !scheduleConfig?.include_saturday);
+                                            const holiday = isHoliday(day);
+                                            const isActiveDay = !isOffDay && !holiday;
                                             const today = new Date();
                                             today.setHours(0, 0, 0, 0);
                                             const isPast = isBefore(day, today);
@@ -341,8 +362,8 @@ export function StudentBookingPage() {
                                                         flex flex-col items-center justify-center p-1 border-b border-r border-gray-100
                                                         transition-all duration-200 cursor-pointer
                                                         ${!isCurrentMonth ? 'text-gray-300' : ''}
-                                                        ${(day.getDay() === 0 || day.getDay() === 6) ? 'bg-gray-50' : 'bg-white'}
-                                                        ${full && isCurrentMonth && isWeekday && !isPast ? 'bg-red-50' : ''}
+                                                        ${isOffDay ? 'bg-gray-50' : holiday && isCurrentMonth ? 'bg-orange-50' : 'bg-white'}
+                                                        ${full && isCurrentMonth && isActiveDay && !isPast ? 'bg-red-50' : ''}
                                                         ${!bookable || !isCurrentMonth ? 'cursor-not-allowed' : 'hover:bg-maroon-50'}
                                                     `}
                                                 >
@@ -352,12 +373,13 @@ export function StudentBookingPage() {
                                                             text-sm sm:text-lg font-medium
                                                             ${isToday(day) ? 'bg-maroon-800 text-white' : ''}
                                                             ${!isCurrentMonth ? 'text-gray-300' : ''}
+                                                            ${holiday && isCurrentMonth && !isToday(day) ? 'text-orange-400 line-through' : ''}
                                                             ${hasAppointment && !isToday(day) && isCurrentMonth ? 'ring-2 ring-maroon-300' : ''}
                                                         `}
                                                     >
                                                         {format(day, 'd')}
                                                     </span>
-                                                    {isCurrentMonth && isWeekday && !isPast && (
+                                                    {isCurrentMonth && isActiveDay && !isPast && (
                                                         <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
                                                             {count}/{maxBookingsPerDay}
                                                         </span>
@@ -387,8 +409,12 @@ export function StudentBookingPage() {
                                     <span className="text-gray-700 font-medium">Fully booked</span>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 bg-orange-200 rounded shadow-sm"></span>
+                                    <span className="text-gray-700 font-medium">Holiday</span>
+                                </div>
+                                <div className="flex items-center gap-2">
                                     <span className="w-3 h-3 bg-gray-200 rounded shadow-sm"></span>
-                                    <span className="text-gray-700 font-medium">Weekend</span>
+                                    <span className="text-gray-700 font-medium">Off day</span>
                                 </div>
                             </div>
                         </div>

@@ -156,19 +156,38 @@ export const useAppointmentStore = create<AppointmentState>()(
 
         const maxPerDay = setting?.max_bookings_per_day || 50;
 
-        // Get future dates with available slots (next 30 days, excluding weekends)
-        const today = new Date();
+        // Get schedule config for Saturday/Sunday and holidays
+        const { data: schedConfig } = await supabase
+          .from('schedule_config')
+          .select('*')
+          .eq('campus_id', campusId)
+          .single();
+
+        const includeSaturday = schedConfig?.include_saturday || false;
+        const includeSunday = schedConfig?.include_sunday || false;
+        const holidayDates: string[] = schedConfig?.holiday_dates || [];
+
+        // Build list of eligible future dates starting from the day AFTER the rescheduled date
+        const rescheduledDate = new Date(date + 'T00:00:00');
         const futureDates: string[] = [];
-        for (let i = 1; i <= 60; i++) {
-          const d = new Date(today);
+        for (let i = 1; i <= 90; i++) {
+          const d = new Date(rescheduledDate);
           d.setDate(d.getDate() + i);
           const dow = d.getDay();
-          if (dow !== 0 && dow !== 6) {
-            const dateStr = d.toISOString().split('T')[0];
-            if (dateStr !== date) {
-              futureDates.push(dateStr);
-            }
-          }
+
+          // Skip Sunday (0) unless included
+          if (dow === 0 && !includeSunday) continue;
+          // Skip Saturday (6) unless included
+          if (dow === 6 && !includeSaturday) continue;
+
+          const dateStr = d.toISOString().split('T')[0];
+
+          // Skip holidays
+          if (holidayDates.includes(dateStr)) continue;
+          // Skip the rescheduled date itself
+          if (dateStr === date) continue;
+
+          futureDates.push(dateStr);
         }
 
         // Get current booking counts for those dates
@@ -184,7 +203,7 @@ export const useAppointmentStore = create<AppointmentState>()(
           countMap[row.appointment_date] = (countMap[row.appointment_date] || 0) + 1;
         });
 
-        // Spread unfinished appointments across available dates
+        // Spread unfinished appointments across available dates (closest first)
         let dateIndex = 0;
         for (const aptId of unfinishedIds) {
           // Find next date with available capacity
