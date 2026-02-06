@@ -3,6 +3,11 @@
 -- Run this in your Supabase SQL Editor
 -- ============================================
 
+-- 0. Add missing columns to appointments table (safe to run multiple times)
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name TEXT;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_email TEXT;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_phone TEXT;
+
 -- 1. Email Templates table
 CREATE TABLE IF NOT EXISTS email_templates (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
