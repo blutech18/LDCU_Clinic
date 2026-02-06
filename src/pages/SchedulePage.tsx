@@ -109,22 +109,35 @@ export function SchedulePage() {
   const selectedDateAppointments = selectedDate ? getDateAppointments(selectedDate) : [];
 
   const handleSendReminders = useCallback(async () => {
-    if (!selectedDate || selectedDateAppointments.length === 0 || !selectedCampusId) return;
+    if (!selectedDate || selectedDateAppointments.length === 0) return;
+
+    const campusId = selectedCampusId || (campuses.length > 0 ? campuses[0].id : null);
+    if (!campusId) {
+      alert('No campus available. Please select a campus first.');
+      return;
+    }
+
     setIsSendingReminders(true);
     setRemindersSent(false);
 
     try {
       const dateStr = formatLocalDate(selectedDate);
-      const result = await sendBulkReminders(dateStr, selectedCampusId);
+      const result = await sendBulkReminders(dateStr, campusId);
       console.log('Reminders result:', result);
-    } catch (err) {
+      if (result.sent > 0) {
+        alert(`Successfully sent ${result.sent} reminder(s)!${result.skipped ? ` (${result.skipped} skipped - no email)` : ''}${result.failed ? ` (${result.failed} failed)` : ''}`);
+      } else {
+        alert(result.message || 'No reminders to send.');
+      }
+    } catch (err: any) {
       console.error('Failed to send reminders:', err);
+      alert(`Failed to send reminders: ${err.message || 'Unknown error'}`);
     }
 
     setIsSendingReminders(false);
     setRemindersSent(true);
     setTimeout(() => setRemindersSent(false), 3000);
-  }, [selectedDate, selectedDateAppointments, selectedCampusId]);
+  }, [selectedDate, selectedDateAppointments, selectedCampusId, campuses]);
 
   return (
     <SidebarLayout>
