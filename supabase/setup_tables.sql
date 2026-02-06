@@ -1,9 +1,10 @@
 -- ============================================
 -- LDCU Clinic - Required Supabase Tables Setup
+-- Safe to re-run (uses IF NOT EXISTS / IF EXISTS)
 -- Run this in your Supabase SQL Editor
 -- ============================================
 
--- 0. Add missing columns to appointments table (safe to run multiple times)
+-- 0. Add missing columns to appointments table
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name TEXT;
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_email TEXT;
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_phone TEXT;
@@ -19,14 +20,17 @@ CREATE TABLE IF NOT EXISTS email_templates (
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(campus_id, template_type)
 );
-
 ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "email_templates_select" ON email_templates;
+DROP POLICY IF EXISTS "email_templates_insert" ON email_templates;
+DROP POLICY IF EXISTS "email_templates_update" ON email_templates;
+DROP POLICY IF EXISTS "email_templates_delete" ON email_templates;
 CREATE POLICY "email_templates_select" ON email_templates FOR SELECT TO authenticated USING (true);
 CREATE POLICY "email_templates_insert" ON email_templates FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "email_templates_update" ON email_templates FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "email_templates_delete" ON email_templates FOR DELETE TO authenticated USING (true);
 
--- 2. Pending Emails queue (fallback for email sending)
+-- 2. Pending Emails queue
 CREATE TABLE IF NOT EXISTS pending_emails (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   to_email TEXT NOT NULL,
@@ -35,12 +39,13 @@ CREATE TABLE IF NOT EXISTS pending_emails (
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 ALTER TABLE pending_emails ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "pending_emails_insert" ON pending_emails;
+DROP POLICY IF EXISTS "pending_emails_select" ON pending_emails;
 CREATE POLICY "pending_emails_insert" ON pending_emails FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "pending_emails_select" ON pending_emails FOR SELECT TO authenticated USING (true);
 
--- 3. Schedule Config table (Saturday/Sunday toggle + holidays)
+-- 3. Schedule Config table
 CREATE TABLE IF NOT EXISTS schedule_config (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   campus_id UUID NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
@@ -51,14 +56,17 @@ CREATE TABLE IF NOT EXISTS schedule_config (
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(campus_id)
 );
-
 ALTER TABLE schedule_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "schedule_config_select" ON schedule_config;
+DROP POLICY IF EXISTS "schedule_config_insert" ON schedule_config;
+DROP POLICY IF EXISTS "schedule_config_update" ON schedule_config;
+DROP POLICY IF EXISTS "schedule_config_delete" ON schedule_config;
 CREATE POLICY "schedule_config_select" ON schedule_config FOR SELECT TO authenticated USING (true);
 CREATE POLICY "schedule_config_insert" ON schedule_config FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "schedule_config_update" ON schedule_config FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "schedule_config_delete" ON schedule_config FOR DELETE TO authenticated USING (true);
 
--- 4. Booking Settings table (if not already created)
+-- 4. Booking Settings table
 CREATE TABLE IF NOT EXISTS booking_settings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   campus_id UUID NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
@@ -67,21 +75,25 @@ CREATE TABLE IF NOT EXISTS booking_settings (
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(campus_id)
 );
-
 ALTER TABLE booking_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "booking_settings_select" ON booking_settings;
+DROP POLICY IF EXISTS "booking_settings_insert" ON booking_settings;
+DROP POLICY IF EXISTS "booking_settings_update" ON booking_settings;
 CREATE POLICY "booking_settings_select" ON booking_settings FOR SELECT TO authenticated USING (true);
 CREATE POLICY "booking_settings_insert" ON booking_settings FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "booking_settings_update" ON booking_settings FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
--- 5. Departments table (if not already created)
+-- 5. Departments table
 CREATE TABLE IF NOT EXISTS departments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   campus_id UUID NOT NULL REFERENCES campuses(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "departments_select" ON departments;
+DROP POLICY IF EXISTS "departments_insert" ON departments;
+DROP POLICY IF EXISTS "departments_public_select" ON departments;
 CREATE POLICY "departments_select" ON departments FOR SELECT TO authenticated USING (true);
 CREATE POLICY "departments_insert" ON departments FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "departments_public_select" ON departments FOR SELECT TO anon USING (true);
@@ -103,7 +115,6 @@ BEGIN
   -- Clear existing departments for this campus
   DELETE FROM departments WHERE campus_id = campus_uuid;
 
-  -- Higher Education - Colleges
   INSERT INTO departments (name, campus_id) VALUES
     ('College of Arts and Science', campus_uuid),
     ('School of Business, Management and Accountancy', campus_uuid),
@@ -118,14 +129,12 @@ BEGIN
     ('College of Rehabilitation Sciences', campus_uuid),
     ('College of Radiologic Technology', campus_uuid),
     ('School of Teacher Education', campus_uuid),
-    -- Basic Education
     ('Junior High School', campus_uuid),
     ('Senior High School', campus_uuid),
-    -- Post Graduate
     ('Graduate Studies', campus_uuid);
 
   RAISE NOTICE 'Seeded 16 LDCU departments for campus %', campus_uuid;
 END $$;
 
--- Verify departments
+-- Verify
 SELECT id, name FROM departments ORDER BY name;
