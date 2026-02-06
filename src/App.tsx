@@ -14,6 +14,7 @@ import { StudentBookingPage } from './pages/StudentBookingPage';
 import { PublicCalendarPage } from './pages/PublicCalendarPage';
 import { ReschedulePage } from './pages/ReschedulePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { EmployeeRoute } from './components/EmployeeRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
 
@@ -81,33 +82,33 @@ function App() {
       <Route
         path="/employee/dashboard"
         element={
-          <ProtectedRoute>
+          <EmployeeRoute>
             <DashboardPage />
-          </ProtectedRoute>
+          </EmployeeRoute>
         }
       />
       <Route
         path="/appointments"
         element={
-          <ProtectedRoute>
+          <EmployeeRoute>
             <AppointmentsPage />
-          </ProtectedRoute>
+          </EmployeeRoute>
         }
       />
       <Route
         path="/schedule"
         element={
-          <ProtectedRoute>
+          <EmployeeRoute>
             <SchedulePage />
-          </ProtectedRoute>
+          </EmployeeRoute>
         }
       />
       <Route
         path="/reschedule"
         element={
-          <ProtectedRoute>
+          <EmployeeRoute>
             <ReschedulePage />
-          </ProtectedRoute>
+          </EmployeeRoute>
         }
       />
       <Route

@@ -18,8 +18,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         setIsVerifying(false);
         return;
       }
-      // Employee routes: allow employee, nurse, doctor, admin
-      const valid = await verifyRole(['employee', 'nurse', 'doctor', 'admin']);
+      // Only verify the session is valid — do NOT restrict by role here.
+      // Role-based restrictions are handled by AdminRoute, StudentRoute,
+      // and RoleBasedRedirect. Passing no roles just refreshes the profile.
+      const valid = await verifyRole();
       if (!cancelled) {
         setRoleValid(valid);
         setIsVerifying(false);
