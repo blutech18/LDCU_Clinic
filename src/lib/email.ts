@@ -108,11 +108,12 @@ export async function sendBookingConfirmation(
  */
 export async function sendBulkReminders(
   targetDate: string,
-  campusId: string
+  campusId: string,
+  customTemplate?: { subject: string; body: string }
 ): Promise<{ success: boolean; sent: number; skipped: number; failed: number; message: string; errors?: string[] }> {
   try {
     const { data, error } = await supabase.functions.invoke('send-email', {
-      body: { targetDate, campusId },
+      body: { targetDate, campusId, customTemplate },
     });
 
     if (error) {

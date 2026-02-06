@@ -54,7 +54,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { to, subject, html, targetDate, campusId } = body;
+    const { to, subject, html, targetDate, campusId, customTemplate } = body;
 
     // Mode 1: Send a single email (used by booking confirmation)
     if (to && subject && html) {
@@ -135,17 +135,50 @@ serve(async (req) => {
             ? "Dental"
             : "Consultation";
 
-          const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${RESEND_API_KEY}`,
-            },
-            body: JSON.stringify({
-              from: "LDCU Clinic <noreply@citattendance.info>",
-              to: appt.patient_email,
-              subject: `Appointment Reminder - ${formattedDate} | LDCU Clinic`,
-              html: `
+          // Build email subject and HTML
+          let emailSubject: string;
+          let emailHtml: string;
+
+          if (customTemplate?.subject && customTemplate?.body) {
+            // Use custom template with placeholder replacement
+            emailSubject = customTemplate.subject
+              .replace(/\{\{name\}\}/g, appt.patient_name || "Valued Patient")
+              .replace(/\{\{date\}\}/g, formattedDate)
+              .replace(/\{\{type\}\}/g, appointmentTypeLabel);
+
+            const customBodyHtml = customTemplate.body
+              .replace(/\{\{name\}\}/g, appt.patient_name || "Valued Patient")
+              .replace(/\{\{date\}\}/g, formattedDate)
+              .replace(/\{\{type\}\}/g, appointmentTypeLabel)
+              .replace(/\n/g, "<br>");
+
+            emailHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f5f5f5;">
+<table role="presentation" style="width:100%;border-collapse:collapse;">
+<tr><td align="center" style="padding:40px 20px;">
+<table role="presentation" style="width:100%;max-width:600px;border-collapse:collapse;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+<tr><td style="background:linear-gradient(135deg,#7B1113 0%,#5a0d0e 100%);padding:30px 40px;text-align:center;">
+<h1 style="color:#FFD700;margin:0;font-size:28px;font-weight:bold;">LICEO DE CAGAYAN UNIVERSITY</h1>
+<p style="color:#ffffff;margin:8px 0 0 0;font-size:16px;letter-spacing:1px;">University Clinic</p>
+</td></tr>
+<tr><td style="background-color:#FFD700;height:4px;"></td></tr>
+<tr><td style="padding:40px;">
+<p style="color:#333;font-size:15px;line-height:1.8;">${customBodyHtml}</p>
+</td></tr>
+<tr><td style="background-color:#7B1113;padding:25px 40px;text-align:center;">
+<p style="color:#FFD700;font-size:14px;font-weight:bold;margin:0 0 5px 0;">LDCU University Clinic</p>
+<p style="color:#fff;font-size:12px;margin:0 0 10px 0;">Liceo de Cagayan University, Cagayan de Oro City</p>
+<p style="color:rgba(255,255,255,0.7);font-size:11px;margin:0;">This is an automated message. Please do not reply.</p>
+</td></tr>
+</table></td></tr></table>
+</body></html>`;
+          } else {
+            // Default template
+            emailSubject = `Appointment Reminder - ${formattedDate} | LDCU Clinic`;
+            emailHtml = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -193,7 +226,20 @@ serve(async (req) => {
 <p style="color:rgba(255,255,255,0.7);font-size:11px;margin:0;">This is an automated message. Please do not reply.</p>
 </td></tr>
 </table></td></tr></table>
-</body></html>`,
+</body></html>`;
+          }
+
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: "LDCU Clinic <noreply@citattendance.info>",
+              to: appt.patient_email,
+              subject: emailSubject,
+              html: emailHtml,
             }),
           });
 

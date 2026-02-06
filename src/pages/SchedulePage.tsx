@@ -12,7 +12,7 @@ import {
   isToday,
   isBefore,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, X, Users, Mail, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Users, Mail, Check, Settings, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarLayout } from '~/components/layout';
 import { useAppointmentStore } from '~/modules/appointments';
@@ -22,7 +22,7 @@ import { sendBulkReminders } from '~/lib/email';
 
 export function SchedulePage() {
   const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, isLoading } = useAppointmentStore();
-  const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, fetchEmailTemplates } = useScheduleStore();
+  const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, fetchEmailTemplates, emailTemplates, upsertEmailTemplate } = useScheduleStore();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -30,6 +30,11 @@ export function SchedulePage() {
   const [direction, setDirection] = useState(0);
   const [isSendingReminders, setIsSendingReminders] = useState(false);
   const [remindersSent, setRemindersSent] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [templateSubject, setTemplateSubject] = useState('');
+  const [templateBody, setTemplateBody] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const variants = {
     enter: (direction: number) => ({
@@ -59,6 +64,41 @@ export function SchedulePage() {
       fetchEmailTemplates(selectedCampusId);
     }
   }, [selectedCampusId, fetchBookingSetting, fetchEmailTemplates]);
+
+  // Load reminder template into editor when templates are fetched
+  useEffect(() => {
+    const reminderTemplate = emailTemplates.find(t => t.template_type === 'appointment_reminder');
+    if (reminderTemplate) {
+      setTemplateSubject(reminderTemplate.subject);
+      setTemplateBody(reminderTemplate.body);
+    } else {
+      setTemplateSubject('Appointment Reminder - {{date}} | LDCU Clinic');
+      setTemplateBody('Hello {{name}},\n\nThis is a friendly reminder about your upcoming appointment at the LDCU University Clinic.\n\nDate: {{date}}\nType: {{type}}\n\nPlease arrive 10-15 minutes before your scheduled time. Bring a valid ID and any relevant medical documents.\n\nIf you need to reschedule, please contact us as soon as possible.\n\nThank you,\nLDCU University Clinic');
+    }
+  }, [emailTemplates]);
+
+  const handleSaveTemplate = async () => {
+    const campusId = selectedCampusId || (campuses.length > 0 ? campuses[0].id : null);
+    if (!campusId) {
+      alert('Please select a campus first.');
+      return;
+    }
+    setSavingTemplate(true);
+    try {
+      await upsertEmailTemplate({
+        campus_id: campusId,
+        template_type: 'appointment_reminder',
+        subject: templateSubject,
+        body: templateBody,
+      });
+      setTemplateSaved(true);
+      setTimeout(() => setTemplateSaved(false), 3000);
+    } catch (err) {
+      console.error('Failed to save template:', err);
+      alert('Failed to save template.');
+    }
+    setSavingTemplate(false);
+  };
 
   useEffect(() => {
     const start = startOfMonth(subMonths(currentMonth, 1));
@@ -122,7 +162,10 @@ export function SchedulePage() {
 
     try {
       const dateStr = formatLocalDate(selectedDate);
-      const result = await sendBulkReminders(dateStr, campusId);
+      const customTemplate = templateSubject && templateBody
+        ? { subject: templateSubject, body: templateBody }
+        : undefined;
+      const result = await sendBulkReminders(dateStr, campusId, customTemplate);
       console.log('Reminders result:', result);
       if (result.sent > 0) {
         alert(`Successfully sent ${result.sent} reminder(s)!${result.skipped ? ` (${result.skipped} skipped - no email)` : ''}${result.failed ? ` (${result.failed} failed)` : ''}`);
@@ -277,6 +320,75 @@ export function SchedulePage() {
             <span className="text-gray-700 font-medium">Weekend</span>
           </div>
         </div>
+      </div>
+
+      {/* Email Template Settings */}
+      <div className="mt-6 bg-white rounded-xl shadow-md overflow-hidden">
+        <button
+          onClick={() => setShowTemplateEditor(!showTemplateEditor)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5 text-maroon-700" />
+            <div className="text-left">
+              <h3 className="font-semibold text-gray-900">Email Reminder Template</h3>
+              <p className="text-sm text-gray-500">Customize the message sent to patients</p>
+            </div>
+          </div>
+          <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showTemplateEditor ? 'rotate-90' : ''}`} />
+        </button>
+
+        {showTemplateEditor && (
+          <div className="border-t p-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Subject Line</label>
+              <input
+                type="text"
+                value={templateSubject}
+                onChange={(e) => setTemplateSubject(e.target.value)}
+                placeholder="Appointment Reminder - {{date}} | LDCU Clinic"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Message Body</label>
+              <textarea
+                value={templateBody}
+                onChange={(e) => setTemplateBody(e.target.value)}
+                rows={8}
+                placeholder="Hello {{name}},&#10;&#10;This is a reminder about your appointment on {{date}}..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                Available placeholders: <code className="bg-gray-100 px-1 rounded">{'{{name}}'}</code> <code className="bg-gray-100 px-1 rounded">{'{{date}}'}</code> <code className="bg-gray-100 px-1 rounded">{'{{type}}'}</code>
+              </p>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={savingTemplate}
+                className="px-4 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm"
+              >
+                {savingTemplate ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : templateSaved ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Template
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Date Detail Modal */}
