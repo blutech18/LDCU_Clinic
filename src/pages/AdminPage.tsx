@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Check, X, Search, Settings, Save } from 'lucide-react';
+import { Users, Check, X, Search, Settings, Save, Mail } from 'lucide-react';
 import { SidebarLayout } from '~/components/layout';
 import { supabase } from '~/lib/supabase';
 import { useScheduleStore } from '~/modules/schedule';
@@ -10,13 +10,20 @@ export function AdminPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
-    const [activeTab, setActiveTab] = useState<'users' | 'settings'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'templates'>('users');
     const [maxBookings, setMaxBookings] = useState<number>(50);
     const [selectedSettingsCampus, setSelectedSettingsCampus] = useState('');
     const [savingSettings, setSavingSettings] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
 
-    const { campuses, fetchCampuses, fetchBookingSetting, bookingSetting, updateBookingSetting } = useScheduleStore();
+    const { campuses, fetchCampuses, fetchBookingSetting, bookingSetting, updateBookingSetting, emailTemplates, fetchEmailTemplates, upsertEmailTemplate } = useScheduleStore();
+
+    const [confirmSubject, setConfirmSubject] = useState('Appointment Booking Confirmation - LDCU Clinic');
+    const [confirmBody, setConfirmBody] = useState('Dear {{name}},\n\nYour appointment has been successfully booked!\n\nDate: {{date}}\nType: {{type}}\nService: First come, first served\n\nPlease arrive on time. If you need to cancel, please do so at least 24 hours in advance.\n\nThank you,\nLDCU University Clinic');
+    const [reminderSubject, setReminderSubject] = useState('Appointment Reminder - LDCU Clinic');
+    const [reminderBody, setReminderBody] = useState('Dear {{name}},\n\nThis is a friendly reminder about your upcoming appointment.\n\nDate: {{date}}\nType: {{type}}\nService: First come, first served\n\nPlease arrive on time for your appointment.\n\nThank you,\nLDCU University Clinic');
+    const [savingTemplates, setSavingTemplates] = useState(false);
+    const [templatesSaved, setTemplatesSaved] = useState(false);
 
     useEffect(() => {
         fetchUsers();
@@ -32,8 +39,47 @@ export function AdminPage() {
     useEffect(() => {
         if (selectedSettingsCampus) {
             fetchBookingSetting(selectedSettingsCampus);
+            fetchEmailTemplates(selectedSettingsCampus);
         }
-    }, [selectedSettingsCampus, fetchBookingSetting]);
+    }, [selectedSettingsCampus, fetchBookingSetting, fetchEmailTemplates]);
+
+    useEffect(() => {
+        const confirmTpl = emailTemplates.find(t => t.template_type === 'booking_confirmation');
+        const reminderTpl = emailTemplates.find(t => t.template_type === 'appointment_reminder');
+        if (confirmTpl) {
+            setConfirmSubject(confirmTpl.subject);
+            setConfirmBody(confirmTpl.body);
+        }
+        if (reminderTpl) {
+            setReminderSubject(reminderTpl.subject);
+            setReminderBody(reminderTpl.body);
+        }
+    }, [emailTemplates]);
+
+    const handleSaveTemplates = async () => {
+        if (!selectedSettingsCampus) return;
+        setSavingTemplates(true);
+        try {
+            await upsertEmailTemplate({
+                campus_id: selectedSettingsCampus,
+                template_type: 'booking_confirmation',
+                subject: confirmSubject,
+                body: confirmBody,
+            });
+            await upsertEmailTemplate({
+                campus_id: selectedSettingsCampus,
+                template_type: 'appointment_reminder',
+                subject: reminderSubject,
+                body: reminderBody,
+            });
+            setTemplatesSaved(true);
+            setTimeout(() => setTemplatesSaved(false), 2000);
+        } catch (error) {
+            console.error('Failed to save templates:', error);
+        } finally {
+            setSavingTemplates(false);
+        }
+    };
 
     useEffect(() => {
         setMaxBookings(bookingSetting?.max_bookings_per_day || 50);
@@ -162,6 +208,15 @@ export function AdminPage() {
                     <Settings className="w-4 h-4" />
                     Booking Settings
                 </button>
+                <button
+                    onClick={() => setActiveTab('templates')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                        activeTab === 'templates' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                    <Mail className="w-4 h-4" />
+                    Email Templates
+                </button>
             </div>
 
             {activeTab === 'settings' && (
@@ -226,6 +281,102 @@ export function AdminPage() {
                             Current setting: <span className="font-medium text-gray-700">{bookingSetting?.max_bookings_per_day || 50}</span> bookings per day
                             {bookingSetting ? '' : ' (default)'}
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'templates' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Mail className="w-5 h-5 text-maroon-800" />
+                        Email Templates
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-2">Customize the email templates sent to patients. Use placeholders: <code className="bg-gray-100 px-1 rounded">{'{{name}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{date}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{type}}'}</code></p>
+
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
+                        <select
+                            value={selectedSettingsCampus}
+                            onChange={(e) => setSelectedSettingsCampus(e.target.value)}
+                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                        >
+                            {campuses.map((campus) => (
+                                <option key={campus.id} value={campus.id}>
+                                    {campus.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Booking Confirmation Template */}
+                    <div className="border rounded-lg p-4 mb-4">
+                        <h3 className="font-medium text-gray-900 mb-3">Booking Confirmation Email</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                                <input
+                                    type="text"
+                                    value={confirmSubject}
+                                    onChange={(e) => setConfirmSubject(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
+                                <textarea
+                                    value={confirmBody}
+                                    onChange={(e) => setConfirmBody(e.target.value)}
+                                    rows={6}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none font-mono text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Appointment Reminder Template */}
+                    <div className="border rounded-lg p-4 mb-4">
+                        <h3 className="font-medium text-gray-900 mb-3">Appointment Reminder Email</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                                <input
+                                    type="text"
+                                    value={reminderSubject}
+                                    onChange={(e) => setReminderSubject(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
+                                <textarea
+                                    value={reminderBody}
+                                    onChange={(e) => setReminderBody(e.target.value)}
+                                    rows={6}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none font-mono text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleSaveTemplates}
+                            disabled={savingTemplates}
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        >
+                            {savingTemplates ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            {savingTemplates ? 'Saving...' : 'Save Templates'}
+                        </button>
+                        {templatesSaved && (
+                            <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                                <Check className="w-4 h-4" />
+                                Templates saved successfully!
+                            </span>
+                        )}
                     </div>
                 </div>
             )}

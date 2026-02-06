@@ -98,3 +98,13 @@ export interface College {
   campus_id: string;
   created_at: string;
 }
+
+export interface EmailTemplate {
+  id: string;
+  campus_id: string;
+  template_type: 'booking_confirmation' | 'appointment_reminder';
+  subject: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}

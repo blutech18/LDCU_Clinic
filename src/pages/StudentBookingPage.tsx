@@ -13,7 +13,7 @@ import {
     isBefore,
     parseISO,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, Clock, X, Check, AlertCircle, LogOut, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, X, Check, AlertCircle, LogOut, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StudentLayout } from '~/components/layout';
 import { LogoutModal } from '~/components/modals/LogoutModal';
@@ -21,14 +21,8 @@ import { useAuthStore } from '~/modules/auth';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatLocalDate } from '~/lib/utils';
+import { sendBookingConfirmation } from '~/lib/email';
 import type { AppointmentType } from '~/types';
-
-const TIME_SLOTS = [
-    { start: '08:00', end: '10:00', label: '8:00 AM - 10:00 AM' },
-    { start: '10:00', end: '12:00', label: '10:00 AM - 12:00 PM' },
-    { start: '13:00', end: '15:00', label: '1:00 PM - 3:00 PM' },
-    { start: '15:00', end: '17:00', label: '3:00 PM - 5:00 PM' },
-];
 
 const APPOINTMENT_TYPES = [
     { value: 'consultation', label: 'Consultation' },
@@ -43,7 +37,6 @@ export function StudentBookingPage() {
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [appointmentType, setAppointmentType] = useState<AppointmentType>('consultation');
     const [selectedCampus, setSelectedCampus] = useState<string>('');
     const [fullName, setFullName] = useState('');
@@ -169,27 +162,16 @@ export function StudentBookingPage() {
         return !isBefore(date, today) && dayOfWeek !== 0 && dayOfWeek !== 6 && !isDateFull(date);
     };
 
-    // Get available slots for a date
-    const getAvailableSlots = (date: Date) => {
-        const dateStr = formatLocalDate(date);
-        const bookedSlots = appointments
-            .filter((apt) => apt.appointment_date === dateStr && apt.status !== 'cancelled')
-            .map((apt) => apt.start_time);
-
-        return TIME_SLOTS.filter((slot) => !bookedSlots.includes(slot.start));
-    };
-
     const handleDateClick = (date: Date) => {
         if (!isDateBookable(date)) return;
         setSelectedDate(date);
-        setSelectedSlot(null);
         setShowBookingModal(true);
         setBookingError(null);
         setBookingSuccess(false);
     };
 
     const handleBookAppointment = async () => {
-        if (!selectedDate || !selectedSlot || !selectedCampus || !profile) return;
+        if (!selectedDate || !selectedCampus || !profile) return;
 
         if (!fullName.trim()) {
             setBookingError('Please enter your full name.');
@@ -214,8 +196,6 @@ export function StudentBookingPage() {
 
         try {
             setBookingError(null);
-            const slot = TIME_SLOTS.find((s) => s.start === selectedSlot);
-
             const dept = departments.find(d => d.id === selectedDepartment);
 
             await createAppointment({
@@ -223,14 +203,26 @@ export function StudentBookingPage() {
                 campus_id: selectedCampus,
                 appointment_type: appointmentType,
                 appointment_date: dateStr,
-                start_time: selectedSlot,
-                end_time: slot?.end || '',
+                start_time: '08:00',
+                end_time: '17:00',
                 status: 'scheduled',
                 notes: notes ? `Department: ${dept?.name || selectedDepartment}\n${notes}` : `Department: ${dept?.name || selectedDepartment}`,
                 patient_name: fullName.trim(),
                 patient_email: profile.email,
                 patient_phone: contactNumber.trim(),
             });
+
+            // Send confirmation email
+            try {
+                await sendBookingConfirmation(
+                    profile.email,
+                    fullName.trim(),
+                    format(selectedDate, 'MMMM d, yyyy'),
+                    appointmentType.replace('_', ' ')
+                );
+            } catch (emailErr) {
+                console.warn('Confirmation email failed (non-blocking):', emailErr);
+            }
 
             setBookingSuccess(true);
             setNotes('');
@@ -250,7 +242,6 @@ export function StudentBookingPage() {
                 setShowBookingModal(false);
                 setBookingSuccess(false);
                 setSelectedDate(null);
-                setSelectedSlot(null);
             }, 2000);
         } catch (error) {
             console.error('Error booking appointment:', error);
@@ -261,7 +252,6 @@ export function StudentBookingPage() {
     const closeModal = () => {
         setShowBookingModal(false);
         setSelectedDate(null);
-        setSelectedSlot(null);
         setBookingError(null);
         setBookingSuccess(false);
     };
@@ -434,10 +424,6 @@ export function StudentBookingPage() {
                                                 <p className="font-medium text-gray-900 text-sm">
                                                     {format(parseISO(apt.appointment_date), 'MMM d, yyyy')}
                                                 </p>
-                                                <p className="text-xs text-gray-600 flex items-center gap-1 mt-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    {TIME_SLOTS.find((s) => s.start === apt.start_time)?.label || apt.start_time}
-                                                </p>
                                                 <span className="inline-block mt-1.5 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded capitalize">
                                                     {apt.appointment_type.replace('_', ' ')}
                                                 </span>
@@ -579,33 +565,6 @@ export function StudentBookingPage() {
                                             </select>
                                         </div>
 
-                                        {/* Time Slot Selection */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Available Time Slots</label>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                {getAvailableSlots(selectedDate).length === 0 ? (
-                                                    <div className="col-span-full text-center py-6 bg-gray-50 rounded-lg border border-gray-200 border-dashed">
-                                                        <Clock className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                                                        <p className="text-gray-500 text-sm">No available slots for this date</p>
-                                                    </div>
-                                                ) : (
-                                                    getAvailableSlots(selectedDate).map((slot) => (
-                                                        <button
-                                                            key={slot.start}
-                                                            onClick={() => setSelectedSlot(slot.start)}
-                                                            className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedSlot === slot.start
-                                                                ? 'bg-maroon-800 text-white border-maroon-800 shadow-md transform scale-[1.02]'
-                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50 hover:shadow-sm'
-                                                                }`}
-                                                        >
-                                                            <Clock className="w-4 h-4" />
-                                                            {slot.label}
-                                                        </button>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-
                                         {/* Notes */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
@@ -630,7 +589,7 @@ export function StudentBookingPage() {
                                         <div className="pt-2">
                                             <button
                                                 onClick={handleBookAppointment}
-                                                disabled={!selectedSlot || isSaving}
+                                                disabled={isSaving}
                                                 className="w-full py-3 px-4 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow active:scale-[0.99]"
                                             >
                                                 {isSaving ? (

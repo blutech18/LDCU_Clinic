@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { ScheduleSetting, Campus, BookingSetting, Department } from '~/types';
+import type { ScheduleSetting, Campus, BookingSetting, Department, EmailTemplate } from '~/types';
 import { supabase } from '~/lib/supabase';
 
 interface TimeSlot {
@@ -15,6 +15,7 @@ interface ScheduleState {
   campuses: Campus[];
   departments: Department[];
   bookingSetting: BookingSetting | null;
+  emailTemplates: EmailTemplate[];
   selectedCampusId: string | null;
   timeSlots: TimeSlot[];
   selectedDate: Date | null;
@@ -26,6 +27,8 @@ interface ScheduleState {
   fetchDepartments: (campusId?: string) => Promise<void>;
   fetchBookingSetting: (campusId: string) => Promise<void>;
   updateBookingSetting: (campusId: string, maxPerDay: number) => Promise<void>;
+  fetchEmailTemplates: (campusId: string) => Promise<void>;
+  upsertEmailTemplate: (template: Partial<EmailTemplate> & { campus_id: string; template_type: string }) => Promise<void>;
   setSelectedCampus: (campusId: string | null) => void;
   generateTimeSlots: (date: Date, campusId: string) => Promise<void>;
   setSelectedDate: (date: Date | null) => void;
@@ -38,6 +41,7 @@ export const useScheduleStore = create<ScheduleState>()(
     campuses: [],
     departments: [],
     bookingSetting: null,
+    emailTemplates: [],
     selectedCampusId: null,
     timeSlots: [],
     selectedDate: null,
@@ -124,6 +128,55 @@ export const useScheduleStore = create<ScheduleState>()(
         set({ bookingSetting: { campus_id: campusId, max_bookings_per_day: maxPerDay } as BookingSetting });
       } catch (error) {
         console.error('Error updating booking setting:', error);
+        throw error;
+      }
+    },
+
+    fetchEmailTemplates: async (campusId) => {
+      try {
+        const { data, error } = await supabase
+          .from('email_templates')
+          .select('*')
+          .eq('campus_id', campusId);
+
+        if (error && error.code !== 'PGRST116') throw error;
+        set({ emailTemplates: data || [] });
+      } catch (error) {
+        console.error('Error fetching email templates:', error);
+        set({ emailTemplates: [] });
+      }
+    },
+
+    upsertEmailTemplate: async (template) => {
+      try {
+        const { data: existing } = await supabase
+          .from('email_templates')
+          .select('id')
+          .eq('campus_id', template.campus_id)
+          .eq('template_type', template.template_type)
+          .single();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('email_templates')
+            .update({ subject: template.subject, body: template.body, updated_at: new Date().toISOString() })
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('email_templates')
+            .insert(template);
+          if (error) throw error;
+        }
+
+        // Refresh templates
+        const { data } = await supabase
+          .from('email_templates')
+          .select('*')
+          .eq('campus_id', template.campus_id);
+        set({ emailTemplates: data || [] });
+      } catch (error) {
+        console.error('Error upserting email template:', error);
         throw error;
       }
     },
