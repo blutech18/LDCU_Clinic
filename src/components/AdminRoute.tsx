@@ -39,11 +39,11 @@ export function AdminRoute({ children }: AdminRouteProps) {
         );
     }
 
-    if (!profile || !isAuthenticated || !roleValid) {
+    if (!isAuthenticated || !profile) {
         return <Navigate to="/login" replace />;
     }
 
-    if (profile?.role !== 'admin') {
+    if (!roleValid || profile.role !== 'admin') {
         return <Navigate to="/dashboard" replace />;
     }
 

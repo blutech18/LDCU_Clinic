@@ -39,12 +39,12 @@ export function StudentRoute({ children }: StudentRouteProps) {
         );
     }
 
-    if (!profile || !isAuthenticated || !roleValid) {
+    if (!isAuthenticated || !profile) {
         return <Navigate to="/login" replace />;
     }
 
-    // Only students can access student routes
-    if (profile.role !== 'student') {
+    // If role verification failed or user is not a student, redirect to dashboard
+    if (!roleValid || profile.role !== 'student') {
         return <Navigate to="/dashboard" replace />;
     }
 

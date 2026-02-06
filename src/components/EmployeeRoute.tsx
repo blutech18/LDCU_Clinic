@@ -6,9 +6,9 @@ interface EmployeeRouteProps {
 }
 
 export function EmployeeRoute({ children }: EmployeeRouteProps) {
-  const { profile, isAuthenticated, isInitialized } = useAuthStore();
+  const { profile, isAuthenticated, isInitialized, isLoading } = useAuthStore();
 
-  if (!isInitialized) {
+  if (!isInitialized || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-maroon-700"></div>

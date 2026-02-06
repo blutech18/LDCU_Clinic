@@ -112,10 +112,9 @@ export const useAuthStore = create<AuthState>()(
         set({ profile: freshProfile });
 
         // If expectedRoles provided, check if current role matches
+        // Do NOT sign out — just return false so the route can redirect appropriately
         if (expectedRoles && expectedRoles.length > 0) {
           if (!expectedRoles.includes(freshProfile.role)) {
-            await supabase.auth.signOut();
-            set({ profile: null, isAuthenticated: false });
             return false;
           }
         }
