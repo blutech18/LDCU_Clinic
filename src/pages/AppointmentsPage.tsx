@@ -98,6 +98,7 @@ export function AppointmentsPage() {
               <option value="">All Types</option>
               <option value="physical_exam">Physical Exam</option>
               <option value="consultation">Consultation</option>
+              <option value="dental">Dental</option>
             </select>
             <select
               value={campusFilter}

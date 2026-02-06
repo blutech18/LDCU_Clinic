@@ -13,7 +13,7 @@ import {
     isBefore,
     parseISO,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, Clock, X, Check, AlertCircle, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, X, Check, AlertCircle, LogOut, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StudentLayout } from '~/components/layout';
 import { LogoutModal } from '~/components/modals/LogoutModal';
@@ -21,6 +21,7 @@ import { useAuthStore } from '~/modules/auth';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatLocalDate } from '~/lib/utils';
+import type { AppointmentType } from '~/types';
 
 const TIME_SLOTS = [
     { start: '08:00', end: '10:00', label: '8:00 AM - 10:00 AM' },
@@ -30,20 +31,24 @@ const TIME_SLOTS = [
 ];
 
 const APPOINTMENT_TYPES = [
-    { value: 'physical_exam', label: 'Physical Exam' },
     { value: 'consultation', label: 'Consultation' },
+    { value: 'physical_exam', label: 'Physical Exam' },
+    { value: 'dental', label: 'Dental' },
 ];
 
 export function StudentBookingPage() {
     const { profile, logout } = useAuthStore();
-    const { appointments, fetchAppointments, createAppointment, isLoading, isSaving } = useAppointmentStore();
-    const { campuses, fetchCampuses } = useScheduleStore();
+    const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, createAppointment, isLoading, isSaving } = useAppointmentStore();
+    const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting } = useScheduleStore();
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-    const [appointmentType, setAppointmentType] = useState<'physical_exam' | 'consultation'>('consultation');
+    const [appointmentType, setAppointmentType] = useState<AppointmentType>('consultation');
     const [selectedCampus, setSelectedCampus] = useState<string>('');
+    const [fullName, setFullName] = useState('');
+    const [contactNumber, setContactNumber] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState('');
     const [notes, setNotes] = useState('');
     const [showBookingModal, setShowBookingModal] = useState(false);
     const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -81,20 +86,42 @@ export function StudentBookingPage() {
         // Fetch appointments for current month + buffer
         const start = startOfMonth(subMonths(currentMonth, 1));
         const end = endOfMonth(addMonths(currentMonth, 1));
+        const startStr = formatLocalDate(start);
+        const endStr = formatLocalDate(end);
         fetchAppointments({
-            dateRange: {
-                start: formatLocalDate(start),
-                end: formatLocalDate(end),
-            },
+            dateRange: { start: startStr, end: endStr },
         });
-    }, [currentMonth, fetchAppointments]);
+        fetchBookingCounts(startStr, endStr, selectedCampus || undefined);
+    }, [currentMonth, fetchAppointments, fetchBookingCounts, selectedCampus]);
 
-    // Set default campus
+    // Set default campus and fetch related data
     useEffect(() => {
         if (campuses.length > 0 && !selectedCampus) {
-            setSelectedCampus(profile?.campus_id || campuses[0].id);
+            const campusId = profile?.campus_id || campuses[0].id;
+            setSelectedCampus(campusId);
         }
     }, [campuses, selectedCampus, profile?.campus_id]);
+
+    // Fetch departments and booking settings when campus changes
+    useEffect(() => {
+        if (selectedCampus) {
+            fetchDepartments(selectedCampus);
+            fetchBookingSetting(selectedCampus);
+        }
+    }, [selectedCampus, fetchDepartments, fetchBookingSetting]);
+
+    // Pre-fill form fields from profile
+    useEffect(() => {
+        if (profile) {
+            setFullName(`${profile.first_name || ''} ${profile.middle_name ? profile.middle_name + ' ' : ''}${profile.last_name || ''}`.trim());
+            setContactNumber(profile.contact_number || profile.phone || '');
+            if (profile.department_id) {
+                setSelectedDepartment(profile.department_id);
+            }
+        }
+    }, [profile]);
+
+    const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
 
     // Get user's appointments
     const myAppointments = useMemo(() => {
@@ -123,12 +150,23 @@ export function StudentBookingPage() {
         return myAppointments.filter((apt) => apt.appointment_date === dateStr);
     };
 
-    // Check if date is bookable (not in past, not weekend)
+    // Get booking count for a date
+    const getBookingCount = (date: Date) => {
+        const dateStr = formatLocalDate(date);
+        return bookingCounts[dateStr] || 0;
+    };
+
+    // Check if date is full
+    const isDateFull = (date: Date) => {
+        return getBookingCount(date) >= maxBookingsPerDay;
+    };
+
+    // Check if date is bookable (not in past, not weekend, not full)
     const isDateBookable = (date: Date) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const dayOfWeek = date.getDay();
-        return !isBefore(date, today) && dayOfWeek !== 0 && dayOfWeek !== 6;
+        return !isBefore(date, today) && dayOfWeek !== 0 && dayOfWeek !== 6 && !isDateFull(date);
     };
 
     // Get available slots for a date
@@ -153,36 +191,59 @@ export function StudentBookingPage() {
     const handleBookAppointment = async () => {
         if (!selectedDate || !selectedSlot || !selectedCampus || !profile) return;
 
+        if (!fullName.trim()) {
+            setBookingError('Please enter your full name.');
+            return;
+        }
+        if (!contactNumber.trim()) {
+            setBookingError('Please enter your contact number.');
+            return;
+        }
+        if (!selectedDepartment) {
+            setBookingError('Please select your department.');
+            return;
+        }
+
+        // Check booking limit again before submitting
+        const dateStr = formatLocalDate(selectedDate);
+        const currentCount = bookingCounts[dateStr] || 0;
+        if (currentCount >= maxBookingsPerDay) {
+            setBookingError('This date is fully booked. Please select another date.');
+            return;
+        }
+
         try {
             setBookingError(null);
             const slot = TIME_SLOTS.find((s) => s.start === selectedSlot);
+
+            const dept = departments.find(d => d.id === selectedDepartment);
 
             await createAppointment({
                 patient_id: profile.id,
                 campus_id: selectedCampus,
                 appointment_type: appointmentType,
-                appointment_date: formatLocalDate(selectedDate),
+                appointment_date: dateStr,
                 start_time: selectedSlot,
                 end_time: slot?.end || '',
                 status: 'scheduled',
-                notes: notes || undefined,
-                patient_name: `${profile.first_name} ${profile.last_name}`,
+                notes: notes ? `Department: ${dept?.name || selectedDepartment}\n${notes}` : `Department: ${dept?.name || selectedDepartment}`,
+                patient_name: fullName.trim(),
                 patient_email: profile.email,
-                patient_phone: profile.phone || profile.contact_number,
+                patient_phone: contactNumber.trim(),
             });
 
             setBookingSuccess(true);
             setNotes('');
 
-            // Refresh appointments
+            // Refresh appointments and counts
             const start = startOfMonth(subMonths(currentMonth, 1));
             const end = endOfMonth(addMonths(currentMonth, 1));
+            const startStr = formatLocalDate(start);
+            const endStr = formatLocalDate(end);
             await fetchAppointments({
-                dateRange: {
-                    start: formatLocalDate(start),
-                    end: formatLocalDate(end),
-                },
+                dateRange: { start: startStr, end: endStr },
             });
+            await fetchBookingCounts(startStr, endStr, selectedCampus || undefined);
 
             // Close modal after delay
             setTimeout(() => {
@@ -274,6 +335,12 @@ export function StudentBookingPage() {
                                             const hasAppointment = dateAppointments.length > 0;
                                             const bookable = isDateBookable(day);
                                             const isCurrentMonth = isSameMonth(day, currentMonth);
+                                            const count = getBookingCount(day);
+                                            const full = isDateFull(day);
+                                            const isWeekday = day.getDay() !== 0 && day.getDay() !== 6;
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            const isPast = isBefore(day, today);
 
                                             return (
                                                 <button
@@ -282,10 +349,11 @@ export function StudentBookingPage() {
                                                     disabled={!bookable || !isCurrentMonth}
                                                     className={`
                                                         flex flex-col items-center justify-center p-1 border-b border-r border-gray-100
-                                                        transition-all duration-200 hover:bg-maroon-50 cursor-pointer
+                                                        transition-all duration-200 cursor-pointer
                                                         ${!isCurrentMonth ? 'text-gray-300' : ''}
                                                         ${(day.getDay() === 0 || day.getDay() === 6) ? 'bg-gray-50' : 'bg-white'}
-                                                        ${!bookable || !isCurrentMonth ? 'cursor-not-allowed' : ''}
+                                                        ${full && isCurrentMonth && isWeekday && !isPast ? 'bg-red-50' : ''}
+                                                        ${!bookable || !isCurrentMonth ? 'cursor-not-allowed' : 'hover:bg-maroon-50'}
                                                     `}
                                                 >
                                                     <span
@@ -299,8 +367,13 @@ export function StudentBookingPage() {
                                                     >
                                                         {format(day, 'd')}
                                                     </span>
+                                                    {isCurrentMonth && isWeekday && !isPast && (
+                                                        <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                                                            {count}/{maxBookingsPerDay}
+                                                        </span>
+                                                    )}
                                                     {hasAppointment && isCurrentMonth && (
-                                                        <span className="mt-0.5 w-1.5 h-1.5 bg-maroon-600 rounded-full"></span>
+                                                        <span className="w-1.5 h-1.5 bg-maroon-600 rounded-full"></span>
                                                     )}
                                                 </button>
                                             );
@@ -318,6 +391,10 @@ export function StudentBookingPage() {
                                 <div className="flex items-center gap-2">
                                     <span className="w-3 h-3 ring-2 ring-maroon-300 rounded-full shadow-sm"></span>
                                     <span className="text-gray-700 font-medium">Has appointments</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 bg-red-200 rounded shadow-sm"></span>
+                                    <span className="text-gray-700 font-medium">Fully booked</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="w-3 h-3 bg-gray-200 rounded shadow-sm"></span>
@@ -400,9 +477,15 @@ export function StudentBookingPage() {
                         >
                             {/* Modal Header */}
                             <div className="flex-shrink-0 flex items-center justify-between p-4 border-b bg-maroon-900 text-white rounded-t-xl">
-                                <h3 className="text-lg font-semibold">
-                                    Book Appointment - {format(selectedDate, 'MMM d, yyyy')}
-                                </h3>
+                                <div>
+                                    <h3 className="text-lg font-semibold">
+                                        Book Appointment - {format(selectedDate, 'MMM d, yyyy')}
+                                    </h3>
+                                    <p className="text-sm text-maroon-200 flex items-center gap-1 mt-0.5">
+                                        <Users className="w-3.5 h-3.5" />
+                                        {getBookingCount(selectedDate)} / {maxBookingsPerDay} booked
+                                    </p>
+                                </div>
                                 <button onClick={closeModal} className="p-1 hover:bg-maroon-800 rounded transition-colors">
                                     <X className="w-5 h-5" />
                                 </button>
@@ -420,6 +503,66 @@ export function StudentBookingPage() {
                                     </div>
                                 ) : (
                                     <>
+                                        {/* Appointment Type */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Type</label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {APPOINTMENT_TYPES.map((type) => (
+                                                    <button
+                                                        key={type.value}
+                                                        onClick={() => setAppointmentType(type.value as AppointmentType)}
+                                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${appointmentType === type.value
+                                                            ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                            }`}
+                                                    >
+                                                        {type.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Full Name */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                            <input
+                                                type="text"
+                                                value={fullName}
+                                                onChange={(e) => setFullName(e.target.value)}
+                                                placeholder="Enter your full name"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
+                                            />
+                                        </div>
+
+                                        {/* Contact Number */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                                            <input
+                                                type="tel"
+                                                value={contactNumber}
+                                                onChange={(e) => setContactNumber(e.target.value)}
+                                                placeholder="Enter your contact number"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
+                                            />
+                                        </div>
+
+                                        {/* Department */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                            <select
+                                                value={selectedDepartment}
+                                                onChange={(e) => setSelectedDepartment(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
+                                            >
+                                                <option value="">Select Department</option>
+                                                {departments.map((dept) => (
+                                                    <option key={dept.id} value={dept.id}>
+                                                        {dept.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
                                         {/* Campus Selection */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
@@ -434,25 +577,6 @@ export function StudentBookingPage() {
                                                     </option>
                                                 ))}
                                             </select>
-                                        </div>
-
-                                        {/* Appointment Type */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Type</label>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {APPOINTMENT_TYPES.map((type) => (
-                                                    <button
-                                                        key={type.value}
-                                                        onClick={() => setAppointmentType(type.value as 'physical_exam' | 'consultation')}
-                                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${appointmentType === type.value
-                                                            ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
-                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
-                                                            }`}
-                                                    >
-                                                        {type.label}
-                                                    </button>
-                                                ))}
-                                            </div>
                                         </div>
 
                                         {/* Time Slot Selection */}

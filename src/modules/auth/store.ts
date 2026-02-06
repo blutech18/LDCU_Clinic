@@ -25,6 +25,7 @@ interface AuthState {
   setProfile: (profile: Profile | null) => void;
   initialize: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
+  verifyRole: (expectedRoles?: string[]) => Promise<boolean>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -84,6 +85,45 @@ export const useAuthStore = create<AuthState>()(
       } catch (error) {
         console.error('Error initializing auth:', error);
         set({ profile: null, isAuthenticated: false, isLoading: false, isInitialized: true });
+      }
+    },
+
+    verifyRole: async (expectedRoles) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          set({ profile: null, isAuthenticated: false });
+          return false;
+        }
+
+        const { data: freshProfile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error || !freshProfile) {
+          await supabase.auth.signOut();
+          set({ profile: null, isAuthenticated: false });
+          return false;
+        }
+
+        // Update the stored profile with fresh data
+        set({ profile: freshProfile });
+
+        // If expectedRoles provided, check if current role matches
+        if (expectedRoles && expectedRoles.length > 0) {
+          if (!expectedRoles.includes(freshProfile.role)) {
+            await supabase.auth.signOut();
+            set({ profile: null, isAuthenticated: false });
+            return false;
+          }
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Error verifying role:', error);
+        return false;
       }
     },
 

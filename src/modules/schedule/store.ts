@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { ScheduleSetting, Campus } from '~/types';
+import type { ScheduleSetting, Campus, BookingSetting, Department } from '~/types';
 import { supabase } from '~/lib/supabase';
 
 interface TimeSlot {
@@ -13,6 +13,8 @@ interface TimeSlot {
 interface ScheduleState {
   scheduleSettings: ScheduleSetting[];
   campuses: Campus[];
+  departments: Department[];
+  bookingSetting: BookingSetting | null;
   selectedCampusId: string | null;
   timeSlots: TimeSlot[];
   selectedDate: Date | null;
@@ -21,6 +23,9 @@ interface ScheduleState {
 
   fetchScheduleSettings: (campusId?: string) => Promise<void>;
   fetchCampuses: () => Promise<void>;
+  fetchDepartments: (campusId?: string) => Promise<void>;
+  fetchBookingSetting: (campusId: string) => Promise<void>;
+  updateBookingSetting: (campusId: string, maxPerDay: number) => Promise<void>;
   setSelectedCampus: (campusId: string | null) => void;
   generateTimeSlots: (date: Date, campusId: string) => Promise<void>;
   setSelectedDate: (date: Date | null) => void;
@@ -31,6 +36,8 @@ export const useScheduleStore = create<ScheduleState>()(
   immer((set) => ({
     scheduleSettings: [],
     campuses: [],
+    departments: [],
+    bookingSetting: null,
     selectedCampusId: null,
     timeSlots: [],
     selectedDate: null,
@@ -62,6 +69,62 @@ export const useScheduleStore = create<ScheduleState>()(
         set({ campuses: data || [] });
       } catch (error) {
         console.error('Error fetching campuses:', error);
+      }
+    },
+
+    fetchDepartments: async (campusId) => {
+      try {
+        let query = supabase.from('departments').select('*').order('name');
+        if (campusId) query = query.eq('campus_id', campusId);
+        const { data, error } = await query;
+        if (error) throw error;
+        set({ departments: data || [] });
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+      }
+    },
+
+    fetchBookingSetting: async (campusId) => {
+      try {
+        const { data, error } = await supabase
+          .from('booking_settings')
+          .select('*')
+          .eq('campus_id', campusId)
+          .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        set({ bookingSetting: data || null });
+      } catch (error) {
+        console.error('Error fetching booking setting:', error);
+        set({ bookingSetting: null });
+      }
+    },
+
+    updateBookingSetting: async (campusId, maxPerDay) => {
+      try {
+        const { data: existing } = await supabase
+          .from('booking_settings')
+          .select('id')
+          .eq('campus_id', campusId)
+          .single();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('booking_settings')
+            .update({ max_bookings_per_day: maxPerDay, updated_at: new Date().toISOString() })
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('booking_settings')
+            .insert({ campus_id: campusId, max_bookings_per_day: maxPerDay });
+          if (error) throw error;
+        }
+
+        set({ bookingSetting: { campus_id: campusId, max_bookings_per_day: maxPerDay } as BookingSetting });
+      } catch (error) {
+        console.error('Error updating booking setting:', error);
+        throw error;
       }
     },
 

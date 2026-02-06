@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '~/modules/auth';
 
@@ -6,9 +7,28 @@ interface StudentRouteProps {
 }
 
 export function StudentRoute({ children }: StudentRouteProps) {
-    const { profile, isLoading, isInitialized } = useAuthStore();
+    const { profile, isLoading, isInitialized, isAuthenticated, verifyRole } = useAuthStore();
+    const [isVerifying, setIsVerifying] = useState(true);
+    const [roleValid, setRoleValid] = useState(true);
 
-    if (isLoading || !isInitialized) {
+    useEffect(() => {
+        let cancelled = false;
+        const verify = async () => {
+            if (!isInitialized || !isAuthenticated) {
+                setIsVerifying(false);
+                return;
+            }
+            const valid = await verifyRole(['student']);
+            if (!cancelled) {
+                setRoleValid(valid);
+                setIsVerifying(false);
+            }
+        };
+        verify();
+        return () => { cancelled = true; };
+    }, [isInitialized, isAuthenticated, verifyRole]);
+
+    if (isLoading || !isInitialized || isVerifying) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="text-center">
@@ -19,7 +39,7 @@ export function StudentRoute({ children }: StudentRouteProps) {
         );
     }
 
-    if (!profile) {
+    if (!profile || !isAuthenticated || !roleValid) {
         return <Navigate to="/login" replace />;
     }
 

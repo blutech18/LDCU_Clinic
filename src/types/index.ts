@@ -1,5 +1,5 @@
 export type UserRole = 'student' | 'employee' | 'nurse' | 'doctor' | 'admin';
-export type AppointmentType = 'physical_exam' | 'consultation';
+export type AppointmentType = 'physical_exam' | 'consultation' | 'dental';
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type UserType = 'student' | 'employee';
 
@@ -82,4 +82,19 @@ export interface WeeklyLimit {
   appointment_type: AppointmentType;
   user_role: UserRole;
   max_appointments_per_week: number;
+}
+
+export interface BookingSetting {
+  id: string;
+  campus_id: string;
+  max_bookings_per_day: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface College {
+  id: string;
+  name: string;
+  campus_id: string;
+  created_at: string;
 }

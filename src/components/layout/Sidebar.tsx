@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt, FaExchangeAlt } from 'react-icons/fa';
 import { useState } from 'react';
 import { useAuthStore } from '~/modules/auth';
 import { LogoutModal } from '~/components/modals/LogoutModal';
@@ -14,6 +14,7 @@ const menuItems = [
     { path: '/dashboard', icon: FaHome, label: 'Dashboard' },
     { path: '/schedule', icon: FaCalendarAlt, label: 'Schedule' },
     { path: '/appointments', icon: FaHistory, label: 'Appointments' },
+    { path: '/reschedule', icon: FaExchangeAlt, label: 'Reschedule' },
     { path: '/profile', icon: FaUser, label: 'Profile' },
 ];
 

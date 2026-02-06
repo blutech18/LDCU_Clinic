@@ -12,6 +12,7 @@ import { ViewSchedulesPage } from './pages/ViewSchedulesPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { StudentBookingPage } from './pages/StudentBookingPage';
 import { PublicCalendarPage } from './pages/PublicCalendarPage';
+import { ReschedulePage } from './pages/ReschedulePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
@@ -98,6 +99,14 @@ function App() {
         element={
           <ProtectedRoute>
             <SchedulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reschedule"
+        element={
+          <ProtectedRoute>
+            <ReschedulePage />
           </ProtectedRoute>
         }
       />

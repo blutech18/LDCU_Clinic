@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Users, Check, X, Search } from 'lucide-react';
+import { Users, Check, X, Search, Settings, Save } from 'lucide-react';
 import { SidebarLayout } from '~/components/layout';
 import { supabase } from '~/lib/supabase';
+import { useScheduleStore } from '~/modules/schedule';
 import type { Profile } from '~/types';
 
 export function AdminPage() {
@@ -9,10 +10,48 @@ export function AdminPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
+    const [activeTab, setActiveTab] = useState<'users' | 'settings'>('users');
+    const [maxBookings, setMaxBookings] = useState<number>(50);
+    const [selectedSettingsCampus, setSelectedSettingsCampus] = useState('');
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [settingsSaved, setSettingsSaved] = useState(false);
+
+    const { campuses, fetchCampuses, fetchBookingSetting, bookingSetting, updateBookingSetting } = useScheduleStore();
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+        fetchCampuses();
+    }, [fetchCampuses]);
+
+    useEffect(() => {
+        if (campuses.length > 0 && !selectedSettingsCampus) {
+            setSelectedSettingsCampus(campuses[0].id);
+        }
+    }, [campuses, selectedSettingsCampus]);
+
+    useEffect(() => {
+        if (selectedSettingsCampus) {
+            fetchBookingSetting(selectedSettingsCampus);
+        }
+    }, [selectedSettingsCampus, fetchBookingSetting]);
+
+    useEffect(() => {
+        setMaxBookings(bookingSetting?.max_bookings_per_day || 50);
+    }, [bookingSetting]);
+
+    const handleSaveBookingSettings = async () => {
+        if (!selectedSettingsCampus) return;
+        setSavingSettings(true);
+        try {
+            await updateBookingSetting(selectedSettingsCampus, maxBookings);
+            setSettingsSaved(true);
+            setTimeout(() => setSettingsSaved(false), 2000);
+        } catch (error) {
+            console.error('Failed to save booking settings:', error);
+        } finally {
+            setSavingSettings(false);
+        }
+    };
 
     const fetchUsers = async () => {
         setIsLoading(true);
@@ -93,14 +132,106 @@ export function AdminPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
                     <p className="text-gray-600">Manage users and system settings</p>
                 </div>
-                {pendingCount > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
-                        <Users className="w-4 h-4" />
-                        {pendingCount} pending verification
-                    </div>
-                )}
+                <div className="flex items-center gap-3">
+                    {pendingCount > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
+                            <Users className="w-4 h-4" />
+                            {pendingCount} pending verification
+                        </div>
+                    )}
+                </div>
             </div>
 
+            {/* Tabs */}
+            <div className="flex gap-2 mb-6">
+                <button
+                    onClick={() => setActiveTab('users')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                        activeTab === 'users' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                    <Users className="w-4 h-4" />
+                    User Management
+                </button>
+                <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                        activeTab === 'settings' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                    <Settings className="w-4 h-4" />
+                    Booking Settings
+                </button>
+            </div>
+
+            {activeTab === 'settings' && (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Settings className="w-5 h-5 text-maroon-800" />
+                        Booking Limit Settings
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-6">Set the maximum number of appointments that can be booked per day for each campus.</p>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
+                            <select
+                                value={selectedSettingsCampus}
+                                onChange={(e) => setSelectedSettingsCampus(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                            >
+                                {campuses.map((campus) => (
+                                    <option key={campus.id} value={campus.id}>
+                                        {campus.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Max Bookings Per Day</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={500}
+                                value={maxBookings}
+                                onChange={(e) => setMaxBookings(parseInt(e.target.value) || 1)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex items-center gap-3">
+                        <button
+                            onClick={handleSaveBookingSettings}
+                            disabled={savingSettings}
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        >
+                            {savingSettings ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            {savingSettings ? 'Saving...' : 'Save Settings'}
+                        </button>
+                        {settingsSaved && (
+                            <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                                <Check className="w-4 h-4" />
+                                Settings saved successfully!
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-500">
+                            Current setting: <span className="font-medium text-gray-700">{bookingSetting?.max_bookings_per_day || 50}</span> bookings per day
+                            {bookingSetting ? '' : ' (default)'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'users' && (
+            <>
             {/* Filters */}
             <div className="bg-white rounded-xl shadow-md p-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
@@ -132,7 +263,7 @@ export function AdminPage() {
             </div>
 
             {/* Users Table */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+            <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
                 {isLoading ? (
                     <div className="p-8 text-center">
                         <div className="w-8 h-8 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -223,6 +354,8 @@ export function AdminPage() {
                     </div>
                 )}
             </div>
+            </>
+            )}
         </SidebarLayout>
     );
 }
