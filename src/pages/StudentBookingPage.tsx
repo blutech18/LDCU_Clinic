@@ -321,7 +321,7 @@ export function StudentBookingPage() {
                             </div>
 
                             {/* Calendar Grid */}
-                            <div className="flex-1 relative overflow-hidden min-h-[300px] sm:min-h-0 bg-white">
+                            <div className="flex-1 relative overflow-hidden min-h-[285px] sm:min-h-0 bg-white">
                                 <AnimatePresence initial={false} custom={direction} mode="popLayout">
                                     <motion.div
                                         key={currentMonth.toString()}
@@ -395,7 +395,7 @@ export function StudentBookingPage() {
                             </div>
 
                             {/* Legend */}
-                            <div className="p-3 border-t bg-gray-50 flex flex-wrap items-center gap-4 text-xs sm:text-sm flex-shrink-0">
+                            <div className="p-3 border-t bg-gray-50 flex flex-wrap justify-center items-center gap-4 text-xs sm:text-sm flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <span className="w-3 h-3 bg-maroon-800 rounded-full shadow-sm"></span>
                                     <span className="text-gray-700 font-medium">Today</span>

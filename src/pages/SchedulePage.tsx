@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   format,
   startOfMonth,
@@ -182,6 +182,16 @@ export function SchedulePage() {
     setTimeout(() => setRemindersSent(false), 3000);
   }, [selectedDate, selectedDateAppointments, selectedCampusId, campuses]);
 
+  const templateEditorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showTemplateEditor && templateEditorRef.current) {
+      setTimeout(() => {
+        templateEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300); // Small delay to allow animation to start/finish
+    }
+  }, [showTemplateEditor]);
+
   return (
     <SidebarLayout>
       <div className="flex items-center justify-between mb-6">
@@ -338,57 +348,76 @@ export function SchedulePage() {
           <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showTemplateEditor ? 'rotate-90' : ''}`} />
         </button>
 
-        {showTemplateEditor && (
-          <div className="border-t p-4 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subject Line</label>
-              <input
-                type="text"
-                value={templateSubject}
-                onChange={(e) => setTemplateSubject(e.target.value)}
-                placeholder="Appointment Reminder - {{date}} | LDCU Clinic"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Message Body</label>
-              <textarea
-                value={templateBody}
-                onChange={(e) => setTemplateBody(e.target.value)}
-                rows={8}
-                placeholder="Hello {{name}},&#10;&#10;This is a reminder about your appointment on {{date}}..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-400">
-                Available placeholders: <code className="bg-gray-100 px-1 rounded">{'{{name}}'}</code> <code className="bg-gray-100 px-1 rounded">{'{{date}}'}</code> <code className="bg-gray-100 px-1 rounded">{'{{type}}'}</code>
-              </p>
-              <button
-                onClick={handleSaveTemplate}
-                disabled={savingTemplate}
-                className="px-4 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 text-sm"
-              >
-                {savingTemplate ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Saving...
-                  </>
-                ) : templateSaved ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Saved!
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Save Template
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {showTemplateEditor && (
+            <motion.div
+              ref={templateEditorRef}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="border-t p-6 space-y-5 bg-gray-50/50">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Subject Line</label>
+                  <input
+                    type="text"
+                    value={templateSubject}
+                    onChange={(e) => setTemplateSubject(e.target.value)}
+                    placeholder="Appointment Reminder - {{date}} | LDCU Clinic"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-all shadow-sm hover:border-maroon-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Message Body</label>
+                  <div className="relative">
+                    <textarea
+                      value={templateBody}
+                      onChange={(e) => setTemplateBody(e.target.value)}
+                      rows={8}
+                      placeholder="Hello {{name}},&#10;&#10;This is a reminder about your appointment on {{date}}..."
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y transition-all shadow-sm hover:border-maroon-200 font-mono"
+                    />
+                    <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none">
+                      Markdown supported
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Available variables:</span>
+                    <code className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-maroon-700 font-mono shadow-sm">{'{{name}}'}</code>
+                    <code className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-maroon-700 font-mono shadow-sm">{'{{date}}'}</code>
+                    <code className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-maroon-700 font-mono shadow-sm">{'{{type}}'}</code>
+                  </div>
+                  <button
+                    onClick={handleSaveTemplate}
+                    disabled={savingTemplate}
+                    className="px-6 py-2.5 bg-maroon-800 text-white font-medium rounded-xl hover:bg-maroon-900 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 text-sm min-w-[140px]"
+                  >
+                    {savingTemplate ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Saving...
+                      </>
+                    ) : templateSaved ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Saved!
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Save Template
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Date Detail Modal */}
@@ -435,23 +464,21 @@ export function SchedulePage() {
                     {selectedDateAppointments.map((apt) => (
                       <div
                         key={apt.id}
-                        className={`p-3 rounded-lg border-l-4 ${
-                          apt.status === 'completed'
-                            ? 'bg-green-50 border-green-500'
-                            : apt.status === 'cancelled'
+                        className={`p-3 rounded-lg border-l-4 ${apt.status === 'completed'
+                          ? 'bg-green-50 border-green-500'
+                          : apt.status === 'cancelled'
                             ? 'bg-red-50 border-red-400'
                             : 'bg-gray-50 border-maroon-600'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-gray-900 text-sm">
                             {apt.patient_name || 'Unknown Patient'}
                           </p>
-                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                            apt.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${apt.status === 'completed' ? 'bg-green-100 text-green-700' :
                             apt.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
+                              'bg-blue-100 text-blue-700'
+                            }`}>
                             {apt.status}
                           </span>
                         </div>

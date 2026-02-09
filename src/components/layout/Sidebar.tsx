@@ -7,6 +7,7 @@ import { LogoutModal } from '~/components/modals/LogoutModal';
 
 interface SidebarProps {
     isOpen: boolean;
+    isMobile: boolean;
 }
 
 // Define menu items closer to valid icons for the app's context
@@ -18,7 +19,7 @@ const menuItems = [
     { path: '/profile', icon: FaUser, label: 'Profile' },
 ];
 
-const Sidebar = ({ isOpen }: SidebarProps) => {
+const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
     const location = useLocation();
     const { profile, logout } = useAuthStore();
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -31,13 +32,26 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
         setIsLogoutModalOpen(false);
     };
 
+    const sidebarVariants = {
+        mobile: {
+            x: isOpen ? 0 : -280,
+            width: 260,
+            transition: { type: 'spring' as const, damping: 25, stiffness: 200 }
+        },
+        desktop: {
+            x: 0,
+            width: isOpen ? 260 : 72,
+            transition: { duration: 0.3 }
+        }
+    };
+
     return (
         <>
             <motion.aside
                 initial={false}
-                animate={{ width: isOpen ? 260 : 72 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="fixed top-14 left-0 bottom-0 sidebar-maroon overflow-hidden z-40 shadow-lg"
+                animate={isMobile ? "mobile" : "desktop"}
+                variants={sidebarVariants}
+                className={`fixed top-14 left-0 bottom-0 sidebar-maroon overflow-hidden shadow-lg ${isMobile ? 'z-50' : 'z-40'}`}
             >
                 <nav className="pt-4 px-3">
                     <ul className="space-y-1">

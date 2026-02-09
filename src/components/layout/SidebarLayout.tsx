@@ -116,7 +116,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       </header>
 
       {/* New Sidebar Component */}
-      <Sidebar isOpen={isOpen} />
+      <Sidebar isOpen={isOpen} isMobile={isMobile} />
 
       {/* Main Content Area */}
       <main

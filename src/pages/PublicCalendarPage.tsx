@@ -124,7 +124,7 @@ export function PublicCalendarPage() {
                         </div>
 
                         {/* Calendar Grid */}
-                        <div className="relative overflow-hidden min-h-[320px]">
+                        <div className="relative overflow-hidden min-h-[304px]">
                             <AnimatePresence mode="wait" custom={direction}>
                                 <motion.div
                                     key={currentMonth.toISOString()}
@@ -139,7 +139,7 @@ export function PublicCalendarPage() {
                                     {calendarDays.map((day, index) => {
                                         if (!day) {
                                             return (
-                                                <div key={`empty-${index}`} className="bg-gray-50 p-3 min-h-[60px]" />
+                                                <div key={`empty-${index}`} className="bg-gray-50 p-2.5 min-h-[57px]" />
                                             );
                                         }
 
@@ -153,7 +153,7 @@ export function PublicCalendarPage() {
                                                 key={day.toISOString()}
                                                 onClick={() => handleDateClick(day)}
                                                 className={`
-                          bg-white p-3 min-h-[60px] flex flex-col items-center justify-center
+                          bg-white p-2.5 min-h-[57px] flex flex-col items-center justify-center
                           transition-all duration-200 hover:bg-maroon-50 cursor-pointer
                           ${!isCurrentMonth ? 'text-gray-300' : ''}
                           ${isWeekendDay ? 'bg-gray-50' : ''}
@@ -180,7 +180,7 @@ export function PublicCalendarPage() {
                         </div>
 
                         {/* Legend */}
-                        <div className="p-3 border-t bg-gray-50 flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+                        <div className="p-3 border-t bg-gray-50 flex flex-wrap justify-center items-center gap-4 text-xs sm:text-sm">
                             <div className="flex items-center gap-2">
                                 <span className="w-3 h-3 bg-maroon-800 rounded-full shadow-sm"></span>
                                 <span className="text-gray-700 font-medium">Today</span>
