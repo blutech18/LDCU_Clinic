@@ -59,7 +59,7 @@ export function HomePage() {
               quickly and efficiently.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up animate-delay-200">
-              <Link to="/login">
+              <Link to="/login" className="w-full sm:w-auto">
                 <Button
                   variant="secondary"
                   size="lg"
@@ -100,7 +100,7 @@ export function HomePage() {
             {features.map((feature, index) => (
               <div
                 key={feature.title}
-                className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-scale-in"
+                className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-scale-in flex flex-col items-center text-center"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className="w-12 h-12 bg-maroon-100 rounded-lg flex items-center justify-center mb-4 transition-transform duration-300 hover:scale-110">

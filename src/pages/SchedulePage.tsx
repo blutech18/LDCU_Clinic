@@ -361,36 +361,73 @@ export function SchedulePage() {
               <div className="border-t p-6 space-y-5 bg-gray-50/50">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Subject Line</label>
-                  <input
-                    type="text"
-                    value={templateSubject}
-                    onChange={(e) => setTemplateSubject(e.target.value)}
-                    placeholder="Appointment Reminder - {{date}} | LDCU Clinic"
+                  <div
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => {
+                      const text = e.currentTarget.textContent || '';
+                      setTemplateSubject(text);
+                    }}
+                    onKeyDown={(e) => {
+                      // Prevent deletion of template variables
+                      const selection = window.getSelection();
+                      if (selection && (e.key === 'Backspace' || e.key === 'Delete')) {
+                        const range = selection.getRangeAt(0);
+                        const node = range.startContainer.parentElement;
+                        if (node?.classList.contains('template-var')) {
+                          e.preventDefault();
+                        }
+                      }
+                      // Prevent line breaks in subject
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                      }
+                    }}
                     className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-all shadow-sm hover:border-maroon-200"
+                    dangerouslySetInnerHTML={{
+                      __html: templateSubject
+                        .replace(/\{\{name\}\}/g, '<span class="template-var" contenteditable="false" style="background-color: #f3f4f6; color: #9ca3af; padding: 2px 4px; border-radius: 4px; user-select: none; cursor: not-allowed;">{{name}}</span>')
+                        .replace(/\{\{date\}\}/g, '<span class="template-var" contenteditable="false" style="background-color: #f3f4f6; color: #9ca3af; padding: 2px 4px; border-radius: 4px; user-select: none; cursor: not-allowed;">{{date}}</span>')
+                        .replace(/\{\{type\}\}/g, '<span class="template-var" contenteditable="false" style="background-color: #f3f4f6; color: #9ca3af; padding: 2px 4px; border-radius: 4px; user-select: none; cursor: not-allowed;">{{type}}</span>')
+                    }}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Message Body</label>
                   <div className="relative">
-                    <textarea
-                      value={templateBody}
-                      onChange={(e) => setTemplateBody(e.target.value)}
-                      rows={8}
-                      placeholder="Hello {{name}},&#10;&#10;This is a reminder about your appointment on {{date}}..."
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y transition-all shadow-sm hover:border-maroon-200 font-mono"
+                    <div
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={(e) => {
+                        const text = e.currentTarget.textContent || '';
+                        setTemplateBody(text);
+                      }}
+                      onKeyDown={(e) => {
+                        // Prevent deletion of template variables
+                        const selection = window.getSelection();
+                        if (selection && (e.key === 'Backspace' || e.key === 'Delete')) {
+                          const range = selection.getRangeAt(0);
+                          const node = range.startContainer.parentElement;
+                          if (node?.classList.contains('template-var')) {
+                            e.preventDefault();
+                          }
+                        }
+                      }}
+                      className="w-full min-h-[200px] px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y transition-all shadow-sm hover:border-maroon-200 font-mono whitespace-pre-wrap"
+                      style={{ overflowY: 'auto' }}
+                      dangerouslySetInnerHTML={{
+                        __html: templateBody
+                          .replace(/\{\{name\}\}/g, '<span class="template-var" contenteditable="false" style="background-color: #f3f4f6; color: #9ca3af; padding: 2px 4px; border-radius: 4px; user-select: none; cursor: not-allowed;">{{name}}</span>')
+                          .replace(/\{\{date\}\}/g, '<span class="template-var" contenteditable="false" style="background-color: #f3f4f6; color: #9ca3af; padding: 2px 4px; border-radius: 4px; user-select: none; cursor: not-allowed;">{{date}}</span>')
+                          .replace(/\{\{type\}\}/g, '<span class="template-var" contenteditable="false" style="background-color: #f3f4f6; color: #9ca3af; padding: 2px 4px; border-radius: 4px; user-select: none; cursor: not-allowed;">{{type}}</span>')
+                      }}
                     />
                     <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none">
                       Markdown supported
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Available variables:</span>
-                    <code className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-maroon-700 font-mono shadow-sm">{'{{name}}'}</code>
-                    <code className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-maroon-700 font-mono shadow-sm">{'{{date}}'}</code>
-                    <code className="px-2 py-1 bg-white border border-gray-200 rounded-md text-xs text-maroon-700 font-mono shadow-sm">{'{{type}}'}</code>
-                  </div>
+                <div className="flex justify-end pt-2">
                   <button
                     onClick={handleSaveTemplate}
                     disabled={savingTemplate}

@@ -167,11 +167,16 @@ export const useAppointmentStore = create<AppointmentState>()(
         const includeSunday = schedConfig?.include_sunday || false;
         const holidayDates: string[] = schedConfig?.holiday_dates || [];
 
-        // Build list of eligible future dates starting from the day AFTER the rescheduled date
-        const rescheduledDate = new Date(date + 'T00:00:00');
+        // Always start from TOMORROW, regardless of the original appointment date
+        // This prevents rescheduling into past dates when handling old appointments
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() + 1); // tomorrow
+
         const futureDates: string[] = [];
-        for (let i = 1; i <= 90; i++) {
-          const d = new Date(rescheduledDate);
+        for (let i = 0; i < 90; i++) {
+          const d = new Date(startDate);
           d.setDate(d.getDate() + i);
           const dow = d.getDay();
 
@@ -184,7 +189,7 @@ export const useAppointmentStore = create<AppointmentState>()(
 
           // Skip holidays
           if (holidayDates.includes(dateStr)) continue;
-          // Skip the rescheduled date itself
+          // Skip the original rescheduled date itself
           if (dateStr === date) continue;
 
           futureDates.push(dateStr);
