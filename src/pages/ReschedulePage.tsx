@@ -496,21 +496,6 @@ export function ReschedulePage() {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Intro / Instructions */}
-                                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 flex items-start gap-3">
-                                            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                                            <div className="text-sm text-blue-800">
-                                                <p className="font-semibold mb-1">
-                                                    {rescheduleMode === 'auto' ? 'Auto Spread Mode' : 'Manual Pick Mode'}
-                                                </p>
-                                                <p className="opacity-90">
-                                                    {rescheduleMode === 'auto'
-                                                        ? 'Mark appointments as "Done". Any unchecked appointments will be automatically moved to the next available dates to balance the schedule.'
-                                                        : 'Mark known completed appointments. For any others, you can manually select a specific future date for rescheduling.'}
-                                                </p>
-                                            </div>
-                                        </div>
-
                                         {scheduledAppointments.length === 0 ? (
                                             <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-white">
                                                 <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -518,90 +503,84 @@ export function ReschedulePage() {
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
-                                                <div className="flex items-center justify-between pb-2">
-                                                    <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                                                <div className="sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-3 border-b border-gray-200 flex items-center justify-between mb-2">
+                                                    <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                                                         Appointment List
+                                                        <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs normal-case">{scheduledAppointments.length}</span>
                                                     </h4>
                                                     <div className="flex gap-2">
                                                         <button
-                                                            onClick={() => setCompletedIds(new Set(scheduledAppointments.map(a => a.id)))}
-                                                            className="text-xs px-2.5 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 hover:border-gray-300 transition-all font-medium shadow-sm"
+                                                            onClick={(e) => { e.stopPropagation(); setCompletedIds(new Set(scheduledAppointments.map(a => a.id))); }}
+                                                            className="text-xs px-3 py-1.5 bg-white border border-gray-200 text-maroon-700 rounded-md hover:bg-maroon-50 hover:border-maroon-200 transition-all font-medium shadow-sm flex items-center gap-1.5"
                                                         >
+                                                            <Check className="w-3.5 h-3.5" />
                                                             Mark All Done
                                                         </button>
                                                         <button
-                                                            onClick={() => setCompletedIds(new Set())}
-                                                            className="text-xs px-2.5 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 hover:border-gray-300 transition-all font-medium shadow-sm"
+                                                            onClick={(e) => { e.stopPropagation(); setCompletedIds(new Set()); }}
+                                                            className="text-xs px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 hover:border-gray-300 transition-all font-medium shadow-sm"
                                                         >
                                                             Unmark All
                                                         </button>
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
                                                     {scheduledAppointments.map((apt) => {
                                                         const isChecked = completedIds.has(apt.id);
                                                         const targetDate = manualTargetDates[apt.id] || '';
                                                         const targetCount = targetDate ? (getBookingCountStr(targetDate) + (manualTargetCounts[targetDate] || 0)) : 0;
                                                         const overLimit = targetDate && targetCount > maxBookingsPerDay;
 
-
                                                         return (
                                                             <div
                                                                 key={apt.id}
                                                                 onClick={() => toggleCompleted(apt.id)}
-                                                                className={`group relative bg-white rounded-lg border shadow-sm transition-all duration-200 flex flex-col h-full overflow-hidden cursor-pointer select-none ${isChecked
-                                                                    ? 'border-green-200 opacity-80 hover:opacity-100'
-                                                                    : 'border-gray-200 hover:border-maroon-300 hover:shadow-md'
+                                                                className={`group relative rounded-xl border transition-all duration-200 flex flex-col overflow-hidden cursor-pointer select-none ${isChecked
+                                                                    ? 'bg-green-50/30 border-green-200 shadow-sm'
+                                                                    : 'bg-white border-gray-200 hover:border-maroon-300 hover:shadow-md'
                                                                     }`}
                                                             >
-                                                                {/* Status Indicator Strip */}
-                                                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isChecked ? 'bg-green-500' : 'bg-orange-400'}`} />
+                                                                <div className="p-3 flex flex-col h-full relative">
+                                                                    <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 z-10 ${isChecked
+                                                                        ? 'bg-green-500 border-green-500 text-white scale-110 shadow-sm'
+                                                                        : 'border-gray-200 text-transparent group-hover:border-maroon-300'
+                                                                        }`}>
+                                                                        <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                                                                    </div>
 
-                                                                <div className="p-4 pl-6 flex flex-col h-full gap-3">
+                                                                    <div className="flex-1 flex flex-col items-center justify-center text-center w-full px-2 pt-1 pb-1">
+                                                                        <h4 className={`text-base font-bold truncate leading-tight transition-colors w-full mb-1 ${isChecked ? 'text-green-800' : 'text-gray-900'}`} title={apt.patient_name}>
+                                                                            {apt.patient_name || 'Unknown Patient'}
+                                                                        </h4>
 
-                                                                    {/* Header: Name */}
-                                                                    <div className="flex items-start justify-between gap-3">
-                                                                        <div className="min-w-0 flex-1">
-                                                                            <h4
-                                                                                className={`text-sm font-bold text-gray-900 truncate leading-tight ${isChecked ? 'line-through text-gray-500' : ''}`}
-                                                                                title={apt.patient_name}
-                                                                            >
-                                                                                {apt.patient_name || 'Unknown Patient'}
-                                                                            </h4>
-                                                                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">
-                                                                                {apt.appointment_type.replace('_', ' ')}
-                                                                            </p>
+                                                                        <div className="flex items-center justify-center gap-2 text-[10px] md:text-[11px] text-gray-500 font-medium tracking-wide uppercase">
+                                                                            {apt.patient_phone && (
+                                                                                <>
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        <Users className="w-3 h-3 text-gray-400" />
+                                                                                        <span>{apt.patient_phone}</span>
+                                                                                    </div>
+                                                                                    <span className="text-gray-300">•</span>
+                                                                                </>
+                                                                            )}
+                                                                            <span className={`${isChecked ? 'opacity-75' : ''}`}>
+                                                                                {apt.appointment_type.replace(/_/g, ' ')}
+                                                                            </span>
                                                                         </div>
-
-                                                                        {/* Optional: Subtle icon to indicate selection state if needed, or just rely on strip/opacity */}
-                                                                        {isChecked && (
-                                                                            <div className="text-green-500 animate-fade-in">
-                                                                                <Check className="w-5 h-5" />
-                                                                            </div>
-                                                                        )}
                                                                     </div>
 
-                                                                    {/* Details */}
-                                                                    <div className="flex-1 border-t border-gray-100 pt-2 mt-1">
-                                                                        {apt.patient_phone && (
-                                                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                                                                <span>{apt.patient_phone}</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* Footer: Status Text or Manual Picker */}
-                                                                    <div className="mt-auto pt-2">
-                                                                        {!isChecked && rescheduleMode === 'manual' ? (
-                                                                            <div className="animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                                                                <div className="flex items-center justify-between mb-1.5">
-                                                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                                                                        Move To
+                                                                    {(!isChecked && rescheduleMode === 'manual') && (
+                                                                        <div className="mt-auto pt-2 border-t border-gray-100 flex items-center justify-center w-full">
+                                                                            <div onClick={(e) => e.stopPropagation()} className="animate-in fade-in slide-in-from-top-1 duration-200 flex flex-col gap-2 w-full">
+                                                                                <div className="flex items-center justify-between mb-1">
+                                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                                                                        <Calendar className="w-3 h-3" />
+                                                                                        New Date
                                                                                     </label>
                                                                                     {targetDate && (
-                                                                                        <span className={`text-[10px] font-bold ${overLimit ? 'text-red-600' : 'text-green-600'}`}>
-                                                                                            {targetCount}/{maxBookingsPerDay}
+                                                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${overLimit ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                                                            {targetCount}/{maxBookingsPerDay} slots
                                                                                         </span>
                                                                                     )}
                                                                                 </div>
@@ -609,23 +588,18 @@ export function ReschedulePage() {
                                                                                     type="date"
                                                                                     value={targetDate}
                                                                                     onChange={(e) => setManualTargetDates(prev => ({ ...prev, [apt.id]: e.target.value }))}
-                                                                                    className="w-full px-2 py-1.5 bg-gray-50 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-all cursor-text"
+                                                                                    className={`w-full px-2 py-1 bg-white border rounded text-xs focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all ${!targetDate ? 'border-maroon-200 ring-2 ring-maroon-50' : 'border-gray-200'}`}
                                                                                 />
                                                                             </div>
-                                                                        ) : (
-                                                                            <div className="flex items-center justify-between">
-                                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isChecked ? 'text-green-600' : 'text-orange-500'}`}>
-                                                                                    {isChecked ? 'Ready to Save' : 'Pending Action'}
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
                                                 </div>
                                             </div>
+
                                         )}
 
                                         {rescheduleError && (

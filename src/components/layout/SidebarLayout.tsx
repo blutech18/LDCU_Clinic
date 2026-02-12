@@ -62,7 +62,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
   const getPageTitle = (pathname: string) => {
     const found = Object.entries(pageLabels).find(([path]) => pathname.startsWith(path));
-    return found ? found[1] : 'Liceo Medical and Dental Clinic';
+    return found ? found[1] : 'Medical and Dental Clinic';
   };
 
   return (

@@ -30,7 +30,7 @@ export function StudentLayout({ children }: StudentLayoutProps) {
                                 <img src="/ldcu-logo.png" alt="LDCU Logo" className="w-full h-full object-contain" />
                             </div>
                             <div className="flex flex-col">
-                                <h1 className="text-lg font-bold text-white whitespace-nowrap">Liceo Medical and Dental Clinic</h1>
+                                <h1 className="text-lg font-bold text-white whitespace-nowrap">Medical and Dental Clinic</h1>
                             </div>
                         </Link>
 
