@@ -63,8 +63,8 @@ export function AuthCallbackPage() {
             email: email,
             first_name: userMetadata?.full_name?.split(' ')[0] || userMetadata?.name?.split(' ')[0] || 'User',
             last_name: userMetadata?.full_name?.split(' ').slice(1).join(' ') || userMetadata?.name?.split(' ').slice(1).join(' ') || '',
-            role: 'employee',
-            is_verified: false,
+            role: 'student',
+            is_verified: true,
           };
 
           const { error: createError } = await supabase
@@ -80,10 +80,9 @@ export function AuthCallbackPage() {
             return;
           }
 
-          // Sign out immediately since new users need verification
-          await supabase.auth.signOut();
-          setError('Account created! Please wait for admin verification before logging in.');
-          setTimeout(() => navigate('/login'), 3000);
+          // New student accounts are auto-verified, proceed to dashboard
+          setProfile(newProfile as any);
+          navigate('/dashboard');
         }
       } catch (error) {
         console.error('Error handling auth callback:', error);
