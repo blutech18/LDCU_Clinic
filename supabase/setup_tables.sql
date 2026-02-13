@@ -8,6 +8,7 @@
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_name TEXT;
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_email TEXT;
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_phone TEXT;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS booker_role TEXT DEFAULT 'student';
 
 -- 1. Email Templates table
 CREATE TABLE IF NOT EXISTS email_templates (

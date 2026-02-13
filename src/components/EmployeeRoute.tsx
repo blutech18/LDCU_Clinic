@@ -20,8 +20,8 @@ export function EmployeeRoute({ children }: EmployeeRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  // Students should not access employee routes
-  if (profile.role === 'student') {
+  // Students and staff should not access employee routes
+  if (profile.role === 'student' || profile.role === 'staff') {
     return <Navigate to="/student/booking" replace />;
   }
 

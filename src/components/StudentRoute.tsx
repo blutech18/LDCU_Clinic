@@ -18,7 +18,7 @@ export function StudentRoute({ children }: StudentRouteProps) {
                 setIsVerifying(false);
                 return;
             }
-            const valid = await verifyRole(['student']);
+            const valid = await verifyRole(['student', 'staff']);
             if (!cancelled) {
                 setRoleValid(valid);
                 setIsVerifying(false);
@@ -43,8 +43,8 @@ export function StudentRoute({ children }: StudentRouteProps) {
         return <Navigate to="/login" replace />;
     }
 
-    // If role verification failed or user is not a student, redirect to dashboard
-    if (!roleValid || profile.role !== 'student') {
+    // If role verification failed or user is not a student/staff, redirect to dashboard
+    if (!roleValid || (profile.role !== 'student' && profile.role !== 'staff')) {
         return <Navigate to="/dashboard" replace />;
     }
 

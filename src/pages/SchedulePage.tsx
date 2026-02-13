@@ -637,9 +637,16 @@ export function SchedulePage() {
                       ) : (
                         <div className="space-y-2">
                           {selectedDateAppointments.map(apt => (
-                            <div key={apt.id} className={`p-3 rounded-lg border-l-4 ${apt.status === 'completed' ? 'bg-green-50 border-green-500' : apt.status === 'cancelled' ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-maroon-600'}`}>
+                            <div key={apt.id} className={`p-3 rounded-lg border-l-4 ${apt.status === 'completed' ? 'bg-green-50 border-green-500' : apt.status === 'cancelled' ? 'bg-red-50 border-red-400' : apt.booker_role === 'staff' ? 'bg-amber-50 border-amber-500' : 'bg-gray-50 border-maroon-600'}`}>
                               <div className="flex items-center justify-between">
-                                <p className="font-medium text-gray-900 text-sm">{apt.patient_name || 'Unknown Patient'}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-gray-900 text-sm">{apt.patient_name || 'Unknown Patient'}</p>
+                                  {apt.booker_role === 'staff' ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-semibold uppercase">Staff</span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold uppercase">Student</span>
+                                  )}
+                                </div>
                                 <span className={`text-xs px-2 py-0.5 rounded font-medium ${apt.status === 'completed' ? 'bg-green-100 text-green-700' : apt.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{apt.status}</span>
                               </div>
                               <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -833,7 +840,13 @@ export function SchedulePage() {
                                         {apt.patient_name || 'Unknown Patient'}
                                       </h4>
                                       <div className="flex items-center justify-center gap-2 text-[10px] text-gray-500 font-medium tracking-wide uppercase flex-wrap">
-                                        {apt.patient_phone && (<><div className="flex items-center gap-1"><Users className="w-3 h-3 text-gray-400" /><span>{apt.patient_phone}</span></div><span className="text-gray-300">•</span></>)}
+                                        {apt.booker_role === 'staff' ? (
+                                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-semibold">Staff</span>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">Student</span>
+                                        )}
+                                        {apt.patient_phone && (<><span className="text-gray-300">•</span><div className="flex items-center gap-1"><Users className="w-3 h-3 text-gray-400" /><span>{apt.patient_phone}</span></div></>)}
+                                        <span className="text-gray-300">•</span>
                                         <span className={isChecked ? 'opacity-75' : ''}>{apt.appointment_type.replace(/_/g, ' ')}</span>
                                       </div>
                                     </div>

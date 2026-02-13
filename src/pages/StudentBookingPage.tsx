@@ -246,6 +246,7 @@ export function StudentBookingPage() {
                 patient_name: fullName.trim(),
                 patient_email: profile.email,
                 patient_phone: contactNumber.trim(),
+                booker_role: (profile.role === 'staff' ? 'staff' : 'student') as 'student' | 'staff',
             });
 
             // Send confirmation email

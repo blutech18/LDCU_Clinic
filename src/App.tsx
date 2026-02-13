@@ -34,8 +34,8 @@ function RoleBasedRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  // Students go to their booking page
-  if (profile.role === 'student') {
+  // Students and staff go to their booking page
+  if (profile.role === 'student' || profile.role === 'staff') {
     return <Navigate to="/student/booking" replace />;
   }
 

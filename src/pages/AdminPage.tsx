@@ -642,6 +642,7 @@ export function AdminPage() {
                                             >
                                                 <option value="employee">Employee</option>
                                                 <option value="student">Student</option>
+                                                <option value="staff">Staff</option>
                                                 <option value="nurse">Nurse</option>
                                                 <option value="doctor">Doctor</option>
                                                 <option value="admin">Admin</option>

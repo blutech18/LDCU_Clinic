@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'employee' | 'nurse' | 'doctor' | 'admin';
+export type UserRole = 'student' | 'staff' | 'employee' | 'nurse' | 'doctor' | 'admin';
 export type AppointmentType = 'physical_exam' | 'consultation' | 'dental';
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type UserType = 'student' | 'employee';
@@ -62,6 +62,7 @@ export interface Appointment {
   patient_name?: string;
   patient_email?: string;
   patient_phone?: string;
+  booker_role?: 'student' | 'staff';
   created_at: string;
   updated_at: string;
 }
