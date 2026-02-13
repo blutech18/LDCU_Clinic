@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { persist } from 'zustand/middleware';
 import type { ScheduleSetting, Campus, BookingSetting, Department, EmailTemplate, ScheduleConfig } from '~/types';
 import { supabase } from '~/lib/supabase';
 
@@ -19,6 +20,7 @@ interface ScheduleState {
   scheduleConfig: ScheduleConfig | null;
   selectedCampusId: string | null;
   timeSlots: TimeSlot[];
+  dayOverrides: Record<string, import('~/types').DayOverride>;
   selectedDate: Date | null;
   weekOffset: number;
   isLoading: boolean;
@@ -32,6 +34,7 @@ interface ScheduleState {
   upsertEmailTemplate: (template: Partial<EmailTemplate> & { campus_id: string; template_type: string }) => Promise<void>;
   fetchScheduleConfig: (campusId: string) => Promise<void>;
   updateScheduleConfig: (campusId: string, config: { include_saturday: boolean; include_sunday: boolean; holiday_dates: string[] }) => Promise<void>;
+  fetchDayOverrides: (campusId: string, startDate: string, endDate: string) => Promise<void>;
   setSelectedCampus: (campusId: string | null) => void;
   generateTimeSlots: (date: Date, campusId: string) => Promise<void>;
   setSelectedDate: (date: Date | null) => void;
@@ -39,260 +42,290 @@ interface ScheduleState {
 }
 
 export const useScheduleStore = create<ScheduleState>()(
-  immer((set) => ({
-    scheduleSettings: [],
-    campuses: [],
-    departments: [],
-    bookingSetting: null,
-    emailTemplates: [],
-    scheduleConfig: null,
-    selectedCampusId: null,
-    timeSlots: [],
-    selectedDate: null,
-    weekOffset: 0,
-    isLoading: false,
+  persist(
+    immer((set) => ({
+      scheduleSettings: [],
+      campuses: [],
+      departments: [],
+      bookingSetting: null,
+      emailTemplates: [],
+      scheduleConfig: null,
+      selectedCampusId: null,
+      timeSlots: [],
+      dayOverrides: {},
+      selectedDate: null,
+      weekOffset: 0,
+      isLoading: false,
 
-    fetchScheduleSettings: async (campusId) => {
-      set({ isLoading: true });
-      try {
-        let query = supabase.from('schedule_settings').select('*');
-        if (campusId) query = query.eq('campus_id', campusId);
+      fetchScheduleSettings: async (campusId) => {
+        set({ isLoading: true });
+        try {
+          let query = supabase.from('schedule_settings').select('*');
+          if (campusId) query = query.eq('campus_id', campusId);
 
-        const { data, error } = await query.order('day_of_week');
-        if (error) throw error;
+          const { data, error } = await query.order('day_of_week');
+          if (error) throw error;
 
-        set({ scheduleSettings: data || [], isLoading: false });
-      } catch (error) {
-        console.error('Error fetching schedule settings:', error);
-        set({ isLoading: false });
-        throw error;
-      }
-    },
+          set({ scheduleSettings: data || [], isLoading: false });
+        } catch (error) {
+          console.error('Error fetching schedule settings:', error);
+          set({ isLoading: false });
+          throw error;
+        }
+      },
 
-    fetchCampuses: async () => {
-      try {
-        const { data, error } = await supabase.from('campuses').select('*').order('name');
-        if (error) throw error;
+      fetchCampuses: async () => {
+        try {
+          const { data, error } = await supabase.from('campuses').select('*').order('name');
+          if (error) throw error;
 
-        set({ campuses: data || [] });
-      } catch (error) {
-        console.error('Error fetching campuses:', error);
-      }
-    },
+          set({ campuses: data || [] });
+        } catch (error) {
+          console.error('Error fetching campuses:', error);
+        }
+      },
 
-    fetchDepartments: async (campusId) => {
-      try {
-        let query = supabase.from('departments').select('*').order('name');
-        if (campusId) query = query.eq('campus_id', campusId);
-        const { data, error } = await query;
-        if (error) throw error;
-        set({ departments: data || [] });
-      } catch (error) {
-        console.error('Error fetching departments:', error);
-      }
-    },
+      fetchDepartments: async (campusId) => {
+        try {
+          let query = supabase.from('departments').select('*').order('name');
+          if (campusId) query = query.eq('campus_id', campusId);
+          const { data, error } = await query;
+          if (error) throw error;
+          set({ departments: data || [] });
+        } catch (error) {
+          console.error('Error fetching departments:', error);
+        }
+      },
 
-    fetchBookingSetting: async (campusId) => {
-      try {
-        const { data, error } = await supabase
-          .from('booking_settings')
-          .select('*')
-          .eq('campus_id', campusId)
-          .single();
-
-        if (error && error.code !== 'PGRST116') throw error;
-        set({ bookingSetting: data || null });
-      } catch (error) {
-        console.error('Error fetching booking setting:', error);
-        set({ bookingSetting: null });
-      }
-    },
-
-    updateBookingSetting: async (campusId, maxPerDay) => {
-      try {
-        const { data: existing } = await supabase
-          .from('booking_settings')
-          .select('id')
-          .eq('campus_id', campusId)
-          .single();
-
-        if (existing) {
-          const { error } = await supabase
+      fetchBookingSetting: async (campusId) => {
+        try {
+          const { data, error } = await supabase
             .from('booking_settings')
-            .update({ max_bookings_per_day: maxPerDay, updated_at: new Date().toISOString() })
-            .eq('id', existing.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
+            .select('*')
+            .eq('campus_id', campusId)
+            .single();
+
+          if (error && error.code !== 'PGRST116') throw error;
+          set({ bookingSetting: data || null });
+        } catch (error) {
+          console.error('Error fetching booking setting:', error);
+          set({ bookingSetting: null });
+        }
+      },
+
+      updateBookingSetting: async (campusId, maxPerDay) => {
+        try {
+          const { data: existing } = await supabase
             .from('booking_settings')
-            .insert({ campus_id: campusId, max_bookings_per_day: maxPerDay });
-          if (error) throw error;
+            .select('id')
+            .eq('campus_id', campusId)
+            .single();
+
+          if (existing) {
+            const { error } = await supabase
+              .from('booking_settings')
+              .update({ max_bookings_per_day: maxPerDay, updated_at: new Date().toISOString() })
+              .eq('id', existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('booking_settings')
+              .insert({ campus_id: campusId, max_bookings_per_day: maxPerDay });
+            if (error) throw error;
+          }
+
+          set({ bookingSetting: { campus_id: campusId, max_bookings_per_day: maxPerDay } as BookingSetting });
+        } catch (error) {
+          console.error('Error updating booking setting:', error);
+          throw error;
         }
+      },
 
-        set({ bookingSetting: { campus_id: campusId, max_bookings_per_day: maxPerDay } as BookingSetting });
-      } catch (error) {
-        console.error('Error updating booking setting:', error);
-        throw error;
-      }
-    },
-
-    fetchEmailTemplates: async (campusId) => {
-      try {
-        const { data, error } = await supabase
-          .from('email_templates')
-          .select('*')
-          .eq('campus_id', campusId);
-
-        if (error && error.code !== 'PGRST116') throw error;
-        set({ emailTemplates: data || [] });
-      } catch (error) {
-        console.error('Error fetching email templates:', error);
-        set({ emailTemplates: [] });
-      }
-    },
-
-    upsertEmailTemplate: async (template) => {
-      try {
-        const { data: existing } = await supabase
-          .from('email_templates')
-          .select('id')
-          .eq('campus_id', template.campus_id)
-          .eq('template_type', template.template_type)
-          .single();
-
-        if (existing) {
-          const { error } = await supabase
+      fetchEmailTemplates: async (campusId) => {
+        try {
+          const { data, error } = await supabase
             .from('email_templates')
-            .update({ subject: template.subject, body: template.body, updated_at: new Date().toISOString() })
-            .eq('id', existing.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
+            .select('*')
+            .eq('campus_id', campusId);
+
+          if (error && error.code !== 'PGRST116') throw error;
+          set({ emailTemplates: data || [] });
+        } catch (error) {
+          console.error('Error fetching email templates:', error);
+          set({ emailTemplates: [] });
+        }
+      },
+
+      upsertEmailTemplate: async (template) => {
+        try {
+          const { data: existing } = await supabase
             .from('email_templates')
-            .insert(template);
-          if (error) throw error;
+            .select('id')
+            .eq('campus_id', template.campus_id)
+            .eq('template_type', template.template_type)
+            .single();
+
+          if (existing) {
+            const { error } = await supabase
+              .from('email_templates')
+              .update({ subject: template.subject, body: template.body, updated_at: new Date().toISOString() })
+              .eq('id', existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('email_templates')
+              .insert(template);
+            if (error) throw error;
+          }
+
+          // Refresh templates
+          const { data } = await supabase
+            .from('email_templates')
+            .select('*')
+            .eq('campus_id', template.campus_id);
+          set({ emailTemplates: data || [] });
+        } catch (error) {
+          console.error('Error upserting email template:', error);
+          throw error;
         }
+      },
 
-        // Refresh templates
-        const { data } = await supabase
-          .from('email_templates')
-          .select('*')
-          .eq('campus_id', template.campus_id);
-        set({ emailTemplates: data || [] });
-      } catch (error) {
-        console.error('Error upserting email template:', error);
-        throw error;
-      }
-    },
-
-    fetchScheduleConfig: async (campusId) => {
-      try {
-        const { data, error } = await supabase
-          .from('schedule_config')
-          .select('*')
-          .eq('campus_id', campusId)
-          .single();
-
-        if (error && error.code !== 'PGRST116') throw error;
-        set({ scheduleConfig: data || null });
-      } catch (error) {
-        console.error('Error fetching schedule config:', error);
-        set({ scheduleConfig: null });
-      }
-    },
-
-    updateScheduleConfig: async (campusId, config) => {
-      try {
-        const { data: existing } = await supabase
-          .from('schedule_config')
-          .select('id')
-          .eq('campus_id', campusId)
-          .single();
-
-        if (existing) {
-          const { error } = await supabase
+      fetchScheduleConfig: async (campusId) => {
+        try {
+          const { data, error } = await supabase
             .from('schedule_config')
-            .update({ ...config, updated_at: new Date().toISOString() })
-            .eq('id', existing.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
+            .select('*')
+            .eq('campus_id', campusId)
+            .single();
+
+          if (error && error.code !== 'PGRST116') throw error;
+          set({ scheduleConfig: data || null });
+        } catch (error) {
+          console.error('Error fetching schedule config:', error);
+          set({ scheduleConfig: null });
+        }
+      },
+
+      updateScheduleConfig: async (campusId, config) => {
+        try {
+          const { data: existing } = await supabase
             .from('schedule_config')
-            .insert({ campus_id: campusId, ...config });
+            .select('id')
+            .eq('campus_id', campusId)
+            .single();
+
+          if (existing) {
+            const { error } = await supabase
+              .from('schedule_config')
+              .update({ ...config, updated_at: new Date().toISOString() })
+              .eq('id', existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('schedule_config')
+              .insert({ campus_id: campusId, ...config });
+            if (error) throw error;
+          }
+
+          set({ scheduleConfig: { campus_id: campusId, ...config } as ScheduleConfig });
+        } catch (error) {
+          console.error('Error updating schedule config:', error);
+          throw error;
+        }
+      },
+
+      fetchDayOverrides: async (campusId, startDate, endDate) => {
+        try {
+          const { data, error } = await supabase
+            .from('day_overrides')
+            .select('*')
+            .eq('campus_id', campusId)
+            .gte('override_date', startDate)
+            .lte('override_date', endDate);
+
           if (error) throw error;
-        }
 
-        set({ scheduleConfig: { campus_id: campusId, ...config } as ScheduleConfig });
-      } catch (error) {
-        console.error('Error updating schedule config:', error);
-        throw error;
-      }
-    },
-
-    setSelectedCampus: (campusId) => {
-      set({ selectedCampusId: campusId });
-    },
-
-    generateTimeSlots: async (date, campusId) => {
-      set({ isLoading: true });
-      try {
-        const dayOfWeek = date.getDay();
-
-        const { data: settings } = await supabase
-          .from('schedule_settings')
-          .select('*')
-          .eq('campus_id', campusId)
-          .eq('day_of_week', dayOfWeek)
-          .eq('is_active', true)
-          .single();
-
-        if (!settings) {
-          set({ timeSlots: [], isLoading: false });
-          return;
-        }
-
-        const slots: TimeSlot[] = [];
-        const slotDuration = settings.slot_duration;
-        const [startHour, startMin] = settings.start_time.split(':').map(Number);
-        const [endHour, endMin] = settings.end_time.split(':').map(Number);
-
-        let currentMinutes = startHour * 60 + startMin;
-        const endMinutes = endHour * 60 + endMin;
-
-        while (currentMinutes < endMinutes) {
-          const startTime = `${Math.floor(currentMinutes / 60)
-            .toString()
-            .padStart(2, '0')}:${(currentMinutes % 60).toString().padStart(2, '0')}`;
-          const endTime = `${Math.floor((currentMinutes + slotDuration) / 60)
-            .toString()
-            .padStart(2, '0')}:${((currentMinutes + slotDuration) % 60)
-              .toString()
-              .padStart(2, '0')}`;
-
-          slots.push({
-            date: date.toISOString().split('T')[0],
-            startTime,
-            endTime,
-            isAvailable: true,
+          const overridesMap: Record<string, import('~/types').DayOverride> = {};
+          (data || []).forEach((override) => {
+            overridesMap[override.override_date] = override;
           });
 
-          currentMinutes += slotDuration;
+          set({ dayOverrides: overridesMap });
+        } catch (error) {
+          console.error('Error fetching day overrides:', error);
+          set({ dayOverrides: {} });
         }
+      },
 
-        set({ timeSlots: slots, isLoading: false });
-      } catch (error) {
-        console.error('Error generating time slots:', error);
-        set({ isLoading: false });
-        throw error;
-      }
-    },
+      setSelectedCampus: (campusId) => {
+        set({ selectedCampusId: campusId });
+      },
 
-    setSelectedDate: (date) => {
-      set({ selectedDate: date });
-    },
+      generateTimeSlots: async (date, campusId) => {
+        set({ isLoading: true });
+        try {
+          const dayOfWeek = date.getDay();
 
-    setWeekOffset: (offset) => {
-      set({ weekOffset: offset });
-    },
-  }))
+          const { data: settings } = await supabase
+            .from('schedule_settings')
+            .select('*')
+            .eq('campus_id', campusId)
+            .eq('day_of_week', dayOfWeek)
+            .eq('is_active', true)
+            .single();
+
+          if (!settings) {
+            set({ timeSlots: [], isLoading: false });
+            return;
+          }
+
+          const slots: TimeSlot[] = [];
+          const slotDuration = settings.slot_duration;
+          const [startHour, startMin] = settings.start_time.split(':').map(Number);
+          const [endHour, endMin] = settings.end_time.split(':').map(Number);
+
+          let currentMinutes = startHour * 60 + startMin;
+          const endMinutes = endHour * 60 + endMin;
+
+          while (currentMinutes < endMinutes) {
+            const startTime = `${Math.floor(currentMinutes / 60)
+              .toString()
+              .padStart(2, '0')}:${(currentMinutes % 60).toString().padStart(2, '0')}`;
+            const endTime = `${Math.floor((currentMinutes + slotDuration) / 60)
+              .toString()
+              .padStart(2, '0')}:${((currentMinutes + slotDuration) % 60)
+                .toString()
+                .padStart(2, '0')}`;
+
+            slots.push({
+              date: date.toISOString().split('T')[0],
+              startTime,
+              endTime,
+              isAvailable: true,
+            });
+
+            currentMinutes += slotDuration;
+          }
+
+          set({ timeSlots: slots, isLoading: false });
+        } catch (error) {
+          console.error('Error generating time slots:', error);
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      setSelectedDate: (date) => {
+        set({ selectedDate: date });
+      },
+
+      setWeekOffset: (offset) => {
+        set({ weekOffset: offset });
+      },
+    })),
+    {
+      name: 'schedule-storage',
+      partialize: (state) => ({ selectedCampusId: state.selectedCampusId }),
+    }
+  )
 );

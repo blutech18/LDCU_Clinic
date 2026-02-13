@@ -33,7 +33,7 @@ const APPOINTMENT_TYPES = [
 export function StudentBookingPage() {
     const { profile, logout } = useAuthStore();
     const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, createAppointment, isLoading, isSaving } = useAppointmentStore();
-    const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting, scheduleConfig, fetchScheduleConfig } = useScheduleStore();
+    const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting, scheduleConfig, fetchScheduleConfig, dayOverrides, fetchDayOverrides } = useScheduleStore();
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -85,7 +85,10 @@ export function StudentBookingPage() {
             dateRange: { start: startStr, end: endStr },
         });
         fetchBookingCounts(startStr, endStr, selectedCampus || undefined);
-    }, [currentMonth, fetchAppointments, fetchBookingCounts, selectedCampus]);
+        if (selectedCampus) {
+            fetchDayOverrides(selectedCampus, startStr, endStr);
+        }
+    }, [currentMonth, fetchAppointments, fetchBookingCounts, fetchDayOverrides, selectedCampus]);
 
     // Set default campus and fetch related data
     useEffect(() => {
@@ -115,7 +118,14 @@ export function StudentBookingPage() {
         }
     }, [profile]);
 
-    const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
+    const globalMaxBookings = bookingSetting?.max_bookings_per_day || 50;
+
+    // Get effective max bookings for a specific date
+    const getMaxForDate = (dateStr: string) => {
+        const override = dayOverrides[dateStr];
+        if (override) return override.is_closed ? 0 : override.max_bookings;
+        return globalMaxBookings;
+    };
 
     // Get user's appointments
     const myAppointments = useMemo(() => {
@@ -152,7 +162,11 @@ export function StudentBookingPage() {
 
     // Check if date is full
     const isDateFull = (date: Date) => {
-        return getBookingCount(date) >= maxBookingsPerDay;
+        const dateStr = formatLocalDate(date);
+        const max = getMaxForDate(dateStr);
+        // If max is 0 (closed via override), it is effectively full/closed
+        if (max === 0) return true;
+        return getBookingCount(date) >= max;
     };
 
     // Check if date is a holiday
@@ -161,11 +175,16 @@ export function StudentBookingPage() {
         return (scheduleConfig?.holiday_dates || []).includes(dateStr);
     };
 
-    // Check if date is bookable (not in past, respects schedule config, not full, not holiday)
+    // Check if date is bookable (not in past, respects schedule config, not full, not holiday, not closed via override)
     const isDateBookable = (date: Date) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (isBefore(date, today)) return false;
+
+        const dateStr = formatLocalDate(date);
+        const override = dayOverrides[dateStr];
+        if (override?.is_closed) return false;
+
         if (isDateFull(date)) return false;
         if (isHoliday(date)) return false;
 
@@ -205,7 +224,8 @@ export function StudentBookingPage() {
         // Check booking limit again before submitting
         const dateStr = formatLocalDate(selectedDate);
         const currentCount = bookingCounts[dateStr] || 0;
-        if (currentCount >= maxBookingsPerDay) {
+        const max = getMaxForDate(dateStr);
+        if (currentCount >= max) {
             setBookingError('This date is fully booked. Please select another date.');
             return;
         }
@@ -252,6 +272,9 @@ export function StudentBookingPage() {
                 dateRange: { start: startStr, end: endStr },
             });
             await fetchBookingCounts(startStr, endStr, selectedCampus || undefined);
+            if (selectedCampus) {
+                await fetchDayOverrides(selectedCampus, startStr, endStr);
+            }
 
             // Close modal after delay
             setTimeout(() => {
@@ -337,18 +360,24 @@ export function StudentBookingPage() {
                                         className="absolute inset-0 grid grid-cols-7 auto-rows-fr"
                                     >
                                         {calendarDays.map((day, idx) => {
+                                            const dateStr = formatLocalDate(day);
                                             const dateAppointments = getDateAppointments(day);
                                             const hasAppointment = dateAppointments.length > 0;
                                             const bookable = isDateBookable(day);
                                             const isCurrentMonth = isSameMonth(day, currentMonth);
                                             const count = getBookingCount(day);
                                             const full = isDateFull(day);
+
+                                            const override = dayOverrides[dateStr];
+                                            const isClosedOverride = override?.is_closed;
+                                            const effectiveMax = getMaxForDate(dateStr);
+
                                             const dow = day.getDay();
                                             const isSat = dow === 6;
                                             const isSun = dow === 0;
                                             const isOffDay = (isSun && !scheduleConfig?.include_sunday) || (isSat && !scheduleConfig?.include_saturday);
                                             const holiday = isHoliday(day);
-                                            const isActiveDay = !isOffDay && !holiday;
+                                            const isActiveDay = !isOffDay && !holiday && !isClosedOverride;
                                             const today = new Date();
                                             today.setHours(0, 0, 0, 0);
                                             const isPast = isBefore(day, today);
@@ -362,7 +391,7 @@ export function StudentBookingPage() {
                                                         flex flex-col items-center justify-center p-1 border-b border-r border-gray-100
                                                         transition-all duration-200 cursor-pointer
                                                         ${!isCurrentMonth ? 'text-gray-300' : ''}
-                                                        ${isOffDay ? 'bg-gray-50' : holiday && isCurrentMonth ? 'bg-orange-50' : 'bg-white'}
+                                                        ${isOffDay || isClosedOverride ? 'bg-gray-50' : holiday && isCurrentMonth ? 'bg-orange-50' : 'bg-white'}
                                                         ${full && isCurrentMonth && isActiveDay && !isPast ? 'bg-red-50' : ''}
                                                         ${!bookable || !isCurrentMonth ? 'cursor-not-allowed' : 'hover:bg-maroon-50'}
                                                     `}
@@ -373,15 +402,15 @@ export function StudentBookingPage() {
                                                             text-sm sm:text-lg font-medium
                                                             ${isToday(day) ? 'bg-maroon-800 text-white' : ''}
                                                             ${!isCurrentMonth ? 'text-gray-300' : ''}
-                                                            ${holiday && isCurrentMonth && !isToday(day) ? 'text-orange-400 line-through' : ''}
+                                                            ${(holiday || isClosedOverride) && isCurrentMonth && !isToday(day) ? 'text-gray-400 line-through' : ''}
                                                             ${hasAppointment && !isToday(day) && isCurrentMonth ? 'ring-2 ring-maroon-300' : ''}
                                                         `}
                                                     >
                                                         {format(day, 'd')}
                                                     </span>
                                                     {isCurrentMonth && isActiveDay && !isPast && (
-                                                        <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
-                                                            {count}/{maxBookingsPerDay}
+                                                        <span className={`mt-0.5 text-[10px] font-medium no-underline ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                                                            {count}/{effectiveMax}
                                                         </span>
                                                     )}
                                                     {hasAppointment && isCurrentMonth && (
@@ -495,7 +524,7 @@ export function StudentBookingPage() {
                                     </h3>
                                     <p className="text-sm text-maroon-200 flex items-center gap-1 mt-0.5">
                                         <Users className="w-3.5 h-3.5" />
-                                        {getBookingCount(selectedDate)} / {maxBookingsPerDay} booked
+                                        {getBookingCount(selectedDate)} / {getMaxForDate(formatLocalDate(selectedDate))} booked
                                     </p>
                                 </div>
                                 <button onClick={closeModal} className="p-1 hover:bg-maroon-800 rounded transition-colors">

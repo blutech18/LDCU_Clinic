@@ -118,3 +118,13 @@ export interface EmailTemplate {
   created_at: string;
   updated_at: string;
 }
+
+export interface DayOverride {
+  id: string;
+  campus_id: string;
+  override_date: string;
+  is_closed: boolean;
+  max_bookings: number;
+  notes?: string;
+  created_at: string;
+}

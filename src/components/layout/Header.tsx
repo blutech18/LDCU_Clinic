@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, Menu, X, Calendar, User, History, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useAuthStore } from '~/modules/auth';
@@ -7,8 +7,12 @@ import { LogoutModal } from '~/components/modals/LogoutModal';
 
 export function Header() {
   const { profile, logout } = useAuthStore();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  // Hide navigation links on the landing page
+  const showNavigation = location.pathname !== '/';
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Calendar },
@@ -40,21 +44,23 @@ export function Header() {
 
             {profile && (
               <>
-                <nav className="hidden md:flex items-center space-x-4">
-                  {navigation.map((item) => (
-                    <NavLink
-                      key={item.name}
-                      to={item.href}
-                      className={({ isActive }) =>
-                        `flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-maroon-700 scale-105' : 'hover:bg-maroon-700 hover:scale-105'
-                        }`
-                      }
-                    >
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.name}</span>
-                    </NavLink>
-                  ))}
-                </nav>
+                {showNavigation && (
+                  <nav className="hidden md:flex items-center space-x-4">
+                    {navigation.map((item) => (
+                      <NavLink
+                        key={item.name}
+                        to={item.href}
+                        className={({ isActive }) =>
+                          `flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-maroon-700 scale-105' : 'hover:bg-maroon-700 hover:scale-105'
+                          }`
+                        }
+                      >
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.name}</span>
+                      </NavLink>
+                    ))}
+                  </nav>
+                )}
 
                 <div className="hidden md:flex items-center space-x-4">
                   <div className="flex items-center space-x-2 animate-fade-in">
@@ -96,7 +102,7 @@ export function Header() {
           {mobileMenuOpen && profile && (
             <div className="md:hidden py-4 border-t border-maroon-700 animate-slide-in">
               <nav className="flex flex-col space-y-2">
-                {navigation.map((item) => (
+                {showNavigation && navigation.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}

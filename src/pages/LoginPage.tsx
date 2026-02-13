@@ -15,8 +15,9 @@ export function LoginPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [direction, setDirection] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [selectedCampusId, setSelectedCampusId] = useState<string | null>(null);
   const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts } = useAppointmentStore();
-  const { scheduleConfig, fetchScheduleConfig, fetchBookingSetting, bookingSetting, campuses, fetchCampuses } = useScheduleStore();
+  const { scheduleConfig, fetchScheduleConfig, fetchBookingSetting, bookingSetting, campuses, fetchCampuses, dayOverrides, fetchDayOverrides } = useScheduleStore();
   const { loginWithGoogle } = useAuthStore();
 
   const today = new Date();
@@ -26,28 +27,40 @@ export function LoginPage() {
     fetchCampuses();
   }, [fetchCampuses]);
 
+  // Set default campus
+  useEffect(() => {
+    if (campuses.length > 0 && !selectedCampusId) {
+      setSelectedCampusId(campuses[0].id);
+    }
+  }, [campuses, selectedCampusId]);
+
   // Fetch appointments and booking counts for current month
   useEffect(() => {
+    if (!selectedCampusId) return;
+
     const start = startOfMonth(subMonths(currentMonth, 1));
     const end = endOfMonth(addMonths(currentMonth, 1));
     const startStr = formatLocalDate(start);
     const endStr = formatLocalDate(end);
+
     fetchAppointments({
       dateRange: { start: startStr, end: endStr },
+      campusId: selectedCampusId
     });
-    fetchBookingCounts(startStr, endStr);
-  }, [currentMonth, fetchAppointments, fetchBookingCounts]);
+    fetchBookingCounts(startStr, endStr, selectedCampusId);
+    fetchDayOverrides(selectedCampusId, startStr, endStr);
+    fetchScheduleConfig(selectedCampusId);
+    fetchBookingSetting(selectedCampusId);
+  }, [currentMonth, selectedCampusId, fetchAppointments, fetchBookingCounts, fetchDayOverrides, fetchScheduleConfig, fetchBookingSetting]);
 
-  // Fetch schedule config and booking settings for first campus
-  useEffect(() => {
-    if (campuses.length > 0) {
-      const campusId = campuses[0].id;
-      fetchScheduleConfig(campusId);
-      fetchBookingSetting(campusId);
-    }
-  }, [campuses, fetchScheduleConfig, fetchBookingSetting]);
+  const globalMaxBookings = bookingSetting?.max_bookings_per_day || 50;
 
-  const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
+  // Get effective max bookings for a specific date
+  const getMaxForDate = (dateStr: string) => {
+    const override = dayOverrides[dateStr];
+    if (override) return override.is_closed ? 0 : override.max_bookings;
+    return globalMaxBookings;
+  };
 
   // Generate calendar days (matching student page)
   const calendarDays = useMemo(() => {
@@ -108,7 +121,11 @@ export function LoginPage() {
 
   // Check if date is full
   const isDateFull = (date: Date) => {
-    return getBookingCount(date) >= maxBookingsPerDay;
+    const dateStr = formatLocalDate(date);
+    const max = getMaxForDate(dateStr);
+    // If max is 0 (closed via override), it is effectively full/closed
+    if (max === 0) return true;
+    return getBookingCount(date) >= max;
   };
 
   // Check if date is a holiday
@@ -139,10 +156,29 @@ export function LoginPage() {
       <Header />
       <main className="flex-1 flex flex-col">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-6">
-          {/* Title */}
-          <div className="mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Clinic Calendar</h1>
-            <p className="text-gray-600 text-sm mt-1">View appointments and sign in to book</p>
+
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Clinic Calendar</h1>
+              <p className="text-gray-600 text-sm mt-1">View appointments and sign in to book</p>
+            </div>
+
+            {/* Campus Buttons */}
+            <div className="flex flex-wrap gap-2">
+              {campuses.map(campus => (
+                <button
+                  key={campus.id}
+                  onClick={() => setSelectedCampusId(campus.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
+                    ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                    }`}
+                >
+                  {campus.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Calendar Card */}
@@ -193,16 +229,22 @@ export function LoginPage() {
                   className="absolute inset-0 grid grid-cols-7 auto-rows-fr"
                 >
                   {calendarDays.map((day, index) => {
+                    const dateStr = formatLocalDate(day);
                     const isToday = isSameDay(day, today);
                     const isCurrentMonth = isSameMonth(day, currentMonth);
                     const count = getBookingCount(day);
                     const full = isDateFull(day);
                     const holiday = isHoliday(day);
+
+                    const override = dayOverrides[dateStr];
+                    const isClosedOverride = override?.is_closed;
+                    const effectiveMax = getMaxForDate(dateStr);
+
                     const dow = day.getDay();
                     const isSat = dow === 6;
                     const isSun = dow === 0;
                     const isOffDay = (isSun && !scheduleConfig?.include_sunday) || (isSat && !scheduleConfig?.include_saturday);
-                    const isActiveDay = !isOffDay && !holiday;
+                    const isActiveDay = !isOffDay && !holiday && !isClosedOverride;
                     const isPast = isBefore(day, today);
 
                     return (
@@ -213,7 +255,7 @@ export function LoginPage() {
                           flex flex-col items-center justify-center p-1 border-b border-r border-gray-100
                           transition-all duration-200 cursor-pointer
                           ${!isCurrentMonth ? 'text-gray-300' : ''}
-                          ${isOffDay ? 'bg-gray-50' : holiday && isCurrentMonth ? 'bg-orange-50' : 'bg-white'}
+                          ${isOffDay || isClosedOverride ? 'bg-gray-50' : holiday && isCurrentMonth ? 'bg-orange-50' : 'bg-white'}
                           ${full && isCurrentMonth && isActiveDay && !isPast ? 'bg-red-50' : ''}
                           ${isCurrentMonth ? 'hover:bg-maroon-50' : ''}
                         `}
@@ -224,14 +266,14 @@ export function LoginPage() {
                             text-sm sm:text-lg font-medium
                             ${isToday ? 'bg-maroon-800 text-white' : ''}
                             ${!isCurrentMonth ? 'text-gray-300' : ''}
-                            ${holiday && isCurrentMonth && !isToday ? 'text-orange-400 line-through' : ''}
+                            ${(holiday || isClosedOverride) && isCurrentMonth && !isToday ? 'text-gray-400 line-through' : ''}
                           `}
                         >
                           {format(day, 'd')}
                         </span>
                         {isCurrentMonth && isActiveDay && !isPast && (
-                          <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
-                            {count}/{maxBookingsPerDay}
+                          <span className={`mt-0.5 text-[10px] font-medium no-underline ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                            {count}/{effectiveMax}
                           </span>
                         )}
                       </button>
