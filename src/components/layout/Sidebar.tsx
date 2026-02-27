@@ -12,7 +12,7 @@ interface SidebarProps {
 
 // Define menu items closer to valid icons for the app's context
 const menuItems = [
-    { path: '/dashboard', icon: FaHome, label: 'Dashboard' },
+    { path: '/employee/dashboard', icon: FaHome, label: 'Dashboard' },
     { path: '/schedule', icon: FaCalendarAlt, label: 'Schedule' },
     { path: '/appointments', icon: FaHistory, label: 'Appointments' },
     { path: '/profile', icon: FaUser, label: 'Profile' },
@@ -40,7 +40,7 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
         desktop: {
             x: 0,
             width: isOpen ? 260 : 72,
-            transition: { duration: 0.3 }
+            transition: { duration: 0.3, ease: 'easeInOut' as const }
         }
     };
 
@@ -88,7 +88,7 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
                 </nav>
 
                 {/* Footer - Logout */}
-                <div className="absolute bottom-0 left-0 right-0 px-3 py-4 border-t border-maroon-800 bg-maroon-900">
+                <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-maroon-900">
                     <button
                         onClick={() => setIsLogoutModalOpen(true)}
                         className="flex items-center h-12 w-full rounded-lg transition-colors duration-200 text-maroon-100 hover:bg-maroon-800 hover:text-white"

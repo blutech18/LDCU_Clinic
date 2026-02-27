@@ -30,10 +30,10 @@ export function AdminRoute({ children }: AdminRouteProps) {
 
     if (isLoading || !isInitialized || isVerifying) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="flex-1 flex items-center justify-center py-16">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading...</p>
+                    <p className="text-gray-600">Verifying access...</p>
                 </div>
             </div>
         );
@@ -44,7 +44,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
     }
 
     if (!roleValid || profile.role !== 'admin') {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/employee/dashboard" replace />;
     }
 
     return <>{children}</>;

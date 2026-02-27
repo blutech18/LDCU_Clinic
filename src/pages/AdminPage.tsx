@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Users, Check, X, Search, Settings, Save, Mail, CalendarDays, Plus, Trash2 } from 'lucide-react';
-import { SidebarLayout } from '~/components/layout';
-import { supabase } from '~/lib/supabase';
 import { useScheduleStore } from '~/modules/schedule';
-import type { Profile } from '~/types';
+import { useAdminStore } from '~/modules/admin';
 
 export function AdminPage() {
-    const [users, setUsers] = useState<Profile[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { users, isLoadingUsers: isLoading, fetchUsers, verifyUser, changeRole } = useAdminStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'templates' | 'schedule'>('users');
@@ -35,7 +32,7 @@ export function AdminPage() {
     useEffect(() => {
         fetchUsers();
         fetchCampuses();
-    }, [fetchCampuses]);
+    }, [fetchUsers, fetchCampuses]);
 
     useEffect(() => {
         if (campuses.length > 0 && !selectedSettingsCampus) {
@@ -142,61 +139,6 @@ export function AdminPage() {
         }
     };
 
-    const fetchUsers = async () => {
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setUsers(data || []);
-        } catch (error) {
-            console.error('Failed to fetch users:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleVerify = async (userId: string, verified: boolean) => {
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ is_verified: verified })
-                .eq('id', userId);
-
-            if (error) throw error;
-
-            setUsers((prev) =>
-                prev.map((user) =>
-                    user.id === userId ? { ...user, is_verified: verified } : user
-                )
-            );
-        } catch (error) {
-            console.error('Failed to update verification status:', error);
-        }
-    };
-
-    const handleRoleChange = async (userId: string, role: string) => {
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ role })
-                .eq('id', userId);
-
-            if (error) throw error;
-
-            setUsers((prev) =>
-                prev.map((user) =>
-                    user.id === userId ? { ...user, role: role as Profile['role'] } : user
-                )
-            );
-        } catch (error) {
-            console.error('Failed to update role:', error);
-        }
-    };
-
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
             !searchTerm ||
@@ -215,7 +157,7 @@ export function AdminPage() {
     const pendingCount = users.filter((u) => !u.is_verified).length;
 
     return (
-        <SidebarLayout>
+        <>
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
@@ -637,7 +579,7 @@ export function AdminPage() {
                                         <td className="px-4 py-4">
                                             <select
                                                 value={user.role}
-                                                onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                onChange={(e) => changeRole(user.id, e.target.value)}
                                                 className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                                             >
                                                 <option value="employee">Employee</option>
@@ -661,7 +603,7 @@ export function AdminPage() {
                                         <td className="px-4 py-4">
                                             {!user.is_verified ? (
                                                 <button
-                                                    onClick={() => handleVerify(user.id, true)}
+                                                    onClick={() => verifyUser(user.id, true)}
                                                     className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded text-sm font-medium hover:bg-green-200 transition-colors"
                                                 >
                                                     <Check className="w-4 h-4" />
@@ -669,7 +611,7 @@ export function AdminPage() {
                                                 </button>
                                             ) : (
                                                 <button
-                                                    onClick={() => handleVerify(user.id, false)}
+                                                    onClick={() => verifyUser(user.id, false)}
                                                     className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium hover:bg-red-200 transition-colors"
                                                 >
                                                     <X className="w-4 h-4" />
@@ -686,6 +628,6 @@ export function AdminPage() {
             </div>
             </>
             )}
-        </SidebarLayout>
+        </>
     );
 }

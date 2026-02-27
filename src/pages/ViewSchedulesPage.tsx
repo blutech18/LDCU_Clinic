@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { Header, Footer } from '~/components/layout';
-import { supabase } from '~/lib/supabase';
+import { useScheduleStore } from '~/modules/schedule';
+import { useAppointmentStore } from '~/modules/appointments';
 import { formatLocalDate, getWeekBounds } from '~/lib/utils';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
-import type { Appointment, Campus } from '~/types';
 
 const TIME_SLOTS = [
     { start: '08:00', end: '10:00', label: '8:00 AM - 10:00 AM' },
@@ -16,46 +16,30 @@ const TIME_SLOTS = [
 
 export function ViewSchedulesPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [campuses, setCampuses] = useState<Campus[]>([]);
-    const [selectedCampusId, setSelectedCampusId] = useState<string>('');
-    const [isLoading, setIsLoading] = useState(true);
 
+    const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus } = useScheduleStore();
+    const { appointments, fetchAppointments, isLoading } = useAppointmentStore();
+
+    // Bootstrap campuses and default campus selection
     useEffect(() => {
-        const fetchCampuses = async () => {
-            const { data } = await supabase.from('campuses').select('*').order('name');
-            if (data) {
-                setCampuses(data);
-                if (data.length > 0) setSelectedCampusId(data[0].id);
-            }
-        };
         fetchCampuses();
-    }, []);
+    }, [fetchCampuses]);
 
     useEffect(() => {
-        const fetchAppointments = async () => {
-            if (!selectedCampusId) return;
+        if (campuses.length > 0 && !selectedCampusId) {
+            setSelectedCampus(campuses[0].id);
+        }
+    }, [campuses, selectedCampusId, setSelectedCampus]);
 
-            setIsLoading(true);
-            const { start, end } = getWeekBounds(currentDate);
-
-            const { data, error } = await supabase
-                .from('appointments')
-                .select('*')
-                .eq('campus_id', selectedCampusId)
-                .gte('appointment_date', formatLocalDate(start))
-                .lte('appointment_date', formatLocalDate(end))
-                .order('appointment_date')
-                .order('start_time');
-
-            if (!error && data) {
-                setAppointments(data);
-            }
-            setIsLoading(false);
-        };
-
-        fetchAppointments();
-    }, [currentDate, selectedCampusId]);
+    // Fetch appointments for the current week whenever campus or week changes
+    useEffect(() => {
+        if (!selectedCampusId) return;
+        const { start, end } = getWeekBounds(currentDate);
+        fetchAppointments({
+            campusId: selectedCampusId,
+            dateRange: { start: formatLocalDate(start), end: formatLocalDate(end) },
+        });
+    }, [currentDate, selectedCampusId, fetchAppointments]);
 
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
@@ -97,8 +81,8 @@ export function ViewSchedulesPage() {
                     <div className="bg-white rounded-xl shadow-md p-4 mb-6">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Select Campus</label>
                         <select
-                            value={selectedCampusId}
-                            onChange={(e) => setSelectedCampusId(e.target.value)}
+                            value={selectedCampusId ?? ''}
+                            onChange={(e) => setSelectedCampus(e.target.value)}
                             className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                         >
                             {campuses.map((campus) => (

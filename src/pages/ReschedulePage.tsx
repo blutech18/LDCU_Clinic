@@ -13,7 +13,6 @@ import {
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, RefreshCw, AlertCircle, Check, Users, Save, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SidebarLayout } from '~/components/layout';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatLocalDate } from '~/lib/utils';
@@ -279,7 +278,7 @@ export function ReschedulePage() {
     }, [manualTargetDates]);
 
     return (
-        <SidebarLayout>
+        <>
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Reschedule Appointments</h1>
                 <p className="text-gray-600">Select a date to manage and reschedule appointments</p>
@@ -651,6 +650,6 @@ export function ReschedulePage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </SidebarLayout>
+        </>
     );
 }

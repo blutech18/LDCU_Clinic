@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, FileText } from 'lucide-react';
-import { SidebarLayout } from '~/components/layout';
+import { Calendar, Clock, FileText, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '~/modules/auth';
 import { useAppointmentStore } from '~/modules/appointments';
 import { formatDate, formatTime, formatLocalDate } from '~/lib/utils';
@@ -32,6 +31,12 @@ export function DashboardPage() {
     completed: appointments.filter((a) => a.status === 'completed').length,
   };
 
+  // Appointments that are past their date but still "scheduled" — need rescheduling
+  const needsRescheduleAppointments = appointments
+    .filter((a) => a.status === 'scheduled' && a.appointment_date < todayStr)
+    .sort((a, b) => b.appointment_date.localeCompare(a.appointment_date))
+    .slice(0, 5);
+
   // Get upcoming appointments (active future)
   const upcomingAppointments = appointments
     .filter((a) => a.status === 'scheduled' && a.appointment_date >= todayStr)
@@ -44,19 +49,17 @@ export function DashboardPage() {
 
   if (initialLoading) {
     return (
-      <SidebarLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading dashboard...</p>
-          </div>
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
         </div>
-      </SidebarLayout>
+      </div>
     );
   }
 
   return (
-    <SidebarLayout>
+    <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 animate-slide-up">
           Welcome, {profile?.first_name || 'User'}!
@@ -131,8 +134,8 @@ export function DashboardPage() {
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Upcoming Appointments */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl shadow-md p-6 flex flex-col h-96">
+          <div className="flex items-center justify-between mb-4 shrink-0">
             <h2 className="text-lg font-semibold text-gray-900">Upcoming Appointments</h2>
             <Link
               to="/appointments"
@@ -142,12 +145,12 @@ export function DashboardPage() {
             </Link>
           </div>
           {upcomingAppointments.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+              <Calendar className="w-12 h-12 mb-2 opacity-50" />
               <p>No upcoming appointments</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {upcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
@@ -171,27 +174,50 @@ export function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              to="/schedule"
-              className="flex flex-col items-center p-4 bg-maroon-50 rounded-lg hover:bg-maroon-100 transition-colors"
-            >
-              <Calendar className="w-8 h-8 text-maroon-800 mb-2" />
-              <span className="text-sm font-medium text-maroon-800">View Schedule</span>
-            </Link>
-            <Link
-              to="/appointments"
-              className="flex flex-col items-center p-4 bg-gold-50 rounded-lg hover:bg-gold-100 transition-colors"
-            >
-              <FileText className="w-8 h-8 text-gold-700 mb-2" />
-              <span className="text-sm font-medium text-gold-700">All Appointments</span>
+        {/* Needs Reschedule */}
+        <div className="bg-white rounded-xl shadow-md p-6 flex flex-col h-96">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              Needs Reschedule
+            </h2>
+            <Link to="/appointments" className="text-sm text-maroon-800 hover:underline">
+              View all
             </Link>
           </div>
+          {isLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-6 h-6 border-4 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : needsRescheduleAppointments.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+              <AlertCircle className="w-12 h-12 mb-2 opacity-30" />
+              <p className="text-sm">No overdue appointments</p>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {needsRescheduleAppointments.map((apt) => (
+                <div
+                  key={apt.id}
+                  className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-lg"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 text-sm truncate">
+                      {apt.patient_name || 'Unknown Patient'}
+                    </p>
+                    <p className="text-xs text-red-500 mt-0.5">
+                      Was {formatDate(apt.appointment_date)} at {formatTime(apt.start_time)}
+                    </p>
+                  </div>
+                  <span className="ml-3 shrink-0 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full capitalize">
+                    {apt.appointment_type.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </SidebarLayout>
+    </>
   );
 }

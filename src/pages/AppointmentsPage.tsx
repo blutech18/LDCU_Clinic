@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Calendar, Search, X } from 'lucide-react';
-import { SidebarLayout } from '~/components/layout';
+import { Calendar, Search, X, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatDate, formatTime } from '~/lib/utils';
@@ -15,6 +14,18 @@ export function AppointmentsPage() {
   const [campusFilter, setCampusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sortField, setSortField] = useState<'appointment_date' | 'patient_name' | 'status' | 'appointment_type'>('appointment_date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ChevronsUpDown className="w-3 h-3 opacity-40" />;
+    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-maroon-700" /> : <ChevronDown className="w-3 h-3 text-maroon-700" />;
+  };
 
   useEffect(() => {
     fetchAppointments();
@@ -35,12 +46,19 @@ export function AppointmentsPage() {
         return matchesSearch && matchesStatus && matchesType && matchesCampus && matchesStartDate && matchesEndDate;
       })
       .sort((a, b) => {
-        // Sort newest to oldest
-        const dateCompare = b.appointment_date.localeCompare(a.appointment_date);
-        if (dateCompare !== 0) return dateCompare;
-        return (b.start_time || '').localeCompare(a.start_time || '');
+        let cmp = 0;
+        if (sortField === 'appointment_date') {
+          cmp = a.appointment_date.localeCompare(b.appointment_date) || (a.start_time || '').localeCompare(b.start_time || '');
+        } else if (sortField === 'patient_name') {
+          cmp = (a.patient_name || '').localeCompare(b.patient_name || '');
+        } else if (sortField === 'status') {
+          cmp = a.status.localeCompare(b.status);
+        } else if (sortField === 'appointment_type') {
+          cmp = a.appointment_type.localeCompare(b.appointment_type);
+        }
+        return sortDir === 'asc' ? cmp : -cmp;
       });
-  }, [appointments, searchTerm, statusFilter, typeFilter, campusFilter, startDate, endDate]);
+  }, [appointments, searchTerm, statusFilter, typeFilter, campusFilter, startDate, endDate, sortField, sortDir]);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -82,7 +100,8 @@ export function AppointmentsPage() {
   };
 
   return (
-    <SidebarLayout>
+    <>
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
@@ -168,6 +187,16 @@ export function AppointmentsPage() {
 
       {/* Appointments Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        {/* Results count */}
+        {!isLoading && (
+          <div className="px-4 py-2 border-b bg-gray-50 flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              {filteredAppointments.length}{' '}
+              {filteredAppointments.length === 1 ? 'appointment' : 'appointments'} found
+            </span>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="p-8 text-center">
             <div className="w-8 h-8 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -183,38 +212,80 @@ export function AppointmentsPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  {/* First column — left-aligned, no sort */}
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-[200px] max-w-[200px]">
+                    Patient
+                  </th>
+
+                  {/* Sortable: Date & Time */}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <button
+                      onClick={() => toggleSort('appointment_date')}
+                      className="inline-flex items-center justify-center gap-1 hover:text-gray-800 transition-colors"
+                    >
+                      Date &amp; Time
+                      <SortIcon field="appointment_date" />
+                    </button>
+                  </th>
+
+                  {/* Sortable: Type */}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide hidden sm:table-cell">
+                    <button
+                      onClick={() => toggleSort('appointment_type')}
+                      className="inline-flex items-center justify-center gap-1 hover:text-gray-800 transition-colors"
+                    >
+                      Type
+                      <SortIcon field="appointment_type" />
+                    </button>
+                  </th>
+
+                  {/* Sortable: Status */}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <button
+                      onClick={() => toggleSort('status')}
+                      className="inline-flex items-center justify-center gap-1 hover:text-gray-800 transition-colors"
+                    >
+                      Status
+                      <SortIcon field="status" />
+                    </button>
+                  </th>
+
+                  {/* Actions — centered, no sort */}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {filteredAppointments.map((apt) => (
-                  <tr key={apt.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{apt.patient_name || 'Unknown'}</p>
-                        <p className="text-xs text-gray-500">{apt.patient_email || '-'}</p>
-                      </div>
+                  <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
+                    {/* Patient — left-aligned */}
+                    <td className="px-4 py-3.5 max-w-[200px]">
+                      <p className="font-medium text-gray-900 text-sm truncate">{apt.patient_name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">{apt.patient_email || '-'}</p>
                     </td>
-                    <td className="px-4 py-4">
-                      <p className="text-gray-900 text-sm">{formatDate(apt.appointment_date)}</p>
-                      <p className="text-xs text-gray-500">
-                        {formatTime(apt.start_time)} - {formatTime(apt.end_time)}
+
+                    {/* Date & Time — centered */}
+                    <td className="px-4 py-3.5 text-center">
+                      <p className="text-gray-900 text-sm font-medium">{formatDate(apt.appointment_date)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {formatTime(apt.start_time)} – {formatTime(apt.end_time)}
                       </p>
                     </td>
-                    <td className="px-4 py-4 hidden sm:table-cell">
-                      <span className="px-2 py-1 text-xs font-medium bg-gold-100 text-gold-800 rounded capitalize">
-                        {apt.appointment_type.replace('_', ' ')}
+
+                    {/* Type — centered */}
+                    <td className="px-4 py-3.5 text-center hidden sm:table-cell">
+                      <span className="inline-block px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full capitalize">
+                        {apt.appointment_type.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-4 py-4">
+
+                    {/* Status — centered */}
+                    <td className="px-4 py-3.5 text-center">
                       <select
                         value={apt.status}
                         onChange={(e) => handleStatusChange(apt.id, e.target.value as AppointmentStatus)}
-                        className={`px-2 py-1 text-xs font-medium rounded border-0 ${getStatusBadge(apt.status)}`}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full border-0 cursor-pointer ${getStatusBadge(apt.status)}`}
                       >
                         <option value="scheduled">Scheduled</option>
                         <option value="completed">Completed</option>
@@ -222,13 +293,15 @@ export function AppointmentsPage() {
                         <option value="no_show">No Show</option>
                       </select>
                     </td>
-                    <td className="px-4 py-4">
+
+                    {/* Actions — centered */}
+                    <td className="px-4 py-3.5 text-center">
                       <button
                         onClick={() => handleDelete(apt.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete"
+                        className="inline-flex items-center justify-center p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                        title="Delete appointment"
                       >
-                        <X className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -238,6 +311,6 @@ export function AppointmentsPage() {
           </div>
         )}
       </div>
-    </SidebarLayout>
+    </>
   );
 }

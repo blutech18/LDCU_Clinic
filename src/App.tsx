@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AppointmentsPage } from './pages/AppointmentsPage';
 import { SchedulePage } from './pages/SchedulePage';
+import { ScheduleDayPage } from './pages/ScheduleDayPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
 import { ViewSchedulesPage } from './pages/ViewSchedulesPage';
@@ -14,9 +15,9 @@ import { StudentBookingPage } from './pages/StudentBookingPage';
 import { PublicCalendarPage } from './pages/PublicCalendarPage';
 import { ReschedulePage } from './pages/ReschedulePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { EmployeeRoute } from './components/EmployeeRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
+import { EmployeeLayout } from './components/layout';
 
 // Component that redirects users based on their role
 function RoleBasedRedirect() {
@@ -78,55 +79,16 @@ function App() {
         }
       />
 
-      {/* Employee/Staff Routes (with Sidebar) */}
-      <Route
-        path="/employee/dashboard"
-        element={
-          <EmployeeRoute>
-            <DashboardPage />
-          </EmployeeRoute>
-        }
-      />
-      <Route
-        path="/appointments"
-        element={
-          <EmployeeRoute>
-            <AppointmentsPage />
-          </EmployeeRoute>
-        }
-      />
-      <Route
-        path="/schedule"
-        element={
-          <EmployeeRoute>
-            <SchedulePage />
-          </EmployeeRoute>
-        }
-      />
-      <Route
-        path="/reschedule"
-        element={
-          <EmployeeRoute>
-            <ReschedulePage />
-          </EmployeeRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <AdminRoute>
-            <AdminPage />
-          </AdminRoute>
-        }
-      />
+      {/* Employee/Staff Routes — single persistent SidebarLayout via EmployeeLayout */}
+      <Route element={<EmployeeLayout />}>
+        <Route path="/employee/dashboard" element={<DashboardPage />} />
+        <Route path="/appointments" element={<AppointmentsPage />} />
+        <Route path="/schedule" element={<SchedulePage />} />
+        <Route path="/schedule/day/:date" element={<ScheduleDayPage />} />
+        <Route path="/reschedule" element={<ReschedulePage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+      </Route>
     </Routes>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu,
@@ -9,11 +9,12 @@ import Sidebar from './Sidebar';
 import { Footer } from './Footer';
 
 interface SidebarLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 // Map paths to labels for header title
 const pageLabels: Record<string, string> = {
+  '/employee/dashboard': 'Dashboard',
   '/dashboard': 'Dashboard',
   '/schedule': 'Schedule',
   '/appointments': 'Appointments',
@@ -119,17 +120,17 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       <Sidebar isOpen={isOpen} isMobile={isMobile} />
 
       {/* Main Content Area */}
-      <main
-        className="flex-1 pt-14 transition-[margin-left] duration-300 ease-in-out flex flex-col"
-        style={{
-          marginLeft: isMobile ? 0 : (isOpen ? 260 : 72)
-        }}
+      <motion.main
+        className="flex-1 pt-14 flex flex-col"
+        initial={false}
+        animate={{ marginLeft: isMobile ? 0 : (isOpen ? 260 : 72) }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
-        <div className="p-4 lg:p-6 flex-1">
-          {children}
+        <div className="p-4 lg:p-6 flex-1 flex flex-col">
+          {children ?? <Outlet />}
         </div>
         <Footer />
-      </main>
+      </motion.main>
     </div>
   );
 }
