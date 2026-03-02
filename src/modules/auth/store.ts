@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (!error && profile) {
             // Check verification
-            if ('is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student') {
+            if ('is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff') {
               await supabase.auth.signOut();
               set({ profile: null, isAuthenticated: false, isLoading: false, isInitialized: true });
               return;
@@ -164,7 +164,7 @@ export const useAuthStore = create<AuthState>()(
           if (profileError) throw profileError;
 
           // Check if user is verified (if is_verified field exists)
-          if (profile && 'is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student') {
+          if (profile && 'is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff') {
             await supabase.auth.signOut();
             throw new Error('Your account is pending verification. Please wait for an admin to approve your account.');
           }
