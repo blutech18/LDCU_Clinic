@@ -46,7 +46,7 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!profile || !["admin", "doctor", "nurse", "employee"].includes(profile.role)) {
+    if (!profile || !["admin", "doctor", "nurse", "employee", "staff", "student"].includes(profile.role)) {
       return new Response(JSON.stringify({ error: "Unauthorized - Staff only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

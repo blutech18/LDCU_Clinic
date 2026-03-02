@@ -17,6 +17,7 @@ import { ChevronLeft, ChevronRight, Calendar, X, Check, AlertCircle, LogOut, Use
 import { motion, AnimatePresence } from 'framer-motion';
 import { StudentLayout } from '~/components/layout';
 import { LogoutModal } from '~/components/modals/LogoutModal';
+import { AlertModal } from '~/components/modals/AlertModal';
 import { useAuthStore } from '~/modules/auth';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
@@ -48,6 +49,7 @@ export function StudentBookingPage() {
     const [bookingError, setBookingError] = useState<string | null>(null);
     const [direction, setDirection] = useState(0);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; type?: 'error' | 'warning' | 'info' }>({ isOpen: false, message: '' });
 
     const variants = {
         enter: (direction: number) => ({
@@ -221,8 +223,35 @@ export function StudentBookingPage() {
             return;
         }
 
-        // Check booking limit again before submitting
+        // Check if user already has ANY scheduled appointment (prevent multiple bookings)
         const dateStr = formatLocalDate(selectedDate);
+        console.log('Booking check:', {
+            dateStr,
+            profileId: profile?.id,
+            myAppointments: myAppointments.length,
+            allAppointments: appointments.length
+        });
+        
+        const existingScheduledAppointment = myAppointments.find(apt => {
+            console.log('Checking appointment:', {
+                aptDate: apt.appointment_date,
+                status: apt.status,
+                patientId: apt.patient_id
+            });
+            return apt.status === 'scheduled';
+        });
+        
+        if (existingScheduledAppointment) {
+            console.log('Found existing scheduled appointment, blocking new booking');
+            setAlertModal({
+                isOpen: true,
+                message: 'You already have a scheduled appointment. Please complete or cancel your existing appointment before booking a new one.',
+                type: 'warning'
+            });
+            return;
+        }
+
+        // Check booking limit again before submitting
         const currentCount = bookingCounts[dateStr] || 0;
         const max = getMaxForDate(dateStr);
         if (currentCount >= max) {
@@ -462,27 +491,43 @@ export function StudentBookingPage() {
                                 <div className="text-center py-8">
                                     <div className="w-8 h-8 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                 </div>
-                            ) : myAppointments.filter((apt) => apt.status === 'scheduled').length === 0 ? (
+                            ) : myAppointments.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500">
                                     <Calendar className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">No upcoming appointments</p>
+                                    <p className="text-sm">No appointments</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2 overflow-y-auto flex-1">
                                     {myAppointments
-                                        .filter((apt) => apt.status === 'scheduled')
                                         .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
                                         .map((apt) => (
                                             <div
                                                 key={apt.id}
-                                                className="p-2.5 bg-gray-50 rounded-lg border-l-4 border-maroon-800"
+                                                className={`p-2.5 rounded-lg border-l-4 ${
+                                                    apt.status === 'completed' ? 'bg-green-50 border-green-500' :
+                                                    apt.status === 'cancelled' ? 'bg-red-50 border-red-400' :
+                                                    'bg-gray-50 border-maroon-800'
+                                                }`}
                                             >
                                                 <p className="font-medium text-gray-900 text-sm">
                                                     {format(parseISO(apt.appointment_date), 'MMM d, yyyy')}
                                                 </p>
-                                                <span className="inline-block mt-1.5 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded capitalize">
-                                                    {apt.appointment_type.replace('_', ' ')}
-                                                </span>
+                                                <div className="flex items-center gap-2 mt-1.5">
+                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded capitalize ${
+                                                        apt.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                        apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                        'bg-blue-100 text-blue-800'
+                                                    }`}>
+                                                        {apt.appointment_type.replace('_', ' ')}
+                                                    </span>
+                                                    <span className={`px-1.5 py-0.5 text-xs font-semibold rounded uppercase ${
+                                                        apt.status === 'completed' ? 'bg-green-200 text-green-900' :
+                                                        apt.status === 'cancelled' ? 'bg-red-200 text-red-900' :
+                                                        'bg-blue-200 text-blue-900'
+                                                    }`}>
+                                                        {apt.status}
+                                                    </span>
+                                                </div>
                                             </div>
                                         ))}
                                 </div>
@@ -665,6 +710,13 @@ export function StudentBookingPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <AlertModal
+                isOpen={alertModal.isOpen}
+                onClose={() => setAlertModal({ isOpen: false, message: '' })}
+                message={alertModal.message}
+                type={alertModal.type}
+            />
 
             <LogoutModal
                 isOpen={isLogoutModalOpen}
