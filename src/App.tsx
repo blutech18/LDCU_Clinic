@@ -17,6 +17,7 @@ import { ReschedulePage } from './pages/ReschedulePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
+import { StaffRoute } from './components/StaffRoute';
 import { EmployeeLayout } from './components/layout';
 
 // Component that redirects users based on their role
@@ -35,9 +36,14 @@ function RoleBasedRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  // Students and staff go to their booking page
-  if (profile.role === 'student' || profile.role === 'staff') {
+  // Students go to their booking page
+  if (profile.role === 'student') {
     return <Navigate to="/student/booking" replace />;
+  }
+
+  // Staff go to their booking page
+  if (profile.role === 'staff') {
+    return <Navigate to="/staff/booking" replace />;
   }
 
   // Everyone else goes to the employee dashboard
@@ -76,6 +82,16 @@ function App() {
           <StudentRoute>
             <StudentBookingPage />
           </StudentRoute>
+        }
+      />
+
+      {/* Staff Routes */}
+      <Route
+        path="/staff/booking"
+        element={
+          <StaffRoute>
+            <StudentBookingPage />
+          </StaffRoute>
         }
       />
 

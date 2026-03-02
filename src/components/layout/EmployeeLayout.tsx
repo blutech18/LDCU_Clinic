@@ -23,8 +23,12 @@ export function EmployeeLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  if (profile.role === 'student' || profile.role === 'staff') {
+  if (profile.role === 'student') {
     return <Navigate to="/student/booking" replace />;
+  }
+
+  if (profile.role === 'staff') {
+    return <Navigate to="/staff/booking" replace />;
   }
 
   return <SidebarLayout />;
