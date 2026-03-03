@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Filter, Calendar, User, MapPin, RefreshCw } from 'lucide-react';
+import { Filter, Calendar, User, MapPin, RefreshCw, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '~/lib/supabase';
 import type { Campus } from '~/types';
+
+interface UserOption {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+}
 
 interface AuditLog {
   id: string;
@@ -25,25 +33,35 @@ interface AuditLog {
 }
 
 export function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [allLogs, setAllLogs] = useState<AuditLog[]>([]); // Store all logs
+  const [logs, setLogs] = useState<AuditLog[]>([]); // Filtered logs for display
   const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     campusId: '',
     action: '',
     role: '',
+    userId: '',
     startDate: '',
     endDate: '',
   });
 
   useEffect(() => {
     fetchCampuses();
+    fetchUsers();
     fetchLogs();
   }, []);
 
   useEffect(() => {
     fetchLogs();
   }, [filters]);
+
+  // Live search and filter effect
+  useEffect(() => {
+    applyFilters();
+  }, [searchTerm, allLogs]);
 
   const fetchCampuses = async () => {
     try {
@@ -56,6 +74,20 @@ export function AuditLogsPage() {
       setCampuses(data || []);
     } catch (error) {
       console.error('Error fetching campuses:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, role')
+        .order('first_name');
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -91,18 +123,43 @@ export function AuditLogsPage() {
 
       if (error) throw error;
 
-      // Filter by role if specified (client-side since it's a nested field)
+      // Filter by role and userId if specified (client-side since they're nested fields)
       let filteredData = data || [];
       if (filters.role) {
         filteredData = filteredData.filter(log => log.user?.role === filters.role);
       }
+      if (filters.userId) {
+        filteredData = filteredData.filter(log => log.user_id === filters.userId);
+      }
 
-      setLogs(filteredData);
+      setAllLogs(filteredData);
+      applyFilters(filteredData);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = (logsToFilter?: AuditLog[]) => {
+    const sourceData = logsToFilter || allLogs;
+    let filteredData = [...sourceData];
+
+    // Filter by search term
+    if (searchTerm) {
+      filteredData = filteredData.filter(log => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          log.user?.first_name?.toLowerCase().includes(searchLower) ||
+          log.user?.last_name?.toLowerCase().includes(searchLower) ||
+          log.user?.email?.toLowerCase().includes(searchLower) ||
+          log.action.toLowerCase().includes(searchLower) ||
+          log.resource_type.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    setLogs(filteredData);
   };
 
   const getActionColor = (action: string) => {
@@ -118,6 +175,42 @@ export function AuditLogsPage() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatDetails = (log: AuditLog) => {
+    if (!log.details || Object.keys(log.details).length === 0) return null;
+
+    const details = log.details;
+    const items: string[] = [];
+
+    // Format based on resource type and action
+    if (log.resource_type === 'appointment') {
+      if (log.action === 'CREATE') {
+        if (details.appointment_type) items.push(`Type: ${details.appointment_type.replace('_', ' ')}`);
+        if (details.appointment_date) items.push(`Date: ${details.appointment_date}`);
+        if (details.patient_name) items.push(`Patient: ${details.patient_name}`);
+      } else if (log.action === 'UPDATE') {
+        if (details.previous_status && details.new_status) {
+          items.push(`Status changed from "${details.previous_status}" to "${details.new_status}"`);
+        }
+      } else if (log.action === 'DELETE') {
+        if (details.patient_name) items.push(`Patient: ${details.patient_name}`);
+        if (details.appointment_date) items.push(`Date: ${details.appointment_date}`);
+      }
+    } else if (log.resource_type === 'profile') {
+      if (details.updated_fields) {
+        items.push(`Updated: ${details.updated_fields.join(', ')}`);
+      }
+      if (details.previous_campus && details.new_campus && details.previous_campus !== details.new_campus) {
+        items.push(`Campus changed`);
+      }
+    } else if (log.resource_type === 'nurse_campus') {
+      if (details.assigned_campus) {
+        items.push(`Assigned to: ${details.assigned_campus}`);
+      }
+    }
+
+    return items.length > 0 ? items : null;
   };
 
   return (
@@ -136,13 +229,28 @@ export function AuditLogsPage() {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Search & Filters</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        {/* Search Bar */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by user name, email, action, or resource..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
             <select
@@ -170,6 +278,21 @@ export function AuditLogsPage() {
               <option value="UPDATE">Update</option>
               <option value="DELETE">Delete</option>
               <option value="ASSIGN">Assign</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">User</label>
+            <select
+              value={filters.userId}
+              onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+            >
+              <option value="">All Users</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.first_name} {user.last_name} ({user.role})
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -288,13 +411,21 @@ export function AuditLogsPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {log.details && Object.keys(log.details).length > 0 ? (
-                        <pre className="text-xs bg-gray-50 p-2 rounded max-w-xs overflow-x-auto">
-                          {JSON.stringify(log.details, null, 2)}
-                        </pre>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      {(() => {
+                        const formattedDetails = formatDetails(log);
+                        if (formattedDetails && formattedDetails.length > 0) {
+                          return (
+                            <div className="space-y-1">
+                              {formattedDetails.map((detail, idx) => (
+                                <div key={idx} className="text-sm text-gray-700">
+                                  • {detail}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return <span className="text-gray-400">-</span>;
+                      })()}
                     </td>
                   </tr>
                 ))
