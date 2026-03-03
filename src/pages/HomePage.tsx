@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useState } from 'react';
 import { Calendar, Clock, Users, Shield } from 'lucide-react';
 import { Header, Footer } from '~/components/layout';
@@ -6,8 +6,24 @@ import { Button } from '~/components/ui';
 import { useAuthStore } from '~/modules/auth';
 
 export function HomePage() {
-  const { loginWithGoogle } = useAuthStore();
+  const { loginWithGoogle, profile, isInitialized } = useAuthStore();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Show loading screen while auth is being initialized to prevent flash
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-maroon-800">
+        <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect logged-in users away from the landing page
+  if (profile) {
+    if (profile.role === 'student') return <Navigate to="/student/booking" replace />;
+    if (profile.role === 'staff') return <Navigate to="/staff/booking" replace />;
+    return <Navigate to="/employee/dashboard" replace />;
+  }
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);

@@ -11,8 +11,8 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  // Hide navigation links on the landing page
-  const showNavigation = location.pathname !== '/';
+  // Hide navigation links on the landing page and login page
+  const showNavigation = location.pathname !== '/' && location.pathname !== '/login';
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Calendar },

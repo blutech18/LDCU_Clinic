@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useLocation, Link, Outlet } from 'react-router-dom';
+import React, { useState, useEffect, cloneElement } from 'react';
+import { useLocation, Link, useOutlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu,
@@ -25,6 +25,7 @@ const pageLabels: Record<string, string> = {
 export function SidebarLayout({ children }: SidebarLayoutProps) {
   const { profile } = useAuthStore();
   const location = useLocation();
+  const outlet = useOutlet();
 
   // Initialize from localStorage or based on screen size
   const [isOpen, setIsOpen] = useState(() => {
@@ -67,7 +68,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Heavy Mobile Overlay */}
       <AnimatePresence>
         {isMobile && isOpen && (
@@ -121,15 +122,28 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
       {/* Main Content Area */}
       <motion.main
-        className="flex-1 pt-14 flex flex-col"
+        className="flex-1 pt-14 flex flex-col overflow-hidden"
         initial={false}
         animate={{ marginLeft: isMobile ? 0 : (isOpen ? 260 : 72) }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
-        <div className="p-4 lg:p-6 flex-1 flex flex-col">
-          {children ?? <Outlet />}
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <div className="p-4 lg:p-6 grid flex-1">
+            <AnimatePresence>
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15, pointerEvents: 'none' }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="flex flex-col min-h-full col-start-1 row-start-1"
+              >
+                {children ?? (outlet ? cloneElement(outlet as React.ReactElement, { key: location.pathname }) : null)}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          <Footer />
         </div>
-        <Footer />
       </motion.main>
     </div>
   );

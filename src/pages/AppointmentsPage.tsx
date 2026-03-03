@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Calendar, Search, X, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Calendar, Search, X, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Edit2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatDate, formatTime } from '~/lib/utils';
@@ -16,6 +17,12 @@ export function AppointmentsPage() {
   const [endDate, setEndDate] = useState('');
   const [sortField, setSortField] = useState<'appointment_date' | 'patient_name' | 'status' | 'appointment_type'>('appointment_date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Modal State
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [pendingStatus, setPendingStatus] = useState<AppointmentStatus | ''>('');
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
   const toggleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -70,11 +77,22 @@ export function AppointmentsPage() {
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const handleStatusChange = async (id: string, status: AppointmentStatus) => {
+  const openStatusModal = (apt: any) => {
+    setSelectedAppointment(apt);
+    setPendingStatus(apt.status);
+    setIsStatusModalOpen(true);
+  };
+
+  const handleSaveStatus = async () => {
+    if (!selectedAppointment || !pendingStatus) return;
+    setIsSavingStatus(true);
     try {
-      await updateAppointment(id, { status });
+      await updateAppointment(selectedAppointment.id, { status: pendingStatus as AppointmentStatus });
+      setIsStatusModalOpen(false);
     } catch (error) {
-      console.error('Failed to update status:', error);
+      console.error('Failed to save status:', error);
+    } finally {
+      setIsSavingStatus(false);
     }
   };
 
@@ -120,68 +138,81 @@ export function AppointmentsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div className="relative sm:col-span-2 lg:col-span-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+
+          {/* Column 1: Search & Campus */}
+          <div className="flex flex-col gap-3">
+            <div className="relative h-[42px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full h-full pl-9 pr-4 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow"
+              />
+            </div>
+            <select
+              value={campusFilter}
+              onChange={(e) => setCampusFilter(e.target.value)}
+              className="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+            >
+              <option value="">All Campuses</option>
+              {campuses.map((campus) => (
+                <option key={campus.id} value={campus.id}>
+                  {campus.name}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | '')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-          >
-            <option value="">All Statuses</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="no_show">No Show</option>
-          </select>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as AppointmentType | '')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-          >
-            <option value="">All Types</option>
-            <option value="physical_exam">Physical Exam</option>
-            <option value="consultation">Consultation</option>
-            <option value="dental">Dental</option>
-          </select>
-          <select
-            value={campusFilter}
-            onChange={(e) => setCampusFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-          >
-            <option value="">All Campuses</option>
-            {campuses.map((campus) => (
-              <option key={campus.id} value={campus.id}>
-                {campus.name}
-              </option>
-            ))}
-          </select>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 font-medium whitespace-nowrap">From</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-            />
+
+          {/* Column 2: Status & Type */}
+          <div className="flex flex-col gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | '')}
+              className="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+            >
+              <option value="">All Statuses</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="no_show">No Show</option>
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as AppointmentType | '')}
+              className="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+            >
+              <option value="">All Types</option>
+              <option value="physical_exam">Physical Exam</option>
+              <option value="consultation">Consultation</option>
+              <option value="dental">Dental</option>
+            </select>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 font-medium whitespace-nowrap">To</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
-            />
+
+          {/* Column 3: Dates */}
+          <div className="flex flex-col gap-3">
+            <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow overflow-hidden flex items-center pr-2">
+              <span className="w-16 text-center text-xs text-gray-500 font-semibold uppercase tracking-wider whitespace-nowrap select-none">From</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1 h-full bg-transparent px-2 outline-none text-sm text-gray-700 cursor-pointer w-full leading-[42px]"
+              />
+            </div>
+            <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow overflow-hidden flex items-center pr-2">
+              <span className="w-16 text-center text-xs text-gray-500 font-semibold uppercase tracking-wider whitespace-nowrap select-none">To</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1 h-full bg-transparent px-2 outline-none text-sm text-gray-700 cursor-pointer w-full leading-[42px]"
+              />
+            </div>
           </div>
+
         </div>
       </div>
 
@@ -213,7 +244,7 @@ export function AppointmentsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   {/* First column — left-aligned, no sort */}
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-[200px] max-w-[200px]">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-[280px] max-w-[280px]">
                     Patient
                   </th>
 
@@ -260,7 +291,7 @@ export function AppointmentsPage() {
                 {filteredAppointments.map((apt) => (
                   <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                     {/* Patient — left-aligned */}
-                    <td className="px-4 py-3.5 max-w-[200px]">
+                    <td className="px-4 py-3.5 max-w-[280px]">
                       <p className="font-medium text-gray-900 text-sm truncate">{apt.patient_name || 'Unknown'}</p>
                       <p className="text-xs text-gray-400 mt-0.5 truncate">{apt.patient_email || '-'}</p>
                     </td>
@@ -282,16 +313,13 @@ export function AppointmentsPage() {
 
                     {/* Status — centered */}
                     <td className="px-4 py-3.5 text-center">
-                      <select
-                        value={apt.status}
-                        onChange={(e) => handleStatusChange(apt.id, e.target.value as AppointmentStatus)}
-                        className={`px-2.5 py-1 text-xs font-medium rounded-full border-0 cursor-pointer ${getStatusBadge(apt.status)}`}
+                      <button
+                        onClick={() => openStatusModal(apt)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border-0 transition-opacity hover:opacity-80 active:scale-95 ${getStatusBadge(apt.status)}`}
                       >
-                        <option value="scheduled">Scheduled</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="no_show">No Show</option>
-                      </select>
+                        <span className="capitalize">{apt.status.replace('_', ' ')}</span>
+                        <Edit2 className="w-3 h-3 opacity-60" />
+                      </button>
                     </td>
 
                     {/* Actions — centered */}
@@ -311,6 +339,94 @@ export function AppointmentsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Status Update Modal ── */}
+      <AnimatePresence>
+        {isStatusModalOpen && selectedAppointment && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isSavingStatus && setIsStatusModalOpen(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', duration: 0.3 }}
+              className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="px-5 pt-5 pb-3 flex flex-wrap sm:flex-nowrap items-baseline gap-2">
+                <h3 className="text-lg font-bold text-gray-900 shrink-0">Update Status</h3>
+                <p className="text-lg text-gray-500 truncate min-w-0">
+                  for <span className="font-bold text-gray-800 uppercase">
+                    {(selectedAppointment.patient_name || '').split(' ').pop() || 'Unknown'}
+                  </span>
+                </p>
+              </div>
+
+              {/* Body */}
+              <div className="px-5 py-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPendingStatus('scheduled')}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'scheduled' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/30'
+                      }`}
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wider">Scheduled</span>
+                  </button>
+                  <button
+                    onClick={() => setPendingStatus('completed')}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'completed' ? 'bg-green-50 border-green-500 text-green-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-300 hover:bg-green-50/30'
+                      }`}
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wider">Completed</span>
+                  </button>
+                  <button
+                    onClick={() => setPendingStatus('cancelled')}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'cancelled' ? 'bg-red-50 border-red-500 text-red-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-red-300 hover:bg-red-50/30'
+                      }`}
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wider">Cancelled</span>
+                  </button>
+                  <button
+                    onClick={() => setPendingStatus('no_show')}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'no_show' ? 'bg-gray-100 border-gray-500 text-gray-800 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                      }`}
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wider">No Show</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="p-5 flex gap-3 mt-1 bg-gray-50/80 border-t border-gray-100">
+                <button
+                  disabled={isSavingStatus}
+                  onClick={() => setIsStatusModalOpen(false)}
+                  className="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isSavingStatus || pendingStatus === selectedAppointment.status}
+                  onClick={handleSaveStatus}
+                  className="flex-1 px-4 py-2.5 bg-maroon-800 text-white font-medium rounded-xl hover:bg-maroon-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex justify-center items-center text-sm"
+                >
+                  {isSavingStatus ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Save Status'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

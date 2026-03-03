@@ -24,7 +24,7 @@ import { formatLocalDate } from '~/lib/utils';
 export function SchedulePage() {
   // ── Stores ──
   const { fetchAppointments, fetchBookingCounts, bookingCounts, isLoading } = useAppointmentStore();
-  const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, updateBookingSetting, fetchEmailTemplates, emailTemplates, upsertEmailTemplate, fetchScheduleConfig, dayOverrides, fetchDayOverrides } = useScheduleStore();
+  const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, updateBookingSetting, fetchEmailTemplates, emailTemplates, upsertEmailTemplate, fetchScheduleConfig, scheduleConfig, dayOverrides, fetchDayOverrides, syncPhHolidays } = useScheduleStore();
 
   const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
 
@@ -64,8 +64,12 @@ export function SchedulePage() {
       fetchBookingSetting(selectedCampusId);
       fetchEmailTemplates(selectedCampusId);
       fetchScheduleConfig(selectedCampusId);
+      // Auto-sync PH public holidays for this year and next year silently
+      const thisYear = new Date().getFullYear();
+      syncPhHolidays(selectedCampusId, thisYear);
+      syncPhHolidays(selectedCampusId, thisYear + 1);
     }
-  }, [selectedCampusId, fetchBookingSetting, fetchEmailTemplates, fetchScheduleConfig]);
+  }, [selectedCampusId, fetchBookingSetting, fetchEmailTemplates, fetchScheduleConfig, syncPhHolidays]);
 
   useEffect(() => {
     const t = emailTemplates.find(t => t.template_type === 'appointment_reminder');
@@ -228,7 +232,7 @@ export function SchedulePage() {
           ))}
         </div>
 
-        <div className="relative overflow-hidden" style={{ minHeight: '420px' }}>
+        <div className="relative overflow-hidden min-h-[400px] sm:min-h-[500px] lg:min-h-[600px]">
           {isLoading && (
             <div className="absolute inset-0 bg-white/70 z-20 flex items-center justify-center">
               <div className="w-8 h-8 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin"></div>
@@ -248,6 +252,7 @@ export function SchedulePage() {
                 const dayMax = getMaxForDate(dateStr);
                 const override = dayOverrides[dateStr];
                 const isClosed = override?.is_closed || false;
+                const isHoliday = (scheduleConfig?.holiday_dates ?? []).includes(dateStr);
                 const full = count >= dayMax && dayMax > 0;
                 const today = new Date(); today.setHours(0, 0, 0, 0);
                 const isPast = isBefore(day, today);
@@ -257,23 +262,27 @@ export function SchedulePage() {
                     className={`flex flex-col items-center justify-center p-1 border-b border-r border-gray-100 transition-all duration-200 cursor-pointer
                       ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-maroon-50'}
                       ${(day.getDay() === 0 || day.getDay() === 6) ? 'bg-gray-50' : 'bg-white'}
-                      ${isClosed && isCurrentMonth ? 'bg-gray-100' : ''}
-                      ${full && isCurrentMonth && isWeekday && !isPast && !isClosed ? 'bg-red-50' : ''}
+                      ${isHoliday && isCurrentMonth ? '!bg-orange-50' : ''}
+                      ${isClosed && isCurrentMonth && !isHoliday ? 'bg-gray-100' : ''}
+                      ${full && isCurrentMonth && isWeekday && !isPast && !isClosed && !isHoliday ? 'bg-red-50' : ''}
                       ${override && !isClosed && isCurrentMonth ? 'bg-amber-50/50' : ''}`}
                   >
                     <span className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-sm sm:text-lg font-medium
                       ${isToday(day) ? 'bg-maroon-800 text-white' : ''} ${!isCurrentMonth ? 'text-gray-300' : ''}
-                      ${isClosed && isCurrentMonth ? 'line-through text-gray-400' : ''}
-                      ${count > 0 && !isToday(day) && isCurrentMonth && !isClosed ? 'ring-2 ring-maroon-300' : ''}`}
+                      ${isHoliday && isCurrentMonth && !isToday(day) ? 'text-orange-600' : ''}
+                      ${isClosed && isCurrentMonth && !isHoliday ? 'line-through text-gray-400' : ''}
+                      ${count > 0 && !isToday(day) && isCurrentMonth && !isClosed && !isHoliday ? 'ring-2 ring-maroon-300' : ''}`}
                     >{format(day, 'd')}</span>
-                    {isCurrentMonth && isWeekday && (
-                      isClosed ? (
-                        <span className="mt-0.5 text-[10px] font-medium text-gray-400">Closed</span>
-                      ) : (
-                        <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
-                          {count}/{dayMax}
-                        </span>
-                      )
+                    {isCurrentMonth && isHoliday && (
+                      <span className="mt-0.5 text-[9px] font-semibold text-orange-500 uppercase tracking-wide leading-none">Holiday</span>
+                    )}
+                    {isCurrentMonth && isClosed && !isHoliday && (
+                      <span className="mt-0.5 text-[10px] font-medium text-gray-400">Closed</span>
+                    )}
+                    {isCurrentMonth && isWeekday && !isClosed && !isHoliday && (
+                      <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                        {count}/{dayMax}
+                      </span>
                     )}
                   </button>
                 );
@@ -287,6 +296,7 @@ export function SchedulePage() {
           <div className="flex items-center gap-2"><span className="w-3 h-3 bg-maroon-800 rounded-full shadow-sm"></span><span className="text-gray-700 font-medium">Today</span></div>
           <div className="flex items-center gap-2"><span className="w-3 h-3 ring-2 ring-maroon-300 rounded-full shadow-sm"></span><span className="text-gray-700 font-medium">Has bookings</span></div>
           <div className="flex items-center gap-2"><span className="w-3 h-3 bg-red-200 rounded shadow-sm"></span><span className="text-gray-700 font-medium">Fully booked</span></div>
+          <div className="flex items-center gap-2"><span className="w-3 h-3 bg-orange-200 rounded shadow-sm"></span><span className="text-gray-700 font-medium">Holiday</span></div>
           <div className="flex items-center gap-2"><span className="w-3 h-3 bg-gray-200 rounded shadow-sm"></span><span className="text-gray-700 font-medium">Weekend</span></div>
           {hasClosedDays && (
             <div className="flex items-center gap-2"><span className="w-3 h-3 bg-gray-300 rounded shadow-sm line-through text-[6px] text-gray-500 flex items-center justify-center">x</span><span className="text-gray-700 font-medium">Closed</span></div>

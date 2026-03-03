@@ -62,7 +62,7 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
                                 <li key={item.path}>
                                     <NavLink
                                         to={item.path}
-                                        className={`flex items-center h-12 rounded-lg transition-colors duration-200 text-maroon-100 hover:bg-maroon-800 hover:text-white ${isActive ? 'text-gold-400 font-semibold' : ''}`}
+                                        className={`flex items-center h-12 rounded-lg transition-colors duration-200 text-maroon-100 hover:bg-maroon-700 hover:text-white ${isActive ? 'text-gold-400 font-semibold' : ''}`}
                                     >
                                         {/* Fixed-width icon container - always 48px, centered */}
                                         <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
@@ -88,10 +88,10 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
                 </nav>
 
                 {/* Footer - Logout */}
-                <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-maroon-900">
+                <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-maroon-800">
                     <button
                         onClick={() => setIsLogoutModalOpen(true)}
-                        className="flex items-center h-12 w-full rounded-lg transition-colors duration-200 text-maroon-100 hover:bg-maroon-800 hover:text-white"
+                        className="flex items-center h-12 w-full rounded-lg transition-colors duration-200 text-maroon-100 hover:bg-maroon-700 hover:text-white"
                         title="Logout"
                     >
                         {/* Fixed-width icon container */}

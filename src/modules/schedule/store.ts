@@ -34,6 +34,7 @@ interface ScheduleState {
   upsertEmailTemplate: (template: Partial<EmailTemplate> & { campus_id: string; template_type: string }) => Promise<void>;
   fetchScheduleConfig: (campusId: string) => Promise<void>;
   updateScheduleConfig: (campusId: string, config: { include_saturday: boolean; include_sunday: boolean; holiday_dates: string[] }) => Promise<void>;
+  syncPhHolidays: (campusId: string, year: number) => Promise<void>;
   fetchDayOverrides: (campusId: string, startDate: string, endDate: string) => Promise<void>;
   setSelectedCampus: (campusId: string | null) => void;
   generateTimeSlots: (date: Date, campusId: string) => Promise<void>;
@@ -231,6 +232,53 @@ export const useScheduleStore = create<ScheduleState>()(
         } catch (error) {
           console.error('Error updating schedule config:', error);
           throw error;
+        }
+      },
+
+      // Automatically fetch PH public holidays and merge into holiday_dates
+      syncPhHolidays: async (campusId, year) => {
+        try {
+          // Fetch PH public holidays for the given year
+          const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/PH`);
+          if (!res.ok) return;
+          const phHolidays: { date: string }[] = await res.json();
+          const phDates = phHolidays.map(h => h.date);
+
+          // Get current config
+          const { data: existing } = await supabase
+            .from('schedule_config')
+            .select('*')
+            .eq('campus_id', campusId)
+            .single();
+
+          const currentHolidays: string[] = existing?.holiday_dates ?? [];
+          const newDates = phDates.filter(d => !currentHolidays.includes(d));
+
+          // Nothing to add
+          if (newDates.length === 0) return;
+
+          const merged = [...currentHolidays, ...newDates].sort();
+          const config = {
+            include_saturday: existing?.include_saturday ?? false,
+            include_sunday: existing?.include_sunday ?? false,
+            holiday_dates: merged,
+          };
+
+          if (existing) {
+            await supabase
+              .from('schedule_config')
+              .update({ ...config, updated_at: new Date().toISOString() })
+              .eq('id', existing.id);
+          } else {
+            await supabase
+              .from('schedule_config')
+              .insert({ campus_id: campusId, ...config });
+          }
+
+          set({ scheduleConfig: { campus_id: campusId, ...config } as ScheduleConfig });
+        } catch (error) {
+          // Silently fail — don't break the app if the API is unavailable
+          console.warn('Could not sync PH holidays:', error);
         }
       },
 

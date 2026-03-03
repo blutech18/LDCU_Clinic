@@ -14,11 +14,11 @@
 
 @layer components {
   .sidebar-maroon {
-    @apply bg-maroon-900 text-white border-r border-maroon-800;
+    @apply bg-maroon-800 text-white border-r border-maroon-700;
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-3 mx-2 rounded-lg text-sm font-medium transition-all duration-200 text-maroon-100 hover:bg-maroon-800 hover:text-white relative;
+    @apply flex items-center gap-3 px-3 py-3 mx-2 rounded-lg text-sm font-medium transition-all duration-200 text-maroon-100 hover:bg-maroon-700 hover:text-white relative;
   }
 
   .sidebar-link.active {

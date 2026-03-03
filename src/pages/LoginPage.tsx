@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, isBefore } from 'date-fns';
@@ -18,11 +19,11 @@ export function LoginPage() {
   const [selectedCampusId, setSelectedCampusId] = useState<string | null>(null);
   const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts } = useAppointmentStore();
   const { scheduleConfig, fetchScheduleConfig, fetchBookingSetting, bookingSetting, campuses, fetchCampuses, dayOverrides, fetchDayOverrides } = useScheduleStore();
-  const { loginWithGoogle } = useAuthStore();
+  const { loginWithGoogle, profile, isInitialized } = useAuthStore();
 
   const today = new Date();
 
-  // Fetch campuses and data on mount
+  // Fetch campuses and data on mount — must be above any early returns (Rules of Hooks)
   useEffect(() => {
     fetchCampuses();
   }, [fetchCampuses]);
@@ -62,7 +63,7 @@ export function LoginPage() {
     return globalMaxBookings;
   };
 
-  // Generate calendar days (matching student page)
+  // Generate calendar days (matching student page) — must be above early returns
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -77,6 +78,31 @@ export function LoginPage() {
     }
     return days;
   }, [currentMonth]);
+
+  // Get booked slots for selected date — must be above early returns (Rules of Hooks)
+  const bookedSlots = useMemo(() => {
+    if (!selectedDate) return [];
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return appointments
+      .filter(apt => apt.appointment_date === dateStr && apt.status !== 'cancelled')
+      .map(apt => apt.start_time);
+  }, [selectedDate, appointments]);
+
+  // Show loading screen while auth is being initialized to prevent flash
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-maroon-800">
+        <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Redirect already logged-in users away from the login page
+  if (profile) {
+    if (profile.role === 'student') return <Navigate to="/student/booking" replace />;
+    if (profile.role === 'staff') return <Navigate to="/staff/booking" replace />;
+    return <Navigate to="/employee/dashboard" replace />;
+  }
 
   const navigateMonth = (dir: number) => {
     setDirection(dir);
@@ -101,15 +127,6 @@ export function LoginPage() {
       setIsGoogleLoading(false);
     }
   };
-
-  // Get booked slots for selected date
-  const bookedSlots = useMemo(() => {
-    if (!selectedDate) return [];
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    return appointments
-      .filter(apt => apt.appointment_date === dateStr && apt.status !== 'cancelled')
-      .map(apt => apt.start_time);
-  }, [selectedDate, appointments]);
 
 
 
@@ -213,7 +230,7 @@ export function LoginPage() {
             </div>
 
             {/* Calendar Grid */}
-            <div className="relative overflow-hidden" style={{ minHeight: '285px' }}>
+            <div className="relative overflow-hidden min-h-[300px] sm:min-h-[400px] lg:min-h-[500px]">
               <AnimatePresence mode="popLayout" custom={direction} initial={false}>
                 <motion.div
                   key={currentMonth.toISOString()}
@@ -266,11 +283,20 @@ export function LoginPage() {
                             text-sm sm:text-lg font-medium
                             ${isToday ? 'bg-maroon-800 text-white' : ''}
                             ${!isCurrentMonth ? 'text-gray-300' : ''}
-                            ${(holiday || isClosedOverride) && isCurrentMonth && !isToday ? 'text-gray-400 line-through' : ''}
+                            ${holiday && isCurrentMonth && !isToday ? 'text-orange-600' : ''}
+                            ${isClosedOverride && isCurrentMonth && !isToday ? 'text-gray-400 line-through' : ''}
                           `}
                         >
                           {format(day, 'd')}
                         </span>
+                        {isCurrentMonth && holiday && (
+                          <span className="mt-0.5 text-[9px] font-semibold text-orange-500 uppercase tracking-wide leading-none">
+                            Holiday
+                          </span>
+                        )}
+                        {isCurrentMonth && isClosedOverride && !holiday && (
+                          <span className="mt-0.5 text-[9px] font-medium text-gray-400">Closed</span>
+                        )}
                         {isCurrentMonth && isActiveDay && !isPast && (
                           <span className={`mt-0.5 text-[10px] font-medium no-underline ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
                             {count}/{effectiveMax}
@@ -341,6 +367,8 @@ export function LoginPage() {
         onClose={() => setIsModalOpen(false)}
         selectedDate={selectedDate}
         bookedSlots={bookedSlots}
+        maxSlots={selectedDate ? getMaxForDate(formatLocalDate(selectedDate)) : 20}
+        isHolidayDate={selectedDate ? isHoliday(selectedDate) : false}
       />
 
       <Footer />

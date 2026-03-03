@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import {
   ArrowLeft, Calendar, RefreshCw, UserPlus, SlidersHorizontal,
-  Users, Check, Mail, AlertCircle, Save,
+  Users, Check, Mail, AlertCircle, Save, Sun, Globe,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
@@ -36,6 +36,7 @@ export function ScheduleDayPage() {
     campuses, departments, fetchCampuses, fetchDepartments,
     fetchBookingSetting, bookingSetting,
     fetchDayOverrides, dayOverrides,
+    scheduleConfig, fetchScheduleConfig, updateScheduleConfig,
   } = useScheduleStore();
 
   const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
@@ -112,6 +113,13 @@ export function ScheduleDayPage() {
   const [daySettingsSaved, setDaySettingsSaved] = useState(false);
   const [removingDayOverride, setRemovingDayOverride] = useState(false);
 
+  // ── Holiday ──
+  const isHoliday = !!(scheduleConfig?.holiday_dates ?? []).includes(dateStr);
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+  const [holidaySaved, setHolidaySaved] = useState(false);
+
+  // PH holidays are auto-synced via the schedule store — no local state needed
+
   // ── Reference month for data range (centre on selected date's month) ──
   const refMonth = selectedDate ?? new Date();
 
@@ -121,8 +129,9 @@ export function ScheduleDayPage() {
     if (campusId) {
       fetchBookingSetting(campusId);
       fetchDepartments(campusId);
+      fetchScheduleConfig(campusId);
     }
-  }, [campusId, fetchCampuses, fetchBookingSetting, fetchDepartments]);
+  }, [campusId, fetchCampuses, fetchBookingSetting, fetchDepartments, fetchScheduleConfig]);
 
   useEffect(() => {
     const start = startOfMonth(subMonths(refMonth, 1));
@@ -132,7 +141,7 @@ export function ScheduleDayPage() {
     fetchAppointments({ dateRange: { start: startStr, end: endStr }, ...(campusId && { campusId }) });
     fetchBookingCounts(startStr, endStr, campusId || undefined);
     if (campusId) fetchDayOverrides(campusId, startStr, endStr);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campusId]);
 
   // Sync day override state when dayOverrides loads
@@ -312,6 +321,28 @@ export function ScheduleDayPage() {
     setRemovingDayOverride(false);
   };
 
+  // ── Holiday handlers ──
+  const handleToggleHoliday = async () => {
+    if (!campusId || !dateStr || !scheduleConfig) return;
+    setIsSavingHoliday(true);
+    try {
+      const current = scheduleConfig.holiday_dates ?? [];
+      const next = isHoliday
+        ? current.filter((d) => d !== dateStr)
+        : [...current, dateStr].sort();
+      await updateScheduleConfig(campusId, {
+        include_saturday: scheduleConfig.include_saturday,
+        include_sunday: scheduleConfig.include_sunday,
+        holiday_dates: next,
+      });
+      await fetchScheduleConfig(campusId);
+      setHolidaySaved(true);
+      setTimeout(() => setHolidaySaved(false), 3000);
+    } catch (e) { console.error(e); }
+    setIsSavingHoliday(false);
+  };
+
+
   if (!selectedDate) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -372,490 +403,546 @@ export function ScheduleDayPage() {
           )}
 
           {/* ── Tab Content ── */}
-          <div className="p-4 sm:p-6 overflow-y-auto">
-
-            {/* Success state */}
-            {(rescheduleSuccess || walkInSuccess) ? (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-                  <Check className="w-8 h-8 text-green-600" />
-                </div>
-                <h4 className="text-xl font-bold text-gray-900 mb-2">
-                  {walkInSuccess ? 'Walk-in Booked!' : 'Reschedule Complete!'}
-                </h4>
-                <p className="text-gray-500 text-sm max-w-sm mx-auto">
-                  {walkInSuccess
-                    ? 'The walk-in appointment has been successfully created.'
-                    : rescheduleMode === 'auto'
-                      ? 'Unmarked appointments have been automatically distributed.'
-                      : 'Appointments have been moved to their new dates.'}
-                </p>
-                <p className="text-xs text-gray-400 mt-3">Returning to schedule…</p>
-              </div>
-
-            /* ── Appointments Tab ── */
-            ) : activeTab === 'appointments' ? (
-              allDateAppointments.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <Users className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                  <p className="font-medium">No appointments on this date</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {allDateAppointments.map(apt => (
-                    <div
-                      key={apt.id}
-                      className={`rounded-xl border overflow-hidden bg-white shadow-sm
-                        ${apt.status === 'completed' ? 'border-green-200'
-                          : apt.status === 'cancelled' ? 'border-red-200'
-                          : apt.booker_role === 'staff' ? 'border-amber-200'
-                          : 'border-gray-200'}`}
-                    >
-                      {/* Card header */}
-                      <div className={`px-3 py-2 flex items-start justify-between gap-2
-                        ${apt.status === 'completed' ? 'bg-green-50'
-                          : apt.status === 'cancelled' ? 'bg-red-50'
-                          : apt.booker_role === 'staff' ? 'bg-amber-50'
-                          : 'bg-maroon-50'}`}
-                      >
-                        <div className="min-w-0 flex flex-col gap-0.5">
-                          <p className="font-semibold text-gray-900 text-sm truncate capitalize">
-                            {apt.patient_name || 'Unknown Patient'}
-                          </p>
-                          {apt.patient_email && (
-                            <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
-                          )}
-                        </div>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5
-                          ${apt.status === 'completed' ? 'bg-green-100 text-green-700'
-                            : apt.status === 'cancelled' ? 'bg-red-100 text-red-700'
-                            : 'bg-blue-100 text-blue-700'}`}>
-                          {apt.status}
-                        </span>
-                      </div>
-                      {/* Card body */}
-                      <div className="px-3 py-2 flex flex-col gap-1">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Type</span>
-                            <span className="text-xs text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
-                          </div>
-                          <span className="text-gray-200">|</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Role</span>
-                            {apt.booker_role === 'staff'
-                              ? <span className="text-xs text-amber-700 font-medium">Staff</span>
-                              : <span className="text-xs text-blue-700 font-medium">Student</span>}
-                          </div>
-                        </div>
-                        {apt.patient_phone && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Phone</span>
-                            <span className="text-xs text-gray-600">{apt.patient_phone}</span>
-                          </div>
-                        )}
-                      </div>
+          <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={(rescheduleSuccess || walkInSuccess) ? 'success' : activeTab}
+                initial={{ opacity: 0, x: 15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -15 }}
+                transition={{ duration: 0.2 }}
+                className="w-full"
+              >
+                {/* Success state */}
+                {(rescheduleSuccess || walkInSuccess) ? (
+                  <div className="text-center py-16">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <Check className="w-8 h-8 text-green-600" />
                     </div>
-                  ))}
-                </div>
-              )
-
-            /* ── Reschedule Tab ── */
-            ) : activeTab === 'reschedule' ? (
-              <>
-                {/* Auto / Manual toggle */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">Reschedule Mode</p>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">
-                      {rescheduleMode === 'auto'
-                        ? 'Pending cards are evenly distributed to future dates automatically.'
-                        : 'Choose a specific new date for each appointment card manually.'}
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">
+                      {walkInSuccess ? 'Walk-in Booked!' : 'Reschedule Complete!'}
+                    </h4>
+                    <p className="text-gray-500 text-sm max-w-sm mx-auto">
+                      {walkInSuccess
+                        ? 'The walk-in appointment has been successfully created.'
+                        : rescheduleMode === 'auto'
+                          ? 'Unmarked appointments have been automatically distributed.'
+                          : 'Appointments have been moved to their new dates.'}
                     </p>
+                    <p className="text-xs text-gray-400 mt-3">Returning to schedule…</p>
                   </div>
-                  <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1 gap-1 flex-shrink-0 self-start sm:self-auto shadow-sm">
-                    <button
-                      onClick={() => setRescheduleMode('auto')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${rescheduleMode === 'auto' ? 'bg-maroon-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
-                      <RefreshCw className="w-3 h-3" />
-                      Reschedule
-                    </button>
-                    <button
-                      onClick={() => setRescheduleMode('manual')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${rescheduleMode === 'manual' ? 'bg-maroon-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
-                      <Calendar className="w-3 h-3" />
-                      Manual Pick
-                    </button>
-                  </div>
-                </div>
 
-                {scheduledAppointments.length === 0 ? (
-                  <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl">
-                    <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p className="text-gray-400 font-medium">No active appointments for this date</p>
-                  </div>
-                ) : rescheduleMode === 'auto' ? (
-                  /* ── Kanban Board (Auto Spread) ── */
-                  <div className="flex flex-col md:flex-row gap-3" style={{ minHeight: 300 }}>
-
-                    {/* Pending column */}
-                    <div
-                      className={`flex-1 flex flex-col rounded-xl border-2 transition-colors duration-200 ${dragOverColumn === 'todo' ? 'border-maroon-400 bg-maroon-50/40' : 'border-dashed border-gray-200 bg-gray-50/50'}`}
-                      onDragOver={e => { e.preventDefault(); setDragOverColumn('todo'); }}
-                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null); }}
-                      onDrop={e => { e.preventDefault(); if (draggedId) handleDropToPending(draggedId); setDragOverColumn(null); setDraggedId(null); }}
-                    >
-                      <div className="px-3 py-2 border-b border-gray-200 flex items-center gap-1.5">
-                        <RefreshCw className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Pending</span>
-                        <span className="ml-auto px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs font-semibold">
-                          {scheduledAppointments.filter(a => !completedIds.has(a.id)).length}
-                        </span>
-                      </div>
-                      <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto max-h-[480px] content-start">
-                        <AnimatePresence>
-                          {scheduledAppointments.filter(a => !completedIds.has(a.id)).map(apt => (
-                            <motion.div
-                              key={apt.id}
-                              layout
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              transition={{ duration: 0.15 }}
-                              draggable
-                              onDragStart={() => setDraggedId(apt.id)}
-                              onDragEnd={() => setDraggedId(null)}
-                              className={`rounded-lg border bg-white border-gray-200 hover:border-maroon-300 hover:shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing select-none overflow-hidden ${draggedId === apt.id ? 'opacity-40 scale-95' : ''}`}
-                            >
-                              <div className="px-2.5 py-1.5 bg-maroon-50 border-b border-maroon-100 flex items-start justify-between gap-1">
-                                <p className="text-xs font-semibold text-gray-900 truncate capitalize" title={apt.patient_name}>
-                                  {apt.patient_name || 'Unknown Patient'}
-                                </p>
-                                {savingKanban.has(apt.id)
-                                  ? <span className="text-[9px] px-1.5 py-px bg-gray-100 text-gray-500 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5"><span className="w-2 h-2 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />Saving</span>
-                                  : <span className="text-[9px] px-1.5 py-px bg-maroon-100 text-maroon-700 rounded-full font-bold flex-shrink-0">Pending</span>}
-                              </div>
-                              <div className="px-2.5 py-1.5 flex items-center gap-2 flex-wrap">
-                                <span className="text-[9px] text-gray-400 uppercase tracking-wide">Type</span>
-                                <span className="text-[10px] text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
-                                <span className="text-gray-200 text-[10px]">|</span>
-                                <span className="text-[9px] text-gray-400 uppercase tracking-wide">Role</span>
-                                {apt.booker_role === 'staff'
-                                  ? <span className="text-[10px] text-amber-700 font-medium">Staff</span>
-                                  : <span className="text-[10px] text-blue-700 font-medium">Student</span>}
-                              </div>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                        {scheduledAppointments.filter(a => !completedIds.has(a.id)).length === 0 && (
-                          <div className="col-span-2 flex items-center justify-center text-gray-400 text-xs py-8">All moved!</div>
-                        )}
-                      </div>
+                  /* ── Appointments Tab ── */
+                ) : activeTab === 'appointments' ? (
+                  allDateAppointments.length === 0 ? (
+                    <div className="text-center py-16 text-gray-400">
+                      <Users className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                      <p className="font-medium">No appointments on this date</p>
                     </div>
-
-                    {/* Done column */}
-                    <div
-                      className={`flex-1 flex flex-col rounded-xl border-2 transition-colors duration-200 ${dragOverColumn === 'done' ? 'border-green-400 bg-green-50/60' : 'border-dashed border-green-200 bg-green-50/20'}`}
-                      onDragOver={e => { e.preventDefault(); setDragOverColumn('done'); }}
-                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null); }}
-                      onDrop={e => { e.preventDefault(); if (draggedId) handleDropToDone(draggedId); setDragOverColumn(null); setDraggedId(null); }}
-                    >
-                      <div className="px-3 py-2 border-b border-green-100 flex items-center gap-1.5">
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-green-600">Done</span>
-                        <span className="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{completedIds.size}</span>
-                      </div>
-                      <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto max-h-[480px] content-start">
-                        <AnimatePresence>
-                          {scheduledAppointments.filter(a => completedIds.has(a.id)).map(apt => (
-                            <motion.div
-                              key={apt.id}
-                              layout
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              transition={{ duration: 0.15 }}
-                              draggable
-                              onDragStart={() => setDraggedId(apt.id)}
-                              onDragEnd={() => setDraggedId(null)}
-                              className={`rounded-lg border bg-white border-green-200 transition-all duration-150 cursor-grab active:cursor-grabbing select-none overflow-hidden ${draggedId === apt.id ? 'opacity-40 scale-95' : ''}`}
-                            >
-                              <div className="px-2.5 py-1.5 bg-green-50 border-b border-green-100 flex items-start justify-between gap-1">
-                                <p className="text-xs font-semibold text-green-900 truncate capitalize">
-                                  {apt.patient_name || 'Unknown Patient'}
-                                </p>
-                                {savingKanban.has(apt.id)
-                                  ? <span className="text-[9px] px-1.5 py-px bg-gray-100 text-gray-500 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5"><span className="w-2 h-2 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />Saving</span>
-                                  : <span className="text-[9px] px-1.5 py-px bg-green-100 text-green-700 rounded-full font-bold flex-shrink-0">Done</span>}
-                              </div>
-                              <div className="px-2.5 py-1.5 flex items-center gap-2 flex-wrap">
-                                <span className="text-[9px] text-gray-400 uppercase tracking-wide">Type</span>
-                                <span className="text-[10px] text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
-                                <span className="text-gray-200 text-[10px]">|</span>
-                                <span className="text-[9px] text-gray-400 uppercase tracking-wide">Role</span>
-                                {apt.booker_role === 'staff'
-                                  ? <span className="text-[10px] text-amber-700 font-medium">Staff</span>
-                                  : <span className="text-[10px] text-blue-700 font-medium">Student</span>}
-                              </div>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                        {completedIds.size === 0 && (
-                          <div className="col-span-2 flex flex-col items-center justify-center text-green-400 text-xs py-8 gap-2">
-                            <Check className="w-7 h-7 opacity-30" />
-                            <span>Drag cards here when done</span>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {allDateAppointments.map(apt => (
+                        <div
+                          key={apt.id}
+                          className={`rounded-xl border overflow-hidden bg-white shadow-sm
+                        ${apt.status === 'completed' ? 'border-green-200'
+                              : apt.status === 'cancelled' ? 'border-red-200'
+                                : apt.booker_role === 'staff' ? 'border-amber-200'
+                                  : 'border-gray-200'}`}
+                        >
+                          {/* Card header */}
+                          <div className={`px-3 py-2 flex items-start justify-between gap-2
+                        ${apt.status === 'completed' ? 'bg-green-50'
+                              : apt.status === 'cancelled' ? 'bg-red-50'
+                                : apt.booker_role === 'staff' ? 'bg-amber-50'
+                                  : 'bg-maroon-50'}`}
+                          >
+                            <div className="min-w-0 flex flex-col gap-0.5">
+                              <p className="font-semibold text-gray-900 text-sm truncate capitalize">
+                                {apt.patient_name || 'Unknown Patient'}
+                              </p>
+                              {apt.patient_email && (
+                                <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
+                              )}
+                            </div>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5
+                          ${apt.status === 'completed' ? 'bg-green-100 text-green-700'
+                                : apt.status === 'cancelled' ? 'bg-red-100 text-red-700'
+                                  : 'bg-blue-100 text-blue-700'}`}>
+                              {apt.status}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-                ) : (
-                  /* ── Manual Pick Table ── */
-                  <div className="rounded-xl border border-gray-200 overflow-hidden">
-                    {/* Table header — hidden on mobile */}
-                    <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-bold uppercase tracking-wider text-gray-500">
-                      <span>Patient</span>
-                      <span className="w-24 text-center">Role</span>
-                      <span className="w-32 text-center">Type</span>
-                      <span className="w-44 text-center">New Date</span>
-                    </div>
-                    <div className="divide-y divide-gray-100 overflow-y-auto max-h-[520px]">
-                      <AnimatePresence>
-                        {scheduledAppointments.map((apt, idx) => {
-                          const targetDate = manualTargetDates[apt.id] || '';
-                          const targetCount = targetDate ? (getBookingCountStr(targetDate) + (manualTargetCounts[targetDate] || 0)) : 0;
-                          const overLimit = !!targetDate && targetCount > maxBookingsPerDay;
-                          return (
-                            <motion.div
-                              key={apt.id}
-                              initial={{ opacity: 0, y: -4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.15, delay: idx * 0.03 }}
-                              className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_auto_auto] sm:items-center gap-2 sm:gap-4 px-4 py-3 hover:bg-gray-50/70 transition-colors"
-                            >
-                              {/* Patient */}
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                                  apt.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-maroon-100 text-maroon-700'
-                                }`}>
-                                  {(apt.patient_name || '?')[0].toUpperCase()}
-                                </span>
-                                <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                                  <p className="text-sm font-semibold text-gray-900 truncate flex-shrink-0">{apt.patient_name || 'Unknown Patient'}</p>
-                                  {apt.patient_email && (
-                                    <>
-                                      <span className="text-gray-300 text-xs flex-shrink-0">·</span>
-                                      <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
-                                    </>
-                                  )}
-                                </div>
+                          {/* Card body */}
+                          <div className="px-3 py-2 flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Type</span>
+                                <span className="text-xs text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
                               </div>
-                              {/* Role */}
-                              <div className="w-24 flex justify-center">
+                              <span className="text-gray-200">|</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Role</span>
                                 {apt.booker_role === 'staff'
-                                  ? <span className="text-[10px] px-2 py-1 bg-amber-100 text-amber-700 rounded-lg font-semibold uppercase">Staff</span>
-                                  : <span className="text-[10px] px-2 py-1 bg-blue-100 text-blue-700 rounded-lg font-semibold uppercase">Student</span>}
+                                  ? <span className="text-xs text-amber-700 font-medium">Staff</span>
+                                  : <span className="text-xs text-blue-700 font-medium">Student</span>}
                               </div>
-                              {/* Type */}
-                              <div className="w-32 flex justify-center">
-                                <span className="text-xs px-2 py-1 bg-maroon-50 text-maroon-700 rounded-lg font-medium capitalize text-center">
-                                  {apt.appointment_type.replace(/_/g, ' ')}
-                                </span>
+                            </div>
+                            {apt.patient_phone && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Phone</span>
+                                <span className="text-xs text-gray-600">{apt.patient_phone}</span>
                               </div>
-                              {/* Date picker */}
-                              <div className="flex items-center gap-2 w-44">
-                                <input
-                                  type="date"
-                                  value={targetDate}
-                                  onChange={e => setManualTargetDates(prev => ({ ...prev, [apt.id]: e.target.value }))}
-                                  className={`flex-1 px-2.5 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all ${
-                                    !targetDate ? 'border-maroon-300 bg-maroon-50/30' : overLimit ? 'border-red-300 bg-red-50/30' : 'border-gray-200 bg-white'
-                                  }`}
-                                />
-                                {targetDate && (
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0 ${
-                                    overLimit ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                                  }`}>
-                                    {targetCount}/{maxBookingsPerDay}
-                                  </span>
-                                )}
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </AnimatePresence>
-                    </div>
-                    {/* Summary footer */}
-                    <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold text-maroon-700">{Object.values(manualTargetDates).filter(Boolean).length}</span> of {scheduledAppointments.length} assigned
-                      </p>
-                      {Object.values(manualTargetDates).some(d => {
-                        const c = getBookingCountStr(d) + (manualTargetCounts[d] || 0);
-                        return c > maxBookingsPerDay;
-                      }) && (
-                        <p className="text-xs font-medium text-red-600 flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5" /> Some dates exceed capacity
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {rescheduleError && (
-                  <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl mt-4">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm font-medium">{rescheduleError}</p>
-                  </div>
-                )}
-              </>
-
-            /* ── Walk-in Tab ── */
-            ) : activeTab === 'walkin' ? (
-              <div className="space-y-4">
-                {walkInSuccess && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-xl border border-green-100">
-                    <Check className="w-5 h-5 flex-shrink-0" />
-                    <p className="text-sm font-medium">Walk-in booked successfully!</p>
-                  </div>
-                )}
-                {/* Appointment Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Appointment Type</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {APPOINTMENT_TYPES.map(t => (
-                      <button key={t.value} onClick={() => setWalkInType(t.value)}
-                        className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${walkInType === t.value ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}>
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Name + Contact */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
-                    <input type="text" value={walkInName} onChange={e => setWalkInName(e.target.value)} placeholder="Enter patient name"
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number *</label>
-                    <input type="tel" value={walkInContact} onChange={e => setWalkInContact(e.target.value)} placeholder="Enter contact number"
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
-                  </div>
-                </div>
-                {/* Email + Department */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address *</label>
-                    <input type="email" value={walkInEmail} onChange={e => setWalkInEmail(e.target.value)} placeholder="Enter email address"
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
-                    <select value={walkInDepartment} onChange={e => setWalkInDepartment(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm">
-                      <option value="">Select Department</option>
-                      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                {/* Campus + Notes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
-                    <select value={walkInCampusId} onChange={e => setWalkInCampusId(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm">
-                      {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
-                    <textarea value={walkInNotes} onChange={e => setWalkInNotes(e.target.value)} placeholder="Any additional information…"
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm" rows={3} />
-                  </div>
-                </div>
-                {walkInError && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl border border-red-100">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <p className="text-sm">{walkInError}</p>
-                  </div>
-                )}
-                <button onClick={handleWalkInBook} disabled={isSaving}
-                  className="w-full sm:w-auto sm:px-8 py-3 px-4 bg-maroon-800 text-white font-medium rounded-xl hover:bg-maroon-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center gap-2">
-                  {isSaving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Booking…</>) : (<><UserPlus className="w-4 h-4" />Book Walk-in Appointment</>)}
-                </button>
-              </div>
-
-            /* ── Day Settings Tab ── */
-            ) : (
-              <div className="space-y-5">
-                {/* Top row: Close toggle + Notes side by side on lg */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-                  {/* Closed toggle */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 text-sm">Close this day</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">No bookings will be allowed on this date</p>
-                    </div>
-                    <button onClick={() => setDayIsClosed(!dayIsClosed)}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-maroon-500 focus:ring-offset-2 flex-shrink-0 ml-4 ${dayIsClosed ? 'bg-red-500' : 'bg-gray-300'}`}>
-                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${dayIsClosed ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </div>
-
-                  {/* Notes */}
-                  <textarea value={dayNotes} onChange={e => setDayNotes(e.target.value)}
-                    placeholder="Notes (optional) — e.g. Special event, limited staffing…"
-                    className="w-full h-full min-h-[72px] px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm" />
-                </div>
-
-                {/* Max Slots */}
-                {!dayIsClosed && (
-                  <div className="p-4 bg-gray-50 rounded-xl border space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-semibold text-gray-700">Max Slots for This Day</label>
-                      <span className="text-xs text-gray-500">Global default: {maxBookingsPerDay}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <input type="range" min={1} max={200} value={dayMaxBookings}
-                        onChange={e => setDayMaxBookings(parseInt(e.target.value))}
-                        className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-maroon-800" />
-                      <input type="number" min={1} max={500} value={dayMaxBookings}
-                        onChange={e => setDayMaxBookings(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold text-maroon-800 focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none" />
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {[10, 25, 50, 75, 100].map(v => (
-                        <button key={v} onClick={() => setDayMaxBookings(v)}
-                          className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${dayMaxBookings === v ? 'bg-maroon-800 text-white border-maroon-800' : 'bg-white text-gray-600 border-gray-300 hover:border-maroon-400'}`}>
-                          {v}
-                        </button>
+                            )}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )
 
-                {dayOverride && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-xs text-amber-700 font-medium flex items-center gap-1.5">
-                      <SlidersHorizontal className="w-3.5 h-3.5" />
-                      This day has a custom override active
-                      {dayOverride.notes && <span className="text-amber-600"> — {dayOverride.notes}</span>}
-                    </p>
-                  </div>
-                )}
+                  /* ── Reschedule Tab ── */
+                ) : activeTab === 'reschedule' ? (
+                  <>
+                    {/* Auto / Manual toggle */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">Reschedule Mode</p>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">
+                          {rescheduleMode === 'auto'
+                            ? 'Pending cards are evenly distributed to future dates automatically.'
+                            : 'Choose a specific new date for each appointment card manually.'}
+                        </p>
+                      </div>
+                      <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1 gap-1 flex-shrink-0 self-start sm:self-auto shadow-sm">
+                        <button
+                          onClick={() => setRescheduleMode('auto')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${rescheduleMode === 'auto' ? 'bg-maroon-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
+                          <RefreshCw className="w-3 h-3" />
+                          Reschedule
+                        </button>
+                        <button
+                          onClick={() => setRescheduleMode('manual')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${rescheduleMode === 'manual' ? 'bg-maroon-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
+                          <Calendar className="w-3 h-3" />
+                          Manual Pick
+                        </button>
+                      </div>
+                    </div>
 
-                {daySettingsSaved && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-xl border border-green-100">
-                    <Check className="w-5 h-5 flex-shrink-0" />
-                    <p className="text-sm font-medium">Settings saved successfully!</p>
+                    {scheduledAppointments.length === 0 ? (
+                      <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl">
+                        <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p className="text-gray-400 font-medium">No active appointments for this date</p>
+                      </div>
+                    ) : rescheduleMode === 'auto' ? (
+                      /* ── Kanban Board (Auto Spread) ── */
+                      <div className="flex flex-col md:flex-row gap-3" style={{ minHeight: 300 }}>
+
+                        {/* Pending column */}
+                        <div
+                          className={`flex-1 flex flex-col rounded-xl border-2 transition-colors duration-200 ${dragOverColumn === 'todo' ? 'border-maroon-400 bg-maroon-50/40' : 'border-dashed border-gray-200 bg-gray-50/50'}`}
+                          onDragOver={e => { e.preventDefault(); setDragOverColumn('todo'); }}
+                          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null); }}
+                          onDrop={e => { e.preventDefault(); if (draggedId) handleDropToPending(draggedId); setDragOverColumn(null); setDraggedId(null); }}
+                        >
+                          <div className="px-3 py-2 border-b border-gray-200 flex items-center gap-1.5">
+                            <RefreshCw className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Pending</span>
+                            <span className="ml-auto px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs font-semibold">
+                              {scheduledAppointments.filter(a => !completedIds.has(a.id)).length}
+                            </span>
+                          </div>
+                          <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto max-h-[480px] content-start">
+                            <AnimatePresence>
+                              {scheduledAppointments.filter(a => !completedIds.has(a.id)).map(apt => (
+                                <motion.div
+                                  key={apt.id}
+                                  layout
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.95 }}
+                                  transition={{ duration: 0.15 }}
+                                  draggable
+                                  onDragStart={() => setDraggedId(apt.id)}
+                                  onDragEnd={() => setDraggedId(null)}
+                                  className={`rounded-lg border bg-white border-gray-200 hover:border-maroon-300 hover:shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing select-none overflow-hidden ${draggedId === apt.id ? 'opacity-40 scale-95' : ''}`}
+                                >
+                                  <div className="px-2.5 py-1.5 bg-maroon-50 border-b border-maroon-100 flex items-start justify-between gap-1">
+                                    <p className="text-xs font-semibold text-gray-900 truncate capitalize" title={apt.patient_name}>
+                                      {apt.patient_name || 'Unknown Patient'}
+                                    </p>
+                                    {savingKanban.has(apt.id)
+                                      ? <span className="text-[9px] px-1.5 py-px bg-gray-100 text-gray-500 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5"><span className="w-2 h-2 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />Saving</span>
+                                      : <span className="text-[9px] px-1.5 py-px bg-maroon-100 text-maroon-700 rounded-full font-bold flex-shrink-0">Pending</span>}
+                                  </div>
+                                  <div className="px-2.5 py-1.5 flex items-center gap-2 flex-wrap">
+                                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">Type</span>
+                                    <span className="text-[10px] text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
+                                    <span className="text-gray-200 text-[10px]">|</span>
+                                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">Role</span>
+                                    {apt.booker_role === 'staff'
+                                      ? <span className="text-[10px] text-amber-700 font-medium">Staff</span>
+                                      : <span className="text-[10px] text-blue-700 font-medium">Student</span>}
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
+                            {scheduledAppointments.filter(a => !completedIds.has(a.id)).length === 0 && (
+                              <div className="col-span-2 flex items-center justify-center text-gray-400 text-xs py-8">All moved!</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Done column */}
+                        <div
+                          className={`flex-1 flex flex-col rounded-xl border-2 transition-colors duration-200 ${dragOverColumn === 'done' ? 'border-green-400 bg-green-50/60' : 'border-dashed border-green-200 bg-green-50/20'}`}
+                          onDragOver={e => { e.preventDefault(); setDragOverColumn('done'); }}
+                          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null); }}
+                          onDrop={e => { e.preventDefault(); if (draggedId) handleDropToDone(draggedId); setDragOverColumn(null); setDraggedId(null); }}
+                        >
+                          <div className="px-3 py-2 border-b border-green-100 flex items-center gap-1.5">
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-green-600">Done</span>
+                            <span className="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{completedIds.size}</span>
+                          </div>
+                          <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto max-h-[480px] content-start">
+                            <AnimatePresence>
+                              {scheduledAppointments.filter(a => completedIds.has(a.id)).map(apt => (
+                                <motion.div
+                                  key={apt.id}
+                                  layout
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.95 }}
+                                  transition={{ duration: 0.15 }}
+                                  draggable
+                                  onDragStart={() => setDraggedId(apt.id)}
+                                  onDragEnd={() => setDraggedId(null)}
+                                  className={`rounded-lg border bg-white border-green-200 transition-all duration-150 cursor-grab active:cursor-grabbing select-none overflow-hidden ${draggedId === apt.id ? 'opacity-40 scale-95' : ''}`}
+                                >
+                                  <div className="px-2.5 py-1.5 bg-green-50 border-b border-green-100 flex items-start justify-between gap-1">
+                                    <p className="text-xs font-semibold text-green-900 truncate capitalize">
+                                      {apt.patient_name || 'Unknown Patient'}
+                                    </p>
+                                    {savingKanban.has(apt.id)
+                                      ? <span className="text-[9px] px-1.5 py-px bg-gray-100 text-gray-500 rounded-full font-bold flex-shrink-0 flex items-center gap-0.5"><span className="w-2 h-2 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" />Saving</span>
+                                      : <span className="text-[9px] px-1.5 py-px bg-green-100 text-green-700 rounded-full font-bold flex-shrink-0">Done</span>}
+                                  </div>
+                                  <div className="px-2.5 py-1.5 flex items-center gap-2 flex-wrap">
+                                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">Type</span>
+                                    <span className="text-[10px] text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
+                                    <span className="text-gray-200 text-[10px]">|</span>
+                                    <span className="text-[9px] text-gray-400 uppercase tracking-wide">Role</span>
+                                    {apt.booker_role === 'staff'
+                                      ? <span className="text-[10px] text-amber-700 font-medium">Staff</span>
+                                      : <span className="text-[10px] text-blue-700 font-medium">Student</span>}
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
+                            {completedIds.size === 0 && (
+                              <div className="col-span-2 flex flex-col items-center justify-center text-green-400 text-xs py-8 gap-2">
+                                <Check className="w-7 h-7 opacity-30" />
+                                <span>Drag cards here when done</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+                    ) : (
+                      /* ── Manual Pick Table ── */
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        {/* Table header — hidden on mobile */}
+                        <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-bold uppercase tracking-wider text-gray-500">
+                          <span>Patient</span>
+                          <span className="w-24 text-center">Role</span>
+                          <span className="w-32 text-center">Type</span>
+                          <span className="w-44 text-center">New Date</span>
+                        </div>
+                        <div className="divide-y divide-gray-100 overflow-y-auto max-h-[520px]">
+                          <AnimatePresence>
+                            {scheduledAppointments.map((apt, idx) => {
+                              const targetDate = manualTargetDates[apt.id] || '';
+                              const targetCount = targetDate ? (getBookingCountStr(targetDate) + (manualTargetCounts[targetDate] || 0)) : 0;
+                              const overLimit = !!targetDate && targetCount > maxBookingsPerDay;
+                              return (
+                                <motion.div
+                                  key={apt.id}
+                                  initial={{ opacity: 0, y: -4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.15, delay: idx * 0.03 }}
+                                  className="flex flex-col sm:grid sm:grid-cols-[1fr_auto_auto_auto] sm:items-center gap-2 sm:gap-4 px-4 py-3 hover:bg-gray-50/70 transition-colors"
+                                >
+                                  {/* Patient */}
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${apt.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-maroon-100 text-maroon-700'
+                                      }`}>
+                                      {(apt.patient_name || '?')[0].toUpperCase()}
+                                    </span>
+                                    <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                                      <p className="text-sm font-semibold text-gray-900 truncate flex-shrink-0">{apt.patient_name || 'Unknown Patient'}</p>
+                                      {apt.patient_email && (
+                                        <>
+                                          <span className="text-gray-300 text-xs flex-shrink-0">·</span>
+                                          <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {/* Role */}
+                                  <div className="w-24 flex justify-center">
+                                    {apt.booker_role === 'staff'
+                                      ? <span className="text-[10px] px-2 py-1 bg-amber-100 text-amber-700 rounded-lg font-semibold uppercase">Staff</span>
+                                      : <span className="text-[10px] px-2 py-1 bg-blue-100 text-blue-700 rounded-lg font-semibold uppercase">Student</span>}
+                                  </div>
+                                  {/* Type */}
+                                  <div className="w-32 flex justify-center">
+                                    <span className="text-xs px-2 py-1 bg-maroon-50 text-maroon-700 rounded-lg font-medium capitalize text-center">
+                                      {apt.appointment_type.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+                                  {/* Date picker */}
+                                  <div className="flex items-center gap-2 w-44">
+                                    <input
+                                      type="date"
+                                      value={targetDate}
+                                      onChange={e => setManualTargetDates(prev => ({ ...prev, [apt.id]: e.target.value }))}
+                                      className={`flex-1 px-2.5 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all ${!targetDate ? 'border-maroon-300 bg-maroon-50/30' : overLimit ? 'border-red-300 bg-red-50/30' : 'border-gray-200 bg-white'
+                                        }`}
+                                    />
+                                    {targetDate && (
+                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0 ${overLimit ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                                        }`}>
+                                        {targetCount}/{maxBookingsPerDay}
+                                      </span>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </AnimatePresence>
+                        </div>
+                        {/* Summary footer */}
+                        <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                          <p className="text-xs text-gray-500">
+                            <span className="font-semibold text-maroon-700">{Object.values(manualTargetDates).filter(Boolean).length}</span> of {scheduledAppointments.length} assigned
+                          </p>
+                          {Object.values(manualTargetDates).some(d => {
+                            const c = getBookingCountStr(d) + (manualTargetCounts[d] || 0);
+                            return c > maxBookingsPerDay;
+                          }) && (
+                              <p className="text-xs font-medium text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5" /> Some dates exceed capacity
+                              </p>
+                            )}
+                        </div>
+                      </div>
+                    )}
+
+                    {rescheduleError && (
+                      <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl mt-4">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm font-medium">{rescheduleError}</p>
+                      </div>
+                    )}
+                  </>
+
+                  /* ── Walk-in Tab ── */
+                ) : activeTab === 'walkin' ? (
+                  <div className="space-y-4">
+                    {walkInSuccess && (
+                      <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-xl border border-green-100">
+                        <Check className="w-5 h-5 flex-shrink-0" />
+                        <p className="text-sm font-medium">Walk-in booked successfully!</p>
+                      </div>
+                    )}
+                    {/* Appointment Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Appointment Type</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {APPOINTMENT_TYPES.map(t => (
+                          <button key={t.value} onClick={() => setWalkInType(t.value)}
+                            className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${walkInType === t.value ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}>
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Name + Contact */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
+                        <input type="text" value={walkInName} onChange={e => setWalkInName(e.target.value)} placeholder="Enter patient name"
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number *</label>
+                        <input type="tel" value={walkInContact} onChange={e => setWalkInContact(e.target.value)} placeholder="Enter contact number"
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
+                      </div>
+                    </div>
+                    {/* Email + Department */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address *</label>
+                        <input type="email" value={walkInEmail} onChange={e => setWalkInEmail(e.target.value)} placeholder="Enter email address"
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
+                        <select value={walkInDepartment} onChange={e => setWalkInDepartment(e.target.value)}
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm">
+                          <option value="">Select Department</option>
+                          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {/* Campus + Notes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
+                        <select value={walkInCampusId} onChange={e => setWalkInCampusId(e.target.value)}
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm">
+                          {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
+                        <textarea value={walkInNotes} onChange={e => setWalkInNotes(e.target.value)} placeholder="Any additional information…"
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm" rows={3} />
+                      </div>
+                    </div>
+                    {walkInError && (
+                      <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl border border-red-100">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                        <p className="text-sm">{walkInError}</p>
+                      </div>
+                    )}
+                    <button onClick={handleWalkInBook} disabled={isSaving}
+                      className="w-full sm:w-auto sm:px-8 py-3 px-4 bg-maroon-800 text-white font-medium rounded-xl hover:bg-maroon-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center gap-2">
+                      {isSaving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Booking…</>) : (<><UserPlus className="w-4 h-4" />Book Walk-in Appointment</>)}
+                    </button>
+                  </div>
+
+                  /* ── Day Settings Tab ── */
+                ) : (
+                  <div className="space-y-4">
+
+                    {/* ——— DAY OFF / CLOSE SECTION ——— */}
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-900 text-sm">Close This Day (Day Off)</h4>
+                          <p className="text-xs text-gray-500 mt-0.5">No bookings allowed — saves as a day override</p>
+                        </div>
+                        <button
+                          onClick={() => setDayIsClosed(!dayIsClosed)}
+                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-red-400 focus:ring-offset-2 flex-shrink-0 ml-4 ${dayIsClosed ? 'bg-red-500' : 'bg-gray-300'
+                            }`}
+                        >
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${dayIsClosed ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+
+                      {/* Expanded day off options */}
+                      {!dayIsClosed && (
+                        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-700">Max Slots for This Day</label>
+                            <span className="text-xs text-gray-400">Default: {maxBookingsPerDay}</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <input type="range" min={1} max={200} value={dayMaxBookings}
+                              onChange={e => setDayMaxBookings(parseInt(e.target.value))}
+                              className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-maroon-800" />
+                            <input type="number" min={1} max={500} value={dayMaxBookings}
+                              onChange={e => setDayMaxBookings(Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold text-maroon-800 focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {[10, 25, 50, 75, 100].map(v => (
+                              <button key={v} onClick={() => setDayMaxBookings(v)}
+                                className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${dayMaxBookings === v ? 'bg-maroon-800 text-white border-maroon-800' : 'bg-white text-gray-600 border-gray-300 hover:border-maroon-400'}`}>
+                                {v}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ——— HOLIDAY SECTION ——— */}
+                    <div className="rounded-xl border border-orange-200 bg-orange-50 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <Sun className="w-4 h-4 text-orange-500" />
+                          <div>
+                            <h4 className="font-semibold text-gray-900 text-sm">Mark as Holiday</h4>
+                            <p className="text-xs text-gray-500 mt-0.5">Blocks all bookings and shows on the public calendar</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleToggleHoliday}
+                          disabled={isSavingHoliday || !scheduleConfig}
+                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex-shrink-0 ml-4 disabled:opacity-50 ${isHoliday ? 'bg-orange-500' : 'bg-gray-300'
+                            }`}
+                        >
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${isHoliday ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                      {isHoliday && (
+                        <div className="px-4 pb-3">
+                          <p className="text-xs text-orange-600 font-medium flex items-center gap-1.5">
+                            <Sun className="w-3.5 h-3.5" /> {dateStr} is marked as a holiday
+                            {holidaySaved && <span className="text-green-600 ml-1">✓ Saved</span>}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ——— PH HOLIDAYS (auto-synced info) ——— */}
+                    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-700 text-xs">
+                      <Globe className="w-3.5 h-3.5 shrink-0 text-blue-500" />
+                      <span>
+                        Philippine public holidays are <strong>automatically synced</strong> to this calendar each year.
+                        {(scheduleConfig?.holiday_dates ?? []).length > 0 && (
+                          <span className="ml-1 font-medium text-blue-800">
+                            ({(scheduleConfig?.holiday_dates ?? []).length} dates currently marked)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Notes */}
+                    <textarea
+                      value={dayNotes}
+                      onChange={e => setDayNotes(e.target.value)}
+                      placeholder="Notes (optional) — e.g. Special event, limited staffing…"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm"
+                      rows={2}
+                    />
+
+                    {dayOverride && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <p className="text-xs text-amber-700 font-medium flex items-center gap-1.5">
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                          This day has a custom override active
+                          {dayOverride.notes && <span className="text-amber-600"> — {dayOverride.notes}</span>}
+                        </p>
+                      </div>
+                    )}
+
+                    {daySettingsSaved && (
+                      <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-xl border border-green-100">
+                        <Check className="w-5 h-5 flex-shrink-0" />
+                        <p className="text-sm font-medium">Settings saved successfully!</p>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* ── Footer Actions ── */}

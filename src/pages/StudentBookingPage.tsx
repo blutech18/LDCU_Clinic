@@ -231,7 +231,7 @@ export function StudentBookingPage() {
             myAppointments: myAppointments.length,
             allAppointments: appointments.length
         });
-        
+
         const existingScheduledAppointment = myAppointments.find(apt => {
             console.log('Checking appointment:', {
                 aptDate: apt.appointment_date,
@@ -240,7 +240,7 @@ export function StudentBookingPage() {
             });
             return apt.status === 'scheduled';
         });
-        
+
         if (existingScheduledAppointment) {
             console.log('Found existing scheduled appointment, blocking new booking');
             setAlertModal({
@@ -374,7 +374,7 @@ export function StudentBookingPage() {
                             </div>
 
                             {/* Calendar Grid */}
-                            <div className="flex-1 relative overflow-hidden min-h-[285px] sm:min-h-0 bg-white">
+                            <div className="flex-1 relative overflow-hidden min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] bg-white">
                                 <AnimatePresence initial={false} custom={direction} mode="popLayout">
                                     <motion.div
                                         key={currentMonth.toString()}
@@ -432,12 +432,21 @@ export function StudentBookingPage() {
                                                             text-sm sm:text-lg font-medium
                                                             ${isToday(day) ? 'bg-maroon-800 text-white' : ''}
                                                             ${!isCurrentMonth ? 'text-gray-300' : ''}
-                                                            ${(holiday || isClosedOverride) && isCurrentMonth && !isToday(day) ? 'text-gray-400 line-through' : ''}
+                                                            ${holiday && isCurrentMonth && !isToday(day) ? 'text-orange-600' : ''}
+                                                            ${isClosedOverride && !holiday && isCurrentMonth && !isToday(day) ? 'text-gray-400 line-through' : ''}
                                                             ${hasAppointment && !isToday(day) && isCurrentMonth ? 'ring-2 ring-maroon-300' : ''}
                                                         `}
                                                     >
                                                         {format(day, 'd')}
                                                     </span>
+                                                    {isCurrentMonth && holiday && (
+                                                        <span className="mt-0.5 text-[9px] font-semibold text-orange-500 uppercase tracking-wide leading-none">
+                                                            Holiday
+                                                        </span>
+                                                    )}
+                                                    {isCurrentMonth && isClosedOverride && !holiday && (
+                                                        <span className="mt-0.5 text-[9px] font-medium text-gray-400">Closed</span>
+                                                    )}
                                                     {isCurrentMonth && isActiveDay && !isPast && (
                                                         <span className={`mt-0.5 text-[10px] font-medium no-underline ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
                                                             {count}/{effectiveMax}
@@ -503,28 +512,25 @@ export function StudentBookingPage() {
                                         .map((apt) => (
                                             <div
                                                 key={apt.id}
-                                                className={`p-2.5 rounded-lg border-l-4 ${
-                                                    apt.status === 'completed' ? 'bg-green-50 border-green-500' :
+                                                className={`p-2.5 rounded-lg border-l-4 ${apt.status === 'completed' ? 'bg-green-50 border-green-500' :
                                                     apt.status === 'cancelled' ? 'bg-red-50 border-red-400' :
-                                                    'bg-gray-50 border-maroon-800'
-                                                }`}
+                                                        'bg-gray-50 border-maroon-800'
+                                                    }`}
                                             >
                                                 <p className="font-medium text-gray-900 text-sm">
                                                     {format(parseISO(apt.appointment_date), 'MMM d, yyyy')}
                                                 </p>
                                                 <div className="flex items-center gap-2 mt-1.5">
-                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded capitalize ${
-                                                        apt.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded capitalize ${apt.status === 'completed' ? 'bg-green-100 text-green-800' :
                                                         apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                                        'bg-blue-100 text-blue-800'
-                                                    }`}>
+                                                            'bg-blue-100 text-blue-800'
+                                                        }`}>
                                                         {apt.appointment_type.replace('_', ' ')}
                                                     </span>
-                                                    <span className={`px-1.5 py-0.5 text-xs font-semibold rounded uppercase ${
-                                                        apt.status === 'completed' ? 'bg-green-200 text-green-900' :
+                                                    <span className={`px-1.5 py-0.5 text-xs font-semibold rounded uppercase ${apt.status === 'completed' ? 'bg-green-200 text-green-900' :
                                                         apt.status === 'cancelled' ? 'bg-red-200 text-red-900' :
-                                                        'bg-blue-200 text-blue-900'
-                                                    }`}>
+                                                            'bg-blue-200 text-blue-900'
+                                                        }`}>
                                                         {apt.status}
                                                     </span>
                                                 </div>
