@@ -42,7 +42,25 @@ export const useAppointmentStore = create<AppointmentState>()(
       try {
         let query = supabase.from('appointments').select('*');
 
-        if (filters?.campusId) query = query.eq('campus_id', filters.campusId);
+        // For nurses, automatically filter by their assigned campus
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, assigned_campus_id')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.role === 'nurse' && profile.assigned_campus_id) {
+            // Override campusId filter with nurse's assigned campus
+            query = query.eq('campus_id', profile.assigned_campus_id);
+          } else if (filters?.campusId) {
+            query = query.eq('campus_id', filters.campusId);
+          }
+        } else if (filters?.campusId) {
+          query = query.eq('campus_id', filters.campusId);
+        }
+
         if (filters?.status) query = query.eq('status', filters.status);
         if (filters?.appointmentType) query = query.eq('appointment_type', filters.appointmentType);
         if (filters?.dateRange) {

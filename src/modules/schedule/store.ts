@@ -80,6 +80,23 @@ export const useScheduleStore = create<ScheduleState>()(
           const { data, error } = await supabase.from('campuses').select('*').order('name');
           if (error) throw error;
 
+          // Filter campuses for nurses - they can only see their assigned campus
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role, assigned_campus_id')
+              .eq('id', user.id)
+              .single();
+
+            if (profile?.role === 'nurse' && profile.assigned_campus_id) {
+              // Nurse can only see their assigned campus
+              const filteredCampuses = (data || []).filter(c => c.id === profile.assigned_campus_id);
+              set({ campuses: filteredCampuses, selectedCampusId: profile.assigned_campus_id });
+              return;
+            }
+          }
+
           set({ campuses: data || [] });
         } catch (error) {
           console.error('Error fetching campuses:', error);
