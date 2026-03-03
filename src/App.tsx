@@ -19,6 +19,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
 import { StaffRoute } from './components/StaffRoute';
 import { EmployeeLayout } from './components/layout';
+import { SupervisorRoute } from './components/SupervisorRoute';
 
 // Redirects users based on their role — only rendered after isInitialized is true
 function RoleBasedRedirect() {
@@ -33,7 +34,8 @@ function RoleBasedRedirect() {
   if (profile.role === 'staff') {
     return <Navigate to="/staff/booking" replace />;
   }
-  return <Navigate to="/employee/dashboard" replace />;
+  // Everyone else goes to the supervisor dashboard
+  return <Navigate to="/supervisor/dashboard" replace />;
 }
 
 function App() {
@@ -90,9 +92,10 @@ function App() {
         }
       />
 
-      {/* Employee/Staff Routes */}
+      {/* Supervisor/Nurse Routes — single persistent SidebarLayout via EmployeeLayout */}
       <Route element={<EmployeeLayout />}>
-        <Route path="/employee/dashboard" element={<DashboardPage />} />
+        <Route path="/supervisor/dashboard" element={<SupervisorRoute><DashboardPage /></SupervisorRoute>} />
+        <Route path="/employee/dashboard" element={<SupervisorRoute><DashboardPage /></SupervisorRoute>} /> {/* Legacy redirect */}
         <Route path="/appointments" element={<AppointmentsPage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/schedule/day/:date" element={<ScheduleDayPage />} />

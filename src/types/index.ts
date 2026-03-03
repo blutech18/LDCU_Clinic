@@ -1,7 +1,7 @@
-export type UserRole = 'student' | 'staff' | 'employee' | 'nurse' | 'doctor' | 'admin';
+export type UserRole = 'student' | 'staff' | 'supervisor' | 'nurse' | 'doctor' | 'admin';
 export type AppointmentType = 'physical_exam' | 'consultation' | 'dental';
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
-export type UserType = 'student' | 'employee';
+export type UserType = 'student' | 'supervisor';
 
 export interface AppointmentFilters {
   dateRange?: {
@@ -29,6 +29,7 @@ export interface Profile {
   department_id?: string;
   college_id?: string;
   campus_id?: string;
+  assigned_campus_id?: string; // For nurses - restricts access to specific campus
   phone?: string;
   is_verified?: boolean;
   created_at: string;

@@ -582,7 +582,7 @@ export function AdminPage() {
                                                 onChange={(e) => changeRole(user.id, e.target.value)}
                                                 className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                                             >
-                                                <option value="employee">Employee</option>
+                                                <option value="supervisor">Supervisor</option>
                                                 <option value="student">Student</option>
                                                 <option value="staff">Staff</option>
                                                 <option value="nurse">Nurse</option>

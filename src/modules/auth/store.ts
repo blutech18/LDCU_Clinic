@@ -215,7 +215,7 @@ export const useAuthStore = create<AuthState>()(
             email: data.email,
             first_name: data.firstName,
             last_name: data.lastName,
-            role: 'employee',
+            role: 'supervisor',
             is_verified: false,
           };
 

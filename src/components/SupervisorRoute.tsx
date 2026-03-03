@@ -1,14 +1,11 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '~/modules/auth';
-import { SidebarLayout } from './SidebarLayout';
 
-/**
- * Persistent layout wrapper for all authenticated employee routes.
- * By rendering SidebarLayout once here (with <Outlet />), the sidebar
- * and header stay mounted as the user navigates between pages — no
- * full-page remount on every route change.
- */
-export function EmployeeLayout() {
+interface SupervisorRouteProps {
+  children: React.ReactNode;
+}
+
+export function SupervisorRoute({ children }: SupervisorRouteProps) {
   const { profile, isAuthenticated, isInitialized, isLoading } = useAuthStore();
 
   if (!isInitialized || isLoading) {
@@ -23,18 +20,20 @@ export function EmployeeLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  // Students should not access supervisor routes
   if (profile.role === 'student') {
     return <Navigate to="/student/booking" replace />;
   }
 
+  // Staff should not access supervisor routes
   if (profile.role === 'staff') {
     return <Navigate to="/staff/booking" replace />;
   }
 
-  // Only allow supervisor, nurse, doctor, admin to access the layout
+  // Only supervisors, nurses, doctors, and admins can access these routes
   if (!['supervisor', 'nurse', 'doctor', 'admin'].includes(profile.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <SidebarLayout />;
+  return <>{children}</>;
 }
