@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt, FaUserNurse, FaClipboardList } from 'react-icons/fa';
 import { useState } from 'react';
 import { useAuthStore } from '~/modules/auth';
 import { LogoutModal } from '~/components/modals/LogoutModal';
@@ -12,10 +12,16 @@ interface SidebarProps {
 
 // Define menu items closer to valid icons for the app's context
 const menuItems = [
-    { path: '/employee/dashboard', icon: FaHome, label: 'Dashboard' },
+    { path: '/supervisor/dashboard', icon: FaHome, label: 'Dashboard' },
     { path: '/schedule', icon: FaCalendarAlt, label: 'Schedule' },
     { path: '/appointments', icon: FaHistory, label: 'Appointments' },
     { path: '/profile', icon: FaUser, label: 'Profile' },
+];
+
+// Supervisor-only menu items
+const supervisorItems = [
+    { path: '/supervisor/nurses', icon: FaUserNurse, label: 'Nurse Assignment' },
+    { path: '/supervisor/audit-logs', icon: FaClipboardList, label: 'Audit Logs' },
 ];
 
 const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
@@ -24,7 +30,15 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
     const adminItem = profile?.role === 'admin' ? { path: '/admin', icon: FaCog, label: 'Admin' } : null;
-    const navigation = adminItem ? [...menuItems, adminItem] : menuItems;
+    const isSupervisor = profile?.role === 'supervisor';
+    
+    let navigation = [...menuItems];
+    if (isSupervisor) {
+        navigation = [...navigation, ...supervisorItems];
+    }
+    if (adminItem) {
+        navigation = [...navigation, adminItem];
+    }
 
     const handleLogout = () => {
         logout();

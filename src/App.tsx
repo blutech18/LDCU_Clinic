@@ -14,6 +14,8 @@ import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { StudentBookingPage } from './pages/StudentBookingPage';
 import { PublicCalendarPage } from './pages/PublicCalendarPage';
 import { ReschedulePage } from './pages/ReschedulePage';
+import { NurseAssignmentPage } from './pages/NurseAssignmentPage';
+import { AuditLogsPage } from './pages/AuditLogsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
@@ -101,6 +103,8 @@ function App() {
         <Route path="/schedule/day/:date" element={<ScheduleDayPage />} />
         <Route path="/reschedule" element={<ReschedulePage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/supervisor/nurses" element={<SupervisorRoute><NurseAssignmentPage /></SupervisorRoute>} />
+        <Route path="/supervisor/audit-logs" element={<SupervisorRoute><AuditLogsPage /></SupervisorRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
     </Routes>
