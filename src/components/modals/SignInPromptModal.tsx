@@ -91,22 +91,17 @@ export function SignInPromptModal({ isOpen, onClose, selectedDate, bookedSlots, 
                                                 <Users className="w-4 h-4 text-maroon-700" />
                                                 Slot Availability
                                             </div>
-                                            <span className={`text-sm font-bold ${isFull ? 'text-red-600' : available <= maxSlots * 0.2 ? 'text-orange-500' : 'text-green-600'
-                                                }`}>
-                                                {isFull ? 'Full' : `${available} open`}
+                                            <span className={`text-sm font-bold ${isFull ? 'text-red-600' : available <= maxSlots * 0.2 ? 'text-orange-500' : 'text-green-600'}`}>
+                                                {isFull ? 'Full' : `${available}/${maxSlots}`}
                                             </span>
                                         </div>
                                         {/* Progress Bar */}
                                         <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full rounded-full transition-all duration-500 ${isFull ? 'bg-red-500' : fillPercent >= 80 ? 'bg-orange-400' : 'bg-green-500'
-                                                    }`}
+                                                className={`h-full rounded-full transition-all duration-500 ${isFull ? 'bg-red-500' : fillPercent >= 80 ? 'bg-orange-400' : 'bg-green-500'}`}
                                                 style={{ width: `${fillPercent}%` }}
                                             />
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-1.5 text-right">
-                                            {booked} booked · {maxSlots} total
-                                        </p>
                                     </div>
                                 )}
 

@@ -20,42 +20,37 @@ import { StudentRoute } from './components/StudentRoute';
 import { StaffRoute } from './components/StaffRoute';
 import { EmployeeLayout } from './components/layout';
 
-// Component that redirects users based on their role
+// Redirects users based on their role — only rendered after isInitialized is true
 function RoleBasedRedirect() {
-  const { profile, isInitialized } = useAuthStore();
-
-  if (!isInitialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-12 h-12 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  const { profile } = useAuthStore();
 
   if (!profile) {
     return <Navigate to="/login" replace />;
   }
-
-  // Students go to their booking page
   if (profile.role === 'student') {
     return <Navigate to="/student/booking" replace />;
   }
-
-  // Staff go to their booking page
   if (profile.role === 'staff') {
     return <Navigate to="/staff/booking" replace />;
   }
-
-  // Everyone else goes to the employee dashboard
   return <Navigate to="/employee/dashboard" replace />;
 }
 
 function App() {
-  const { initialize } = useAuthStore();
+  const { initialize, isInitialized } = useAuthStore();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Single global loading gate — renders ONE spinner for the whole app
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-maroon-800">
+        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -95,7 +90,7 @@ function App() {
         }
       />
 
-      {/* Employee/Staff Routes — single persistent SidebarLayout via EmployeeLayout */}
+      {/* Employee/Staff Routes */}
       <Route element={<EmployeeLayout />}>
         <Route path="/employee/dashboard" element={<DashboardPage />} />
         <Route path="/appointments" element={<AppointmentsPage />} />

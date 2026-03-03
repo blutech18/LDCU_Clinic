@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import {
   ArrowLeft, Calendar, RefreshCw, UserPlus, SlidersHorizontal,
-  Users, Check, Mail, AlertCircle, Save, Sun, Globe,
+  Users, Check, Mail, AlertCircle, Save, Sun,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
@@ -101,6 +101,7 @@ export function ScheduleDayPage() {
   const [walkInDepartment, setWalkInDepartment] = useState('');
   const [walkInCampusId, setWalkInCampusId] = useState(campusId);
   const [walkInNotes, setWalkInNotes] = useState('');
+  const [walkInRole, setWalkInRole] = useState<'student' | 'staff'>('student');
   const [walkInError, setWalkInError] = useState<string | null>(null);
   const [walkInSuccess, setWalkInSuccess] = useState(false);
 
@@ -274,11 +275,12 @@ export function ScheduleDayPage() {
       setWalkInError(null);
       const dept = departments.find(d => d.id === walkInDepartment);
       await createAppointment({
-        patient_id: '00000000-0000-0000-0000-000000000000',
+        patient_id: null,
         campus_id: walkInCampusId, appointment_type: walkInType, appointment_date: dateStr,
         start_time: '08:00', end_time: '17:00', status: 'scheduled',
         notes: `Walk-in${dept ? ` | Department: ${dept.name}` : ''}${walkInNotes ? `\n${walkInNotes}` : ''}`,
         patient_name: walkInName.trim(), patient_phone: walkInContact.trim(), patient_email: walkInEmail.trim(),
+        booker_role: walkInRole,
       });
       setWalkInSuccess(true);
       await refreshData();
@@ -798,7 +800,7 @@ export function ScheduleDayPage() {
                         </select>
                       </div>
                     </div>
-                    {/* Campus + Notes */}
+                    {/* Campus + Person Type */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
@@ -808,10 +810,24 @@ export function ScheduleDayPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
-                        <textarea value={walkInNotes} onChange={e => setWalkInNotes(e.target.value)} placeholder="Any additional information…"
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm" rows={3} />
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Person Type</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(['student', 'staff'] as const).map(role => (
+                            <button key={role} type="button"
+                              onClick={() => setWalkInRole(role)}
+                              className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all capitalize
+                                ${walkInRole === role ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}>
+                              {role.charAt(0).toUpperCase() + role.slice(1)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                    </div>
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
+                      <textarea value={walkInNotes} onChange={e => setWalkInNotes(e.target.value)} placeholder="Any additional information…"
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm" rows={3} />
                     </div>
                     {walkInError && (
                       <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl border border-red-100">
@@ -901,18 +917,6 @@ export function ScheduleDayPage() {
                       )}
                     </div>
 
-                    {/* ——— PH HOLIDAYS (auto-synced info) ——— */}
-                    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-700 text-xs">
-                      <Globe className="w-3.5 h-3.5 shrink-0 text-blue-500" />
-                      <span>
-                        Philippine public holidays are <strong>automatically synced</strong> to this calendar each year.
-                        {(scheduleConfig?.holiday_dates ?? []).length > 0 && (
-                          <span className="ml-1 font-medium text-blue-800">
-                            ({(scheduleConfig?.holiday_dates ?? []).length} dates currently marked)
-                          </span>
-                        )}
-                      </span>
-                    </div>
 
                     {/* Notes */}
                     <textarea

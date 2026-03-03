@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, Clock, FileText, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '~/modules/auth';
 import { useAppointmentStore } from '~/modules/appointments';
-import { formatDate, formatTime, formatLocalDate } from '~/lib/utils';
+import { formatDate, formatLocalDate } from '~/lib/utils';
 
 export function DashboardPage() {
   const { profile } = useAuthStore();
@@ -60,112 +60,128 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 animate-slide-up">
-          Welcome, {profile?.first_name || 'User'}!
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Manage your clinic appointments and schedule new ones.
-        </p>
+      <div className="mb-8 relative overflow-hidden rounded-3xl bg-maroon-800 text-white p-8 sm:p-10 shadow-lg">
+        <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-80 h-80 bg-red-400 opacity-10 rounded-full blur-3xl"></div>
+
+        <div className="relative z-10">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 animate-slide-up">
+            Welcome, {profile?.first_name || 'User'}!
+          </h1>
+          <p className="text-maroon-100 max-w-xl text-sm sm:text-base opacity-90">
+            Here's what's happening at the clinic today. Manage your appointments and schedule effortlessly.
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         {/* Today */}
-        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Today</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Today</p>
+              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.today}
-              </p>
+              </h3>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner">
+              <Calendar className="w-6 h-6" />
             </div>
           </div>
         </div>
 
         {/* Needs Reschedule */}
-        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-red-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Needs Reschedule</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Needs Reschedule</p>
+              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.needsReschedule}
-              </p>
+              </h3>
             </div>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <FileText className="w-6 h-6 text-red-600" />
+            <div className="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shadow-inner">
+              <AlertCircle className="w-6 h-6" />
             </div>
           </div>
         </div>
 
-        {/* Upcoming (Future) */}
-        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
+        {/* Upcoming */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Upcoming</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Upcoming</p>
+              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.upcoming}
-              </p>
+              </h3>
             </div>
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <Clock className="w-6 h-6 text-indigo-600" />
+            <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-inner">
+              <Clock className="w-6 h-6" />
             </div>
           </div>
         </div>
 
         {/* Completed */}
-        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Completed</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Completed</p>
+              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.completed}
-              </p>
+              </h3>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <FileText className="w-6 h-6 text-green-600" />
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
+              <FileText className="w-6 h-6" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Upcoming Appointments */}
-        <div className="bg-white rounded-xl shadow-md p-6 flex flex-col h-96">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <h2 className="text-lg font-semibold text-gray-900">Upcoming Appointments</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col h-[420px]">
+          <div className="flex items-center justify-between mb-6 shrink-0">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-indigo-500" />
+              Upcoming Appointments
+            </h2>
             <Link
               to="/appointments"
-              className="text-sm text-maroon-800 hover:underline"
+              className="text-sm font-semibold text-maroon-800 hover:text-maroon-600 transition-colors"
             >
-              View all
+              View all &rarr;
             </Link>
           </div>
           {upcomingAppointments.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-              <Calendar className="w-12 h-12 mb-2 opacity-50" />
-              <p>No upcoming appointments</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+              <Calendar className="w-12 h-12 mb-3 opacity-30 text-gray-500" />
+              <p className="font-medium">No upcoming appointments</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
               {upcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-sm transition-all group"
                 >
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {appointment.patient_name || 'Unknown Patient'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {formatDate(appointment.appointment_date)} at{' '}
-                      {formatTime(appointment.start_time)}
-                    </p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">
+                      {(appointment.patient_name || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm group-hover:text-maroon-800 transition-colors">
+                        {appointment.patient_name || 'Unknown Patient'}
+                      </p>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5">
+                        {formatDate(appointment.appointment_date)}
+                      </p>
+                    </div>
                   </div>
-                  <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                  <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 rounded-lg border border-blue-100/50">
                     {appointment.appointment_type.replace('_', ' ')}
                   </span>
                 </div>
@@ -175,41 +191,46 @@ export function DashboardPage() {
         </div>
 
         {/* Needs Reschedule */}
-        <div className="bg-white rounded-xl shadow-md p-6 flex flex-col h-96">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col h-[420px]">
+          <div className="flex items-center justify-between mb-6 shrink-0">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-red-500" />
               Needs Reschedule
             </h2>
-            <Link to="/appointments" className="text-sm text-maroon-800 hover:underline">
-              View all
+            <Link to="/appointments" className="text-sm font-semibold text-maroon-800 hover:text-maroon-600 transition-colors">
+              View all &rarr;
             </Link>
           </div>
           {isLoading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="w-6 h-6 border-4 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex-1 flex items-center justify-center bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+              <div className="w-8 h-8 border-4 border-red-200 border-t-red-500 rounded-full animate-spin"></div>
             </div>
           ) : needsRescheduleAppointments.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-              <AlertCircle className="w-12 h-12 mb-2 opacity-30" />
-              <p className="text-sm">No overdue appointments</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+              <AlertCircle className="w-12 h-12 mb-3 opacity-30 text-gray-500" />
+              <p className="font-medium">No overdue appointments</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
               {needsRescheduleAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl hover:bg-red-50 transition-colors"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-900 text-sm truncate">
-                      {apt.patient_name || 'Unknown Patient'}
-                    </p>
-                    <p className="text-xs text-red-500 mt-0.5">
-                      Was {formatDate(apt.appointment_date)} at {formatTime(apt.start_time)}
-                    </p>
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm shrink-0">
+                      {(apt.patient_name || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900 text-sm truncate">
+                        {apt.patient_name || 'Unknown Patient'}
+                      </p>
+                      <p className="text-xs text-red-600 font-medium mt-0.5">
+                        Overdue: {formatDate(apt.appointment_date)}
+                      </p>
+                    </div>
                   </div>
-                  <span className="ml-3 shrink-0 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full capitalize">
+                  <span className="ml-3 shrink-0 px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 rounded-lg border border-red-200/50">
                     {apt.appointment_type.replace(/_/g, ' ')}
                   </span>
                 </div>

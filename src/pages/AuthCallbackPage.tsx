@@ -97,7 +97,7 @@ export function AuthCallbackPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-        {error ? (
+        {error && (
           <>
             <div className="text-red-600 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,11 +106,6 @@ export function AuthCallbackPage() {
             </div>
             <p className="text-gray-800 font-medium">{error}</p>
             <p className="mt-2 text-sm text-gray-600">Redirecting...</p>
-          </>
-        ) : (
-          <>
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-maroon-800"></div>
-            <p className="mt-4 text-gray-600">Completing sign in...</p>
           </>
         )}
       </div>

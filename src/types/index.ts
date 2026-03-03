@@ -51,7 +51,7 @@ export interface Department {
 
 export interface Appointment {
   id: string;
-  patient_id: string;
+  patient_id: string | null;
   campus_id: string;
   appointment_type: AppointmentType;
   appointment_date: string;

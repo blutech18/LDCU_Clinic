@@ -10,7 +10,7 @@ interface StudentLayoutProps {
 }
 
 export function StudentLayout({ children }: StudentLayoutProps) {
-    const { profile, logout } = useAuthStore();
+    const { profile, avatarUrl, logout } = useAuthStore();
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
     const handleLogout = () => {
@@ -43,8 +43,17 @@ export function StudentLayout({ children }: StudentLayoutProps) {
                                         {profile?.first_name} {profile?.last_name}
                                     </p>
                                 </div>
-                                <div className="w-10 h-10 bg-gold-500 rounded-full flex items-center justify-center">
-                                    <User className="w-5 h-5 text-maroon-900" />
+                                <div className="w-10 h-10 bg-gold-500 rounded-full flex items-center justify-center overflow-hidden">
+                                    {avatarUrl ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt={`${profile?.first_name} ${profile?.last_name}`}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    ) : (
+                                        <User className="w-5 h-5 text-maroon-900" />
+                                    )}
                                 </div>
                             </div>
 

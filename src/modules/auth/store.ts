@@ -18,6 +18,7 @@ interface RegisterData {
 
 interface AuthState {
   profile: Profile | null;
+  avatarUrl: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
@@ -36,6 +37,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   immer((set) => ({
     profile: null,
+    avatarUrl: null,
     isLoading: false,
     isAuthenticated: false,
     isInitialized: false,
@@ -61,15 +63,16 @@ export const useAuthStore = create<AuthState>()(
             // Check verification
             if ('is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff') {
               await supabase.auth.signOut();
-              set({ profile: null, isAuthenticated: false, isLoading: false, isInitialized: true });
+              set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
               return;
             }
-            set({ profile, isAuthenticated: true, isLoading: false, isInitialized: true });
+            const avatarUrl = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null;
+            set({ profile, avatarUrl, isAuthenticated: true, isLoading: false, isInitialized: true });
           } else {
-            set({ profile: null, isAuthenticated: false, isLoading: false, isInitialized: true });
+            set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
           }
         } else {
-          set({ profile: null, isAuthenticated: false, isLoading: false, isInitialized: true });
+          set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
         }
 
         // Listen for auth changes
@@ -84,7 +87,7 @@ export const useAuthStore = create<AuthState>()(
 
       } catch (error) {
         console.error('Error initializing auth:', error);
-        set({ profile: null, isAuthenticated: false, isLoading: false, isInitialized: true });
+        set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
       }
     },
 
@@ -242,7 +245,7 @@ export const useAuthStore = create<AuthState>()(
     logout: async () => {
       try {
         await supabase.auth.signOut();
-        set({ profile: null, isAuthenticated: false });
+        set({ profile: null, avatarUrl: null, isAuthenticated: false });
       } catch (error) {
         console.error('Error logging out:', error);
         throw error;
@@ -250,7 +253,7 @@ export const useAuthStore = create<AuthState>()(
     },
 
     clearAuth: () => {
-      set({ profile: null, isAuthenticated: false });
+      set({ profile: null, avatarUrl: null, isAuthenticated: false });
     },
   }))
 );

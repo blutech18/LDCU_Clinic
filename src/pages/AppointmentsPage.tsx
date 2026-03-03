@@ -3,7 +3,7 @@ import { Calendar, Search, X, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Ed
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
-import { formatDate, formatTime } from '~/lib/utils';
+import { formatDate } from '~/lib/utils';
 import type { AppointmentStatus, AppointmentType } from '~/types';
 
 export function AppointmentsPage() {
@@ -248,13 +248,13 @@ export function AppointmentsPage() {
                     Patient
                   </th>
 
-                  {/* Sortable: Date & Time */}
+                  {/* Sortable: Date */}
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
                     <button
                       onClick={() => toggleSort('appointment_date')}
                       className="inline-flex items-center justify-center gap-1 hover:text-gray-800 transition-colors"
                     >
-                      Date &amp; Time
+                      Date
                       <SortIcon field="appointment_date" />
                     </button>
                   </th>
@@ -296,12 +296,9 @@ export function AppointmentsPage() {
                       <p className="text-xs text-gray-400 mt-0.5 truncate">{apt.patient_email || '-'}</p>
                     </td>
 
-                    {/* Date & Time — centered */}
+                    {/* Date — centered */}
                     <td className="px-4 py-3.5 text-center">
                       <p className="text-gray-900 text-sm font-medium">{formatDate(apt.appointment_date)}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {formatTime(apt.start_time)} – {formatTime(apt.end_time)}
-                      </p>
                     </td>
 
                     {/* Type — centered */}

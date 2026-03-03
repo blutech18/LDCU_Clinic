@@ -49,6 +49,7 @@ export function StudentBookingPage() {
     const [bookingError, setBookingError] = useState<string | null>(null);
     const [direction, setDirection] = useState(0);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; type?: 'error' | 'warning' | 'info' }>({ isOpen: false, message: '' });
 
     const variants = {
@@ -334,17 +335,37 @@ export function StudentBookingPage() {
         <StudentLayout>
 
             <div className="lg:h-[calc(100vh-4rem)] h-auto flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                {/* Header */}
-                <div className="mb-4 flex-shrink-0 flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Book an Appointment</h1>
-                    <span className="hidden sm:inline text-gray-400">-</span>
-                    <p className="text-gray-600 text-sm">Select a date on the calendar to book your clinic appointment</p>
+                {/* Header Sector */}
+                <div className="mb-4 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Book an Appointment</h1>
+                        <span className="hidden sm:inline text-gray-400">-</span>
+                        <p className="text-gray-600 text-sm">Select a date on the calendar to book your clinic appointment</p>
+                    </div>
                 </div>
 
                 <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 flex-1 lg:h-full lg:overflow-hidden">
-                    {/* Calendar */}
-                    <div className="lg:col-span-2 flex flex-col overflow-hidden h-auto lg:h-full">
-                        <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col h-full">
+                    {/* Calendar & Campus Selector */}
+                    <div className="lg:col-span-2 flex flex-col h-auto lg:h-full gap-4">
+                        {/* Campus Selection above Card */}
+                        <div className="w-full">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+                                {campuses.map(campus => (
+                                    <button
+                                        key={campus.id}
+                                        onClick={() => setSelectedCampus(campus.id)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampus === campus.id
+                                            ? 'bg-maroon-800 text-white border-maroon-800'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                                            }`}
+                                    >
+                                        {campus.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col flex-1 min-h-0">
                             {/* Calendar Header */}
                             <div className="bg-maroon-800 text-white p-3 flex items-center justify-between flex-shrink-0 z-10 relative">
                                 <button
@@ -374,7 +395,7 @@ export function StudentBookingPage() {
                             </div>
 
                             {/* Calendar Grid */}
-                            <div className="flex-1 relative overflow-hidden min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] bg-white">
+                            <div className="flex-1 relative min-h-[350px] sm:min-h-[450px] lg:min-h-[550px] bg-white">
                                 <AnimatePresence initial={false} custom={direction} mode="popLayout">
                                     <motion.div
                                         key={currentMonth.toString()}
@@ -387,7 +408,8 @@ export function StudentBookingPage() {
                                             x: { type: "spring", stiffness: 300, damping: 30 },
                                             opacity: { duration: 0.2 }
                                         }}
-                                        className="absolute inset-0 grid grid-cols-7 auto-rows-fr"
+                                        className="absolute inset-0 grid grid-cols-7"
+                                        style={{ gridTemplateRows: `repeat(${calendarDays.length / 7}, minmax(0, 1fr))` }}
                                     >
                                         {calendarDays.map((day, idx) => {
                                             const dateStr = formatLocalDate(day);
@@ -489,53 +511,76 @@ export function StudentBookingPage() {
                     </div>
 
                     {/* My Appointments Sidebar */}
-                    <div className="lg:col-span-1 flex flex-col overflow-hidden h-full flex-1">
-                        <div className="bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-hidden">
-                            <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2 flex-shrink-0">
-                                <Calendar className="w-4 h-4 text-maroon-800" />
-                                My Appointments
-                            </h3>
+                    <div className="lg:col-span-1 flex flex-col h-full gap-4">
+                        <div className="bg-white rounded-xl shadow-md p-5 flex flex-col h-full border border-gray-100 flex-1">
+                            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 flex-shrink-0">
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2.5">
+                                    <div className="p-1.5 bg-maroon-50 rounded-lg">
+                                        <Calendar className="w-5 h-5 text-maroon-800" />
+                                    </div>
+                                    My Appointments
+                                </h3>
+                                <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-xs font-semibold">
+                                    {myAppointments.length} Total
+                                </span>
+                            </div>
 
                             {isLoading ? (
-                                <div className="text-center py-8">
-                                    <div className="w-8 h-8 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-60">
+                                    <div className="w-10 h-10 border-4 border-maroon-200 border-t-maroon-800 rounded-full animate-spin mb-4"></div>
+                                    <p className="text-sm font-medium text-gray-500 animate-pulse">Loading appointments...</p>
                                 </div>
                             ) : myAppointments.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500">
-                                    <Calendar className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">No appointments</p>
+                                <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 text-center">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100 shadow-sm">
+                                        <Calendar className="w-8 h-8 text-gray-300" />
+                                    </div>
+                                    <h4 className="text-gray-900 font-semibold mb-1">No Upcoming Appointments</h4>
+                                    <p className="text-sm text-gray-500 max-w-[200px]">You haven't scheduled any clinic visits yet.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-2 overflow-y-auto flex-1">
+                                <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                                     {myAppointments
                                         .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
-                                        .map((apt) => (
-                                            <div
-                                                key={apt.id}
-                                                className={`p-2.5 rounded-lg border-l-4 ${apt.status === 'completed' ? 'bg-green-50 border-green-500' :
-                                                    apt.status === 'cancelled' ? 'bg-red-50 border-red-400' :
-                                                        'bg-gray-50 border-maroon-800'
-                                                    }`}
-                                            >
-                                                <p className="font-medium text-gray-900 text-sm">
-                                                    {format(parseISO(apt.appointment_date), 'MMM d, yyyy')}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-1.5">
-                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded capitalize ${apt.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                        apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                                            'bg-blue-100 text-blue-800'
-                                                        }`}>
-                                                        {apt.appointment_type.replace('_', ' ')}
-                                                    </span>
-                                                    <span className={`px-1.5 py-0.5 text-xs font-semibold rounded uppercase ${apt.status === 'completed' ? 'bg-green-200 text-green-900' :
-                                                        apt.status === 'cancelled' ? 'bg-red-200 text-red-900' :
-                                                            'bg-blue-200 text-blue-900'
-                                                        }`}>
-                                                        {apt.status}
-                                                    </span>
+                                        .map((apt) => {
+                                            const isPast = new Date(apt.appointment_date) < new Date(new Date().setHours(0, 0, 0, 0));
+
+                                            return (
+                                                <div
+                                                    key={apt.id}
+                                                    onClick={() => setSelectedAppointment(apt)}
+                                                    className={`group relative p-3 sm:p-4 rounded-xl border transition-all duration-300 hover:shadow-md cursor-pointer ${apt.status === 'completed' ? 'bg-white border-emerald-100/50 hover:border-emerald-200' :
+                                                        apt.status === 'cancelled' ? 'bg-white border-red-100/50 hover:border-red-200' :
+                                                            isPast ? 'bg-gray-50/50 border-gray-100' :
+                                                                'bg-white border-gray-200 hover:border-gray-300 shadow-sm'
+                                                        }`}
+                                                >
+                                                    {/* Decorative side bar (simplified to gray) */}
+                                                    <div className={`absolute left-0 top-3 bottom-3 w-1.5 rounded-r-md transition-all ${apt.status === 'completed' ? 'bg-emerald-200' :
+                                                        apt.status === 'cancelled' ? 'bg-red-200' :
+                                                            isPast ? 'bg-gray-200' :
+                                                                'bg-slate-300'
+                                                        }`} />
+
+                                                    <div className="flex flex-col h-full pl-3 pr-1">
+                                                        {/* Top Row: Date & Status */}
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="flex flex-col">
+                                                                <p className={`font-bold text-sm sm:text-[15px] ${isPast ? 'text-gray-500' : 'text-gray-900'}`}>
+                                                                    {format(parseISO(apt.appointment_date), 'MMMM d, yyyy')}
+                                                                </p>
+                                                            </div>
+                                                            <span className={`shrink-0 ml-2 px-2.5 py-1 text-[9px] sm:text-[10px] font-bold rounded uppercase tracking-wider border ${apt.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                apt.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                                    'bg-maroon-50 text-maroon-800 border-maroon-100'
+                                                                }`}>
+                                                                {apt.status}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                 </div>
                             )}
                         </div>
@@ -569,17 +614,17 @@ export function StudentBookingPage() {
                             className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
                         >
                             {/* Modal Header */}
-                            <div className="flex-shrink-0 flex items-center justify-between p-4 border-b bg-maroon-900 text-white rounded-t-xl">
-                                <div>
+                            <div className="flex-shrink-0 flex items-start justify-between p-4 border-b bg-maroon-900 text-white rounded-t-xl gap-4">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                     <h3 className="text-lg font-semibold">
                                         Book Appointment - {format(selectedDate, 'MMM d, yyyy')}
                                     </h3>
-                                    <p className="text-sm text-maroon-200 flex items-center gap-1 mt-0.5">
+                                    <p className="text-[13px] text-rose-100 flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-md font-medium">
                                         <Users className="w-3.5 h-3.5" />
-                                        {getBookingCount(selectedDate)} / {getMaxForDate(formatLocalDate(selectedDate))} booked
+                                        <span>{getBookingCount(selectedDate)} / {getMaxForDate(formatLocalDate(selectedDate))} booked</span>
                                     </p>
                                 </div>
-                                <button onClick={closeModal} className="p-1 hover:bg-maroon-800 rounded transition-colors">
+                                <button onClick={closeModal} className="p-1 hover:bg-maroon-800 rounded transition-colors shrink-0 mt-0.5">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
@@ -598,13 +643,13 @@ export function StudentBookingPage() {
                                     <>
                                         {/* Appointment Type */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Type</label>
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Appointment Type</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                                 {APPOINTMENT_TYPES.map((type) => (
                                                     <button
                                                         key={type.value}
                                                         onClick={() => setAppointmentType(type.value as AppointmentType)}
-                                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${appointmentType === type.value
+                                                        className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${appointmentType === type.value
                                                             ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
                                                             : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
                                                             }`}
@@ -615,61 +660,47 @@ export function StudentBookingPage() {
                                             </div>
                                         </div>
 
-                                        {/* Full Name */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                                            <input
-                                                type="text"
-                                                value={fullName}
-                                                onChange={(e) => setFullName(e.target.value)}
-                                                placeholder="Enter your full name"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
-                                            />
-                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Full Name */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={fullName}
+                                                    onChange={(e) => setFullName(e.target.value)}
+                                                    placeholder="Enter your full name"
+                                                    className="w-full px-3 py-2 min-h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
+                                                />
+                                            </div>
 
-                                        {/* Contact Number */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                                            <input
-                                                type="tel"
-                                                value={contactNumber}
-                                                onChange={(e) => setContactNumber(e.target.value)}
-                                                placeholder="Enter your contact number"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
-                                            />
-                                        </div>
+                                            {/* Contact Number */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                                                <input
+                                                    type="tel"
+                                                    value={contactNumber}
+                                                    onChange={(e) => setContactNumber(e.target.value)}
+                                                    placeholder="Enter your contact number"
+                                                    className="w-full px-3 py-2 min-h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
+                                                />
+                                            </div>
 
-                                        {/* Department */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                                            <select
-                                                value={selectedDepartment}
-                                                onChange={(e) => setSelectedDepartment(e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
-                                            >
-                                                <option value="">Select Department</option>
-                                                {departments.map((dept) => (
-                                                    <option key={dept.id} value={dept.id}>
-                                                        {dept.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Campus Selection */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
-                                            <select
-                                                value={selectedCampus}
-                                                onChange={(e) => setSelectedCampus(e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
-                                            >
-                                                {campuses.map((campus) => (
-                                                    <option key={campus.id} value={campus.id}>
-                                                        {campus.name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            {/* Department */}
+                                            <div className="sm:col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                                <select
+                                                    value={selectedDepartment}
+                                                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                                                    className="w-full px-3 py-2 min-h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow bg-white"
+                                                >
+                                                    <option value="">Select Department</option>
+                                                    {departments.map((dept) => (
+                                                        <option key={dept.id} value={dept.id}>
+                                                            {dept.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
 
                                         {/* Notes */}
@@ -711,6 +742,66 @@ export function StudentBookingPage() {
                                         </div>
                                     </>
                                 )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Appointment Details Modal */}
+            <AnimatePresence>
+                {selectedAppointment && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                        onClick={() => setSelectedAppointment(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            transition={{ type: "spring", duration: 0.5 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col"
+                        >
+                            {/* Modal Header */}
+                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                                <h3 className="font-semibold text-gray-900">Appointment Details</h3>
+                                <button
+                                    onClick={() => setSelectedAppointment(null)}
+                                    className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-5 space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Date</p>
+                                        <p className="text-base font-bold text-gray-900">
+                                            {format(parseISO(selectedAppointment.appointment_date), 'MMMM d, yyyy')}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                                    <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Service Type</p>
+                                        <p className="font-medium text-gray-800 capitalize">
+                                            {selectedAppointment.appointment_type.replace('_', ' ')}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Campus</p>
+                                        <p className="font-medium text-gray-800">
+                                            {campuses.find(c => c.id === selectedAppointment.campus_id)?.name || 'Unknown Campus'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>
