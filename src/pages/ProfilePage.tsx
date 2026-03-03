@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '~/modules/auth';
 import { useScheduleStore } from '~/modules/schedule';
 import { supabase } from '~/lib/supabase';
+import { logUserAction } from '~/lib/auditLog';
 
 export function ProfilePage() {
     const { profile, setProfile } = useAuthStore();
@@ -55,6 +56,20 @@ export function ProfilePage() {
                 .eq('id', profile.id);
 
             if (error) throw error;
+
+            // Log profile update
+            await logUserAction({
+                userId: profile.id,
+                action: 'UPDATE',
+                resourceType: 'profile',
+                resourceId: profile.id,
+                campusId: formData.campus_id || undefined,
+                details: {
+                    updated_fields: Object.keys(formData),
+                    previous_campus: profile.campus_id,
+                    new_campus: formData.campus_id,
+                },
+            });
 
             setProfile({ ...profile, ...formData } as typeof profile);
             setMessage({ type: 'success', text: 'Profile updated successfully!' });

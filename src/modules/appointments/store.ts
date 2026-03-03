@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Appointment, AppointmentType, AppointmentStatus } from '~/types';
 import { supabase } from '~/lib/supabase';
+import { logUserAction } from '~/lib/auditLog';
 
 interface AppointmentFilters {
   campusId?: string;
@@ -115,6 +116,23 @@ export const useAppointmentStore = create<AppointmentState>()(
 
         if (error) throw error;
 
+        // Log appointment creation
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await logUserAction({
+            userId: user.id,
+            action: 'CREATE',
+            resourceType: 'appointment',
+            resourceId: newAppointment.id,
+            campusId: newAppointment.campus_id,
+            details: {
+              appointment_type: newAppointment.appointment_type,
+              appointment_date: newAppointment.appointment_date,
+              patient_name: newAppointment.patient_name,
+            },
+          });
+        }
+
         set((state) => {
           state.appointments.push(newAppointment);
           state.isSaving = false;
@@ -130,9 +148,29 @@ export const useAppointmentStore = create<AppointmentState>()(
     updateAppointment: async (id, data) => {
       set({ isSaving: true });
       try {
+        // Get current appointment for audit log
+        const currentApt = await supabase.from('appointments').select('*').eq('id', id).single();
+        
         const { error } = await supabase.from('appointments').update(data).eq('id', id);
 
         if (error) throw error;
+
+        // Log appointment update
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && currentApt.data) {
+          await logUserAction({
+            userId: user.id,
+            action: 'UPDATE',
+            resourceType: 'appointment',
+            resourceId: id,
+            campusId: currentApt.data.campus_id,
+            details: {
+              changes: data,
+              previous_status: currentApt.data.status,
+              new_status: data.status,
+            },
+          });
+        }
 
         set((state) => {
           const index = state.appointments.findIndex((a) => a.id === id);
@@ -149,8 +187,28 @@ export const useAppointmentStore = create<AppointmentState>()(
 
     deleteAppointment: async (id) => {
       try {
+        // Get appointment details before deleting
+        const { data: apt } = await supabase.from('appointments').select('*').eq('id', id).single();
+        
         const { error } = await supabase.from('appointments').delete().eq('id', id);
         if (error) throw error;
+
+        // Log appointment deletion
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && apt) {
+          await logUserAction({
+            userId: user.id,
+            action: 'DELETE',
+            resourceType: 'appointment',
+            resourceId: id,
+            campusId: apt.campus_id,
+            details: {
+              patient_name: apt.patient_name,
+              appointment_date: apt.appointment_date,
+              appointment_type: apt.appointment_type,
+            },
+          });
+        }
 
         set((state) => {
           state.appointments = state.appointments.filter((a) => a.id !== id);
