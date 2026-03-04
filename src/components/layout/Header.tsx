@@ -7,6 +7,7 @@ import { LogoutModal } from '~/components/modals/LogoutModal';
 
 export function Header() {
   const { profile, avatarUrl, logout, loginWithGoogle } = useAuthStore();
+  const displayAvatar = avatarUrl || profile?.avatar_url || null;
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -72,19 +73,26 @@ export function Header() {
                   </nav>
                 )}
 
-                <div className="hidden md:flex items-center space-x-4">
-                  <div className="flex items-center space-x-2 animate-fade-in">
-                    <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center overflow-hidden">
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt={`${profile.first_name}`} className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-4 h-4 text-maroon-900" />
-                      )}
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium">
+                <div className="hidden md:flex items-center space-x-5">
+                  <div className="flex items-center gap-3 animate-fade-in">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-white">
                         {profile.first_name} {profile.last_name}
                       </p>
+                    </div>
+                    <div className="w-10 h-10 bg-gold-500 rounded-full flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                      {displayAvatar ? (
+                        <img
+                          src={displayAvatar}
+                          alt={`${profile.first_name}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="text-maroon-900 font-bold text-sm">
+                          {profile.first_name?.[0]}{profile.last_name?.[0]}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <Button

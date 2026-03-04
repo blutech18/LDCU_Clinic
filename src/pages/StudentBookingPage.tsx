@@ -334,7 +334,7 @@ export function StudentBookingPage() {
     return (
         <StudentLayout>
 
-            <div className="lg:h-[calc(100vh-4rem)] h-auto flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="min-h-[calc(100vh-4rem)] flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 {/* Header Sector */}
                 <div className="mb-4 flex-shrink-0">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
@@ -344,9 +344,9 @@ export function StudentBookingPage() {
                     </div>
                 </div>
 
-                <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 flex-1 lg:h-full lg:overflow-hidden">
+                <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 flex-1">
                     {/* Calendar & Campus Selector */}
-                    <div className="lg:col-span-2 flex flex-col h-auto lg:h-full gap-4">
+                    <div className="lg:col-span-2 flex flex-col gap-4">
                         {/* Campus Selection above Card */}
                         <div className="w-full">
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
@@ -354,9 +354,9 @@ export function StudentBookingPage() {
                                     <button
                                         key={campus.id}
                                         onClick={() => setSelectedCampus(campus.id)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampus === campus.id
-                                            ? 'bg-maroon-800 text-white border-maroon-800'
-                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ease-out border shadow-sm ${selectedCampus === campus.id
+                                            ? 'bg-maroon-800 text-white border-maroon-800 scale-[1.03] shadow-md ring-2 ring-maroon-800/20'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700 hover:bg-maroon-50/50 hover:-translate-y-0.5'
                                             }`}
                                     >
                                         {campus.name}
@@ -365,7 +365,7 @@ export function StudentBookingPage() {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col flex-1 min-h-0">
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col flex-1">
                             {/* Calendar Header */}
                             <div className="bg-maroon-800 text-white p-3 flex items-center justify-between flex-shrink-0 z-10 relative">
                                 <button
@@ -395,7 +395,7 @@ export function StudentBookingPage() {
                             </div>
 
                             {/* Calendar Grid */}
-                            <div className="flex-1 relative min-h-[350px] sm:min-h-[450px] lg:min-h-[550px] bg-white">
+                            <div className="flex-1 relative bg-white w-full">
                                 <AnimatePresence initial={false} custom={direction} mode="popLayout">
                                     <motion.div
                                         key={currentMonth.toString()}
@@ -408,8 +408,7 @@ export function StudentBookingPage() {
                                             x: { type: "spring", stiffness: 300, damping: 30 },
                                             opacity: { duration: 0.2 }
                                         }}
-                                        className="absolute inset-0 grid grid-cols-7"
-                                        style={{ gridTemplateRows: `repeat(${calendarDays.length / 7}, minmax(0, 1fr))` }}
+                                        className="w-full grid grid-cols-7 auto-rows-[minmax(60px,1fr)] sm:auto-rows-[minmax(80px,1fr)] lg:auto-rows-[minmax(100px,1fr)]"
                                     >
                                         {calendarDays.map((day, idx) => {
                                             const dateStr = formatLocalDate(day);
@@ -470,9 +469,15 @@ export function StudentBookingPage() {
                                                         <span className="mt-0.5 text-[9px] font-medium text-gray-400">Closed</span>
                                                     )}
                                                     {isCurrentMonth && isActiveDay && !isPast && (
-                                                        <span className={`mt-0.5 text-[10px] font-medium no-underline ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                                                        <motion.span
+                                                            key={`slots-${selectedCampus}-${count}-${effectiveMax}`}
+                                                            initial={{ opacity: 0, y: 5, scale: 0.9 }}
+                                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                                                            className={`mt-0.5 text-[10px] font-medium no-underline transition-colors duration-300 ${full ? 'text-red-500 font-bold' : count > 0 ? 'text-maroon-600 font-bold' : 'text-gray-400'}`}
+                                                        >
                                                             {count}/{effectiveMax}
-                                                        </span>
+                                                        </motion.span>
                                                     )}
                                                     {hasAppointment && isCurrentMonth && (
                                                         <span className="w-1.5 h-1.5 bg-maroon-600 rounded-full"></span>

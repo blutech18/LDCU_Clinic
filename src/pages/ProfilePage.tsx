@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, Mail, Phone, MapPin, Save, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '~/modules/auth';
@@ -7,10 +7,11 @@ import { supabase } from '~/lib/supabase';
 import { logUserAction } from '~/lib/auditLog';
 
 export function ProfilePage() {
-    const { profile, setProfile } = useAuthStore();
+    const { profile, avatarUrl, setProfile } = useAuthStore();
     const { campuses, fetchCampuses } = useScheduleStore();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const [formData, setFormData] = useState({
@@ -21,9 +22,30 @@ export function ProfilePage() {
         campus_id: profile?.campus_id || '',
     });
 
+    // Fetch fresh profile data on mount
+    const refreshProfile = useCallback(async () => {
+        if (!profile?.id) return;
+        setIsLoadingProfile(true);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', profile.id)
+                .single();
+            if (!error && data) {
+                setProfile(data);
+            }
+        } catch (e) {
+            console.error('Failed to refresh profile', e);
+        } finally {
+            setIsLoadingProfile(false);
+        }
+    }, [profile?.id]);
+
     useEffect(() => {
         fetchCampuses();
-    }, [fetchCampuses]);
+        refreshProfile();
+    }, [fetchCampuses, refreshProfile]);
 
     useEffect(() => {
         if (profile) {
@@ -88,19 +110,15 @@ export function ProfilePage() {
         return campus?.name || 'Unknown';
     };
 
+    // Use assigned campus for nurses
+    const displayCampusId = profile?.assigned_campus_id || profile?.campus_id;
+
     const initials = `${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}`.toUpperCase() || 'U';
+    const displayAvatar = avatarUrl || profile?.avatar_url || null;
 
     return (
         <>
             <div className="animate-slide-up">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Profile
-                    </h1>
-                    <p className="text-gray-600 mt-1">
-                        Manage your clinic account and personal information.
-                    </p>
-                </div>
 
                 {/* Message Banner */}
                 <AnimatePresence>
@@ -136,17 +154,29 @@ export function ProfilePage() {
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-gold-400/10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
 
                         <div className="absolute inset-0 flex items-center px-6 sm:px-10">
-                            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5">
-                                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white p-1 rounded-2xl shadow-2xl relative group">
+                            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 sm:gap-6">
+                                {/* Avatar */}
+                                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white p-1 rounded-2xl shadow-2xl relative group shrink-0">
                                     <div className="w-full h-full bg-gradient-to-br from-gold-400 to-gold-600 rounded-xl flex items-center justify-center overflow-hidden">
-                                        <span className="text-maroon-900 font-black text-2xl sm:text-3xl">
-                                            {initials}
-                                        </span>
+                                        {isLoadingProfile ? (
+                                            <div className="w-6 h-6 border-2 border-maroon-900/30 border-t-maroon-900 rounded-full animate-spin" />
+                                        ) : displayAvatar ? (
+                                            <img
+                                                src={displayAvatar}
+                                                alt={`${profile?.first_name} ${profile?.last_name}`}
+                                                className="w-full h-full object-cover rounded-xl"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ) : (
+                                            <span className="text-maroon-900 font-black text-2xl sm:text-3xl">
+                                                {initials}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
                                 </div>
-                                <div className="text-white pb-1 text-center sm:text-left">
-                                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                                <div className="text-white text-center sm:text-left flex-1 min-w-0">
+                                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">
                                         {profile?.first_name} {profile?.middle_name ? `${profile.middle_name} ` : ''}{profile?.last_name}
                                     </h2>
                                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-1.5">
@@ -301,9 +331,9 @@ export function ProfilePage() {
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <MapPin className="w-4 h-4 text-maroon-800" />
-                                        Assigned Campus
+                                        {profile?.role === 'nurse' ? 'Assigned Campus' : 'Campus'}
                                     </label>
-                                    {isEditing ? (
+                                    {isEditing && profile?.role !== 'nurse' ? (
                                         <div className="relative">
                                             <select
                                                 name="campus_id"
@@ -325,7 +355,7 @@ export function ProfilePage() {
                                     ) : (
                                         <div className="inline-flex items-center px-4 py-2 bg-maroon-50 border border-maroon-100 rounded-2xl">
                                             <div className="w-2 h-2 bg-maroon-600 rounded-full mr-2.5 animate-pulse"></div>
-                                            <p className="text-maroon-900 text-sm font-bold">{getCampusName(profile?.campus_id)}</p>
+                                            <p className="text-maroon-900 text-sm font-bold">{getCampusName(displayCampusId)}</p>
                                         </div>
                                     )}
                                 </div>

@@ -31,13 +31,19 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
 
     const adminItem = profile?.role === 'admin' ? { path: '/admin', icon: FaCog, label: 'Admin' } : null;
     const isSupervisor = profile?.role === 'supervisor';
-    
-    let navigation = [...menuItems];
+
+    let navigation = menuItems.filter(item => item.path !== '/profile');
     if (isSupervisor) {
         navigation = [...navigation, ...supervisorItems];
     }
     if (adminItem) {
         navigation = [...navigation, adminItem];
+    }
+
+    // Always ensure profile is at the bottom
+    const profileItem = menuItems.find(item => item.path === '/profile');
+    if (profileItem) {
+        navigation.push(profileItem);
     }
 
     const handleLogout = () => {

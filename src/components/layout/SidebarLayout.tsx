@@ -23,7 +23,8 @@ const pageLabels: Record<string, string> = {
 };
 
 export function SidebarLayout({ children }: SidebarLayoutProps) {
-  const { profile } = useAuthStore();
+  const { profile, avatarUrl } = useAuthStore();
+  const displayAvatar = avatarUrl || profile?.avatar_url || null;
   const location = useLocation();
   const outlet = useOutlet();
 
@@ -106,13 +107,22 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
+          <div className="text-right hidden sm:block mt-0.5">
             <p className="text-sm font-medium text-white">{profile?.first_name} {profile?.last_name}</p>
           </div>
-          <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center">
-            <span className="text-maroon-900 font-bold text-xs">
-              {profile?.first_name?.[0]}{profile?.last_name?.[0]}
-            </span>
+          <div className="w-10 h-10 bg-gold-500 rounded-full flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+            {displayAvatar ? (
+              <img
+                src={displayAvatar}
+                alt={`${profile?.first_name} ${profile?.last_name}`}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <span className="text-maroon-900 font-bold text-sm">
+                {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+              </span>
+            )}
           </div>
         </div>
       </header>

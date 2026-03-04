@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '~/modules/auth';
 
@@ -7,21 +7,26 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isInitialized, verifyRole } = useAuthStore();
+  const { isAuthenticated, isInitialized } = useAuthStore();
+  const verifyRole = useAuthStore.getState().verifyRole;
   const [roleValid, setRoleValid] = useState(true);
+  const verifiedRef = useRef(false);
 
   useEffect(() => {
+    // Only verify once per mount (not on every re-render from token refreshes)
+    if (!isInitialized || !isAuthenticated || verifiedRef.current) return;
+    verifiedRef.current = true;
     let cancelled = false;
-    const verify = async () => {
-      if (!isInitialized || !isAuthenticated) return;
-      const valid = await verifyRole();
+    verifyRole().then((valid) => {
       if (!cancelled) setRoleValid(valid);
-    };
-    verify();
+    });
     return () => { cancelled = true; };
-  }, [isInitialized, isAuthenticated, verifyRole]);
+  }, [isInitialized, isAuthenticated]);
 
-  if (!isAuthenticated || !roleValid) {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!roleValid) {
     return <Navigate to="/login" replace />;
   }
 

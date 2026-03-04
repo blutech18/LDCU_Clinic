@@ -32,6 +32,7 @@ export interface Profile {
   assigned_campus_id?: string; // For nurses - restricts access to specific campus
   phone?: string;
   is_verified?: boolean;
+  avatar_url?: string;
   created_at: string;
   updated_at: string;
 }

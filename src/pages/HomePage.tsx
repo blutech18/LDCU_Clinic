@@ -1,13 +1,11 @@
 import { Link, Navigate } from 'react-router-dom';
-import { useState } from 'react';
 import { Calendar, Clock, Users, Shield } from 'lucide-react';
 import { Header, Footer } from '~/components/layout';
 import { Button } from '~/components/ui';
 import { useAuthStore } from '~/modules/auth';
 
 export function HomePage() {
-  const { loginWithGoogle, profile, isInitialized } = useAuthStore();
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { profile, isInitialized } = useAuthStore();
 
   // Show loading screen while auth is being initialized to prevent flash
   if (!isInitialized) {
@@ -25,36 +23,27 @@ export function HomePage() {
     return <Navigate to="/employee/dashboard" replace />;
   }
 
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    try {
-      await loginWithGoogle();
-    } catch (err) {
-      console.error('Failed to login with Google:', err);
-      setIsGoogleLoading(false);
-    }
-  };
 
   const features = [
     {
       icon: Calendar,
       title: 'Easy Scheduling',
-      description: 'Book your physical exam or consultation appointments with just a few clicks.',
+      description: 'Book your physical exam or consultation dates quickly without any hassle.',
     },
     {
       icon: Clock,
-      title: 'Flexible Time Slots',
-      description: 'Choose from available time slots that fit your schedule.',
+      title: 'Efficient Processing',
+      description: 'Experience a streamlined workflow from appointment request to clinic approval.',
     },
     {
       icon: Users,
-      title: 'For Students & Employees',
-      description: 'Dedicated scheduling system for the entire Liceo community.',
+      title: 'For Students & Staff',
+      description: 'A dedicated health scheduling system built for the Liceo de Cagayan University community.',
     },
     {
       icon: Shield,
       title: 'Secure & Private',
-      description: 'Your health information is protected with enterprise-grade security.',
+      description: 'Your health records and personal information are protected with enterprise-grade security.',
     },
   ];
 
@@ -85,19 +74,6 @@ export function HomePage() {
                   <Calendar className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <button
-                onClick={handleGoogleLogin}
-                disabled={isGoogleLoading}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-800 font-semibold rounded-lg border-2 border-gold-400 hover:bg-gray-50 transition-all duration-200 hover:scale-105 shadow-sm"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                {isGoogleLoading ? 'Signing in...' : 'Login with Google'}
-              </button>
             </div>
           </div>
         </div>
@@ -106,13 +82,13 @@ export function HomePage() {
       <section className="py-20 bg-gray-50 flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 animate-fade-in">
-            <h3 className="text-3xl font-bold text-gray-900 mb-4">Why Use Our System?</h3>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <h3 className="text-3xl font-bold text-gray-900 mb-6 tracking-tight">Why Use Our System?</h3>
+            <p className="text-gray-600 max-w-2xl mx-auto text-lg">
               Our clinic scheduling system is designed to make healthcare access easier for the
-              Liceo community.
+              entire Liceo community.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {features.map((feature, index) => (
               <div
                 key={feature.title}
@@ -124,6 +100,55 @@ export function HomePage() {
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h4>
                 <p className="text-gray-600 text-sm">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16 animate-fade-in">
+            <h3 className="text-3xl font-bold text-gray-900 mb-6 tracking-tight">Meet the Developers</h3>
+            <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+              The dedicated team from EdTech behind the Liceo de Cagayan University Clinic Scheduling System.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              { name: "Dr. Marco Marvin L. Rado", image: "/devs/dev-rado.png", initials: "MR", color: "from-maroon-600 to-maroon-800" },
+              { name: "Harley Busa", image: "/devs/dev-busa.png", initials: "HB", color: "from-maroon-600 to-maroon-800" },
+              { name: "Marsh Ivan H. Quintila", image: "/devs/dev-quintila.png", initials: "MQ", color: "from-maroon-600 to-maroon-800" },
+              { name: "Cristan Jade Jumawan", image: "/devs/dev-jumawan.png", initials: "CJ", color: "from-maroon-600 to-maroon-800" },
+            ].map((dev, index) => (
+              <div
+                key={index}
+                className="group bg-gray-50 rounded-2xl p-8 flex flex-col items-center text-center transition-all duration-300 hover:-translate-y-2 hover:bg-white hover:shadow-xl border border-gray-100"
+                style={{ animationDelay: `${index * 150}ms` }}
+              >
+                <div className="w-20 h-20 sm:w-32 sm:h-32 mb-4 sm:mb-6 relative mx-auto">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${dev.color} rounded-full rotate-6 group-hover:rotate-12 transition-transform duration-300 opacity-20`}></div>
+                  <div
+                    className={`relative w-full h-full bg-gradient-to-br ${dev.color} rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-lg transform group-hover:scale-105 transition-transform duration-300 overflow-hidden`}
+                    style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)', WebkitTransform: 'translateZ(0)' }}
+                  >
+                    {dev.image ? (
+                      <img
+                        src={dev.image}
+                        alt={dev.name}
+                        className="w-full h-full object-cover transform-gpu"
+                      />
+                    ) : (
+                      <span className="drop-shadow-sm">{dev.initials}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="w-full mt-2 flex items-center justify-center overflow-visible">
+                  <h4 className="text-[clamp(12px,3.5vw,20px)] sm:text-[clamp(12px,2vw,18px)] lg:text-[clamp(11px,1.2vw,18px)] font-bold text-gray-900 mb-1 tracking-tight whitespace-nowrap">
+                    {dev.name}
+                  </h4>
+                </div>
               </div>
             ))}
           </div>

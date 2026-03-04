@@ -34,8 +34,11 @@ interface AuthState {
   clearAuth: () => void;
 }
 
+// Guard to prevent initialize() from running more than once
+let _initStarted = false;
+
 export const useAuthStore = create<AuthState>()(
-  immer((set) => ({
+  immer((set, get) => ({
     profile: null,
     avatarUrl: null,
     isLoading: false,
@@ -47,6 +50,10 @@ export const useAuthStore = create<AuthState>()(
     },
 
     initialize: async () => {
+      // Prevent double-initialization (React StrictMode, fast re-renders, etc.)
+      if (_initStarted) return;
+      _initStarted = true;
+
       set({ isLoading: true });
       try {
         // Get initial session
@@ -66,7 +73,14 @@ export const useAuthStore = create<AuthState>()(
               set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
               return;
             }
-            const avatarUrl = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null;
+            const sessionAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null;
+            const avatarUrl = sessionAvatar || profile.avatar_url || null;
+            // Persist avatar_url to profile if from Google and not already saved
+            if (sessionAvatar && !profile.avatar_url) {
+              // Fire-and-forget — don't await to avoid blocking init
+              Promise.resolve(supabase.from('profiles').update({ avatar_url: sessionAvatar }).eq('id', session.user.id)).catch(() => { });
+              profile.avatar_url = sessionAvatar;
+            }
             set({ profile, avatarUrl, isAuthenticated: true, isLoading: false, isInitialized: true });
           } else {
             set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
@@ -75,14 +89,17 @@ export const useAuthStore = create<AuthState>()(
           set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
         }
 
-        // Listen for auth changes
-        supabase.auth.onAuthStateChange(async (_event, session) => {
+        // Listen for auth changes — keep this handler MINIMAL.
+        // Only handle sign-out. Never call set() for token refreshes or SIGNED_IN
+        // because Supabase fires these events on every token refresh, which
+        // would cause infinite re-render loops in React components.
+        supabase.auth.onAuthStateChange((_event) => {
           if (_event === 'SIGNED_OUT') {
-            set({ profile: null, isAuthenticated: false, isInitialized: true });
-          } else if (_event === 'SIGNED_IN' && session) {
-            // We could refetch profile here if needed, but login handles it usually.
-            // This is mostly for external auth updates or token refreshes ensuring session validity
+            set({ profile: null, avatarUrl: null, isAuthenticated: false, isInitialized: true });
           }
+          // All other events (SIGNED_IN, TOKEN_REFRESHED, etc.) — do nothing.
+          // The profile is already loaded from initialize(). Token refresh
+          // is handled internally by Supabase and doesn't need any React state updates.
         });
 
       } catch (error) {
@@ -99,6 +116,16 @@ export const useAuthStore = create<AuthState>()(
           return false;
         }
 
+        // Use cached profile — avoids DB fetch + re-render on every route guard check
+        const cachedProfile = get().profile;
+        if (cachedProfile && cachedProfile.id === session.user.id) {
+          if (expectedRoles && expectedRoles.length > 0) {
+            return expectedRoles.includes(cachedProfile.role);
+          }
+          return true;
+        }
+
+        // No cached profile (shouldn't happen normally) — fetch fresh
         const { data: freshProfile, error } = await supabase
           .from('profiles')
           .select('*')
@@ -111,11 +138,11 @@ export const useAuthStore = create<AuthState>()(
           return false;
         }
 
-        // Update the stored profile with fresh data
-        set({ profile: freshProfile });
+        // Only update store if profile actually changed (prevents re-render loops)
+        if (!cachedProfile || cachedProfile.id !== freshProfile.id) {
+          set({ profile: freshProfile, isAuthenticated: true });
+        }
 
-        // If expectedRoles provided, check if current role matches
-        // Do NOT sign out — just return false so the route can redirect appropriately
         if (expectedRoles && expectedRoles.length > 0) {
           if (!expectedRoles.includes(freshProfile.role)) {
             return false;
@@ -129,7 +156,7 @@ export const useAuthStore = create<AuthState>()(
       }
     },
 
-    fetchProfile: async (userId) => {
+    fetchProfile: async (userId: string) => {
       set({ isLoading: true });
       try {
         const { data, error } = await supabase
@@ -147,7 +174,7 @@ export const useAuthStore = create<AuthState>()(
       }
     },
 
-    login: async (email, password) => {
+    login: async (email: string, password: string) => {
       set({ isLoading: true });
       try {
         const { data, error } = await supabase.auth.signInWithPassword({

@@ -60,6 +60,9 @@ export function ScheduleDayPage() {
   const [dragOverColumn, setDragOverColumn] = useState<'todo' | 'done' | null>(null);
   const [savingKanban, setSavingKanban] = useState<Set<string>>(new Set());
 
+  // ── Patient Avatars ──
+  const [patientAvatars, setPatientAvatars] = useState<Record<string, string>>({});
+
   // ── Kanban auto-save handlers ──
   const handleDropToDone = async (id: string) => {
     setCompletedIds(prev => new Set([...prev, id]));
@@ -170,6 +173,25 @@ export function ScheduleDayPage() {
       .filter(a => a.appointment_date === dateStr && a.status === 'completed')
       .forEach(a => seeded.add(a.id));
     setCompletedIds(seeded);
+  }, [appointments, dateStr]);
+
+  // Fetch patient avatars for appointments with a patient_id
+  useEffect(() => {
+    const ids = appointments
+      .filter(a => a.appointment_date === dateStr && a.patient_id)
+      .map(a => a.patient_id as string);
+    if (ids.length === 0) return;
+    const uniqueIds = [...new Set(ids)];
+    supabase
+      .from('profiles')
+      .select('id, avatar_url')
+      .in('id', uniqueIds)
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, string> = {};
+        data.forEach(p => { if (p.avatar_url) map[p.id] = p.avatar_url; });
+        setPatientAvatars(map);
+      });
   }, [appointments, dateStr]);
 
   // ── Derived lists ──
@@ -459,13 +481,28 @@ export function ScheduleDayPage() {
                                 : apt.booker_role === 'staff' ? 'bg-amber-50'
                                   : 'bg-maroon-50'}`}
                           >
-                            <div className="min-w-0 flex flex-col gap-0.5">
-                              <p className="font-semibold text-gray-900 text-sm truncate capitalize">
-                                {apt.patient_name || 'Unknown Patient'}
-                              </p>
-                              {apt.patient_email && (
-                                <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
-                              )}
+                            <div className="flex items-center gap-2 min-w-0">
+                              {/* Patient Avatar */}
+                              <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold bg-blue-100 text-blue-700">
+                                {apt.patient_id && patientAvatars[apt.patient_id] ? (
+                                  <img
+                                    src={patientAvatars[apt.patient_id]}
+                                    alt={apt.patient_name || ''}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <span>{(apt.patient_name || '?')[0].toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex flex-col gap-0.5">
+                                <p className="font-semibold text-gray-900 text-sm truncate capitalize">
+                                  {apt.patient_name || 'Unknown Patient'}
+                                </p>
+                                {apt.patient_email && (
+                                  <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
+                                )}
+                              </div>
                             </div>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5
                           ${apt.status === 'completed' ? 'bg-green-100 text-green-700'

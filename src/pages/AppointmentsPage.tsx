@@ -3,12 +3,14 @@ import { Calendar, Search, X, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, Ed
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
+import { useAuthStore } from '~/modules/auth';
 import { formatDate } from '~/lib/utils';
 import type { AppointmentStatus, AppointmentType } from '~/types';
 
 export function AppointmentsPage() {
   const { appointments, fetchAppointments, isLoading, updateAppointment, deleteAppointment } = useAppointmentStore();
   const { campuses, fetchCampuses } = useScheduleStore();
+  const { profile } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | ''>('');
   const [typeFilter, setTypeFilter] = useState<AppointmentType | ''>('');
@@ -138,40 +140,40 @@ export function AppointmentsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-
-          {/* Column 1: Search & Campus */}
-          <div className="flex flex-col gap-3">
-            <div className="relative h-[42px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-full pl-9 pr-4 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow"
-              />
-            </div>
-            <select
-              value={campusFilter}
-              onChange={(e) => setCampusFilter(e.target.value)}
-              className="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
-            >
-              <option value="">All Campuses</option>
-              {campuses.map((campus) => (
-                <option key={campus.id} value={campus.id}>
-                  {campus.name}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-col xl:flex-row gap-3">
+          {/* Search Bar */}
+          <div className="flex-1 relative h-[42px] min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-full pl-9 pr-4 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow"
+            />
           </div>
 
-          {/* Column 2: Status & Type */}
-          <div className="flex flex-col gap-3">
+          {/* Filters Wrap */}
+          <div className="flex flex-wrap lg:flex-nowrap gap-3 items-center">
+            {profile?.role !== 'nurse' && (
+              <select
+                value={campusFilter}
+                onChange={(e) => setCampusFilter(e.target.value)}
+                className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[150px] flex-1 sm:flex-none"
+              >
+                <option value="">All Campuses</option>
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | '')}
-              className="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[150px] flex-1 sm:flex-none"
             >
               <option value="">All Statuses</option>
               <option value="scheduled">Scheduled</option>
@@ -179,40 +181,40 @@ export function AppointmentsPage() {
               <option value="cancelled">Cancelled</option>
               <option value="no_show">No Show</option>
             </select>
+
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as AppointmentType | '')}
-              className="w-full h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[150px] flex-1 sm:flex-none"
             >
               <option value="">All Types</option>
               <option value="physical_exam">Physical Exam</option>
               <option value="consultation">Consultation</option>
               <option value="dental">Dental</option>
             </select>
-          </div>
 
-          {/* Column 3: Dates */}
-          <div className="flex flex-col gap-3">
-            <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow overflow-hidden flex items-center pr-2">
-              <span className="w-16 text-center text-xs text-gray-500 font-semibold uppercase tracking-wider whitespace-nowrap select-none">From</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1 h-full bg-transparent px-2 outline-none text-sm text-gray-700 cursor-pointer w-full leading-[42px]"
-              />
-            </div>
-            <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow overflow-hidden flex items-center pr-2">
-              <span className="w-16 text-center text-xs text-gray-500 font-semibold uppercase tracking-wider whitespace-nowrap select-none">To</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1 h-full bg-transparent px-2 outline-none text-sm text-gray-700 cursor-pointer w-full leading-[42px]"
-              />
+            {/* Date Range Wrapper */}
+            <div className="flex flex-row gap-3 w-full lg:w-auto overflow-hidden">
+              <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow flex items-center flex-1 lg:w-[200px] xl:w-[220px] overflow-hidden">
+                <span className="w-12 text-center text-[10px] text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap select-none border-r border-gray-100 h-full flex items-center justify-center bg-gray-50/50 rounded-l-lg shrink-0">From</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="flex-1 h-full bg-transparent px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
+                />
+              </div>
+              <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow flex items-center flex-1 lg:w-[200px] xl:w-[220px] overflow-hidden">
+                <span className="w-12 text-center text-[10px] text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap select-none border-r border-gray-100 h-full flex items-center justify-center bg-gray-50/50 rounded-l-lg shrink-0">To</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="flex-1 h-full bg-transparent px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
+                />
+              </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -292,8 +294,24 @@ export function AppointmentsPage() {
                   <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                     {/* Patient — left-aligned */}
                     <td className="px-4 py-3.5 max-w-[280px]">
-                      <p className="font-medium text-gray-900 text-sm truncate">{apt.patient_name || 'Unknown'}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">{apt.patient_email || '-'}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 flex-shrink-0 rounded-full overflow-hidden bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+                          {apt.patient_id && (apt as any).avatar_url ? (
+                            <img
+                              src={(apt as any).avatar_url}
+                              alt={apt.patient_name || ''}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          ) : (
+                            <span>{(apt.patient_name || '?')[0].toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{apt.patient_name || 'Unknown'}</p>
+                          <p className="text-xs text-gray-400 mt-0.5 truncate">{apt.patient_email || '-'}</p>
+                        </div>
+                      </div>
                     </td>
 
                     {/* Date — centered */}
