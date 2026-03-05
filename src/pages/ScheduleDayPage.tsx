@@ -289,7 +289,7 @@ export function ScheduleDayPage() {
   const handleWalkInBook = async () => {
     if (!walkInCampusId || !dateStr) return;
     if (!walkInName.trim()) { setWalkInError('Please enter patient name.'); return; }
-    if (!walkInContact.trim()) { setWalkInError('Please enter contact number.'); return; }
+    if (!walkInContact.trim() || walkInContact.trim().length !== 11) { setWalkInError('Please enter a valid 11-digit contact number.'); return; }
     if (!walkInEmail.trim()) { setWalkInError('Please enter email address.'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(walkInEmail.trim())) { setWalkInError('Please enter a valid email address.'); return; }
     if ((bookingCounts[dateStr] || 0) >= maxBookingsPerDay) { setWalkInError('This date is fully booked.'); return; }
@@ -817,7 +817,10 @@ export function ScheduleDayPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number *</label>
-                        <input type="tel" value={walkInContact} onChange={e => setWalkInContact(e.target.value)} placeholder="Enter contact number"
+                        <input type="tel" value={walkInContact} onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                          setWalkInContact(val);
+                        }} placeholder="09XXXXXXXXX" maxLength={11}
                           className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
                       </div>
                     </div>

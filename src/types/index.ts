@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'staff' | 'supervisor' | 'nurse' | 'doctor' | 'admin';
+export type UserRole = 'pending' | 'student' | 'staff' | 'supervisor' | 'nurse' | 'doctor' | 'admin' | 'hr';
 export type AppointmentType = 'physical_exam' | 'consultation' | 'dental';
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 export type UserType = 'student' | 'supervisor';
@@ -32,6 +32,8 @@ export interface Profile {
   assigned_campus_id?: string; // For nurses - restricts access to specific campus
   phone?: string;
   is_verified?: boolean;
+  requested_role?: string | null;
+  role_selected?: boolean;
   avatar_url?: string;
   created_at: string;
   updated_at: string;

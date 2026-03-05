@@ -64,11 +64,11 @@ export const useAuthStore = create<AuthState>()(
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
           if (!error && profile) {
             // Check verification
-            if ('is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff') {
+            if ('is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'hr' && profile.role !== 'pending') {
               await supabase.auth.signOut();
               set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
               return;
@@ -194,7 +194,7 @@ export const useAuthStore = create<AuthState>()(
           if (profileError) throw profileError;
 
           // Check if user is verified (if is_verified field exists)
-          if (profile && 'is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff') {
+          if (profile && 'is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'hr' && profile.role !== 'pending') {
             await supabase.auth.signOut();
             throw new Error('Your account is pending verification. Please wait for an admin to approve your account.');
           }

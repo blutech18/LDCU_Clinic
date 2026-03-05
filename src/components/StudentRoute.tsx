@@ -17,7 +17,7 @@ export function StudentRoute({ children }: StudentRouteProps) {
         if (!isInitialized || !isAuthenticated || verifiedRef.current) return;
         verifiedRef.current = true;
         let cancelled = false;
-        verifyRole(['student', 'staff']).then((valid) => {
+        verifyRole(['student', 'staff', 'pending']).then((valid) => {
             if (!cancelled) setRoleValid(valid);
         });
         return () => { cancelled = true; };
@@ -27,7 +27,7 @@ export function StudentRoute({ children }: StudentRouteProps) {
         return <Navigate to="/login" replace />;
     }
 
-    if (!roleValid || (profile.role !== 'student' && profile.role !== 'staff')) {
+    if (!roleValid || (profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'pending')) {
         return <Navigate to="/dashboard" replace />;
     }
 

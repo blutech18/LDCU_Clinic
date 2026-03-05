@@ -121,9 +121,9 @@ export const useScheduleStore = create<ScheduleState>()(
             .from('booking_settings')
             .select('*')
             .eq('campus_id', campusId)
-            .single();
+            .maybeSingle();
 
-          if (error && error.code !== 'PGRST116') throw error;
+          if (error) throw error;
           set({ bookingSetting: data || null });
         } catch (error) {
           console.error('Error fetching booking setting:', error);

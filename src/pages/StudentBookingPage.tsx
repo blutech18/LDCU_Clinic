@@ -215,8 +215,8 @@ export function StudentBookingPage() {
             setBookingError('Please enter your full name.');
             return;
         }
-        if (!contactNumber.trim()) {
-            setBookingError('Please enter your contact number.');
+        if (!contactNumber.trim() || contactNumber.trim().length !== 11) {
+            setBookingError('Please enter a valid 11-digit contact number.');
             return;
         }
         if (!selectedDepartment) {
@@ -684,8 +684,12 @@ export function StudentBookingPage() {
                                                 <input
                                                     type="tel"
                                                     value={contactNumber}
-                                                    onChange={(e) => setContactNumber(e.target.value)}
-                                                    placeholder="Enter your contact number"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                                        setContactNumber(val);
+                                                    }}
+                                                    placeholder="09XXXXXXXXX"
+                                                    maxLength={11}
                                                     className="w-full px-3 py-2 min-h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow"
                                                 />
                                             </div>
@@ -784,11 +788,17 @@ export function StudentBookingPage() {
 
                             {/* Modal Body */}
                             <div className="p-5 space-y-4">
-                                <div className="flex justify-between items-start">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Date</p>
                                         <p className="text-base font-bold text-gray-900">
                                             {format(parseISO(selectedAppointment.appointment_date), 'MMMM d, yyyy')}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Time Booked</p>
+                                        <p className="text-base font-bold text-gray-900">
+                                            {selectedAppointment.created_at ? format(new Date(selectedAppointment.created_at), 'h:mm a') : 'N/A'}
                                         </p>
                                     </div>
                                 </div>

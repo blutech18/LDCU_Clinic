@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { User, Mail, Phone, MapPin, Save, Shield } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Shield, ArrowRightLeft, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '~/modules/auth';
 import { useScheduleStore } from '~/modules/schedule';
@@ -13,6 +13,7 @@ export function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingProfile, setIsLoadingProfile] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [isChangingRole, setIsChangingRole] = useState(false);
 
     const [formData, setFormData] = useState({
         first_name: profile?.first_name || '',
@@ -68,6 +69,11 @@ export function ProfilePage() {
         e.preventDefault();
         if (!profile?.id) return;
 
+        if (formData.contact_number && formData.contact_number.length !== 11) {
+            setMessage({ type: 'error', text: 'Contact number must be exactly 11 digits.' });
+            return;
+        }
+
         setIsSaving(true);
         setMessage(null);
 
@@ -108,6 +114,39 @@ export function ProfilePage() {
         if (!campusId) return 'Not assigned';
         const campus = campuses.find((c) => c.id === campusId);
         return campus?.name || 'Unknown';
+    };
+
+    const handleRoleChange = async (newRole: string) => {
+        if (!profile?.id) return;
+        setIsChangingRole(true);
+        setMessage(null);
+
+        try {
+            if (newRole === 'student') {
+                // Switching to student is instant (no verification needed)
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ role: 'student', requested_role: null })
+                    .eq('id', profile.id);
+                if (error) throw error;
+                setProfile({ ...profile, role: 'student', requested_role: null } as typeof profile);
+                setMessage({ type: 'success', text: 'Role changed to Student successfully!' });
+            } else if (newRole === 'staff') {
+                // Switching to staff requires HR approval
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ requested_role: 'staff' })
+                    .eq('id', profile.id);
+                if (error) throw error;
+                setProfile({ ...profile, requested_role: 'staff' } as typeof profile);
+                setMessage({ type: 'success', text: 'Staff role request submitted for HR approval.' });
+            }
+        } catch (error) {
+            console.error('Failed to change role:', error);
+            setMessage({ type: 'error', text: 'Failed to change role. Please try again.' });
+        } finally {
+            setIsChangingRole(false);
+        }
     };
 
     // Use assigned campus for nurses
@@ -319,8 +358,12 @@ export function ProfilePage() {
                                             type="tel"
                                             name="contact_number"
                                             value={formData.contact_number}
-                                            onChange={handleChange}
-                                            placeholder="09XX XXX XXXX"
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                                setFormData(prev => ({ ...prev, contact_number: val }));
+                                            }}
+                                            placeholder="09XXXXXXXXX"
+                                            maxLength={11}
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -383,6 +426,99 @@ export function ProfilePage() {
                             </motion.div>
                         )}
                     </form>
+
+                    {/* Role Settings Section */}
+                    {(profile?.role === 'student' || profile?.role === 'staff') && (
+                        <div className="px-6 sm:px-10 pb-6 sm:pb-10">
+                            <div className="border-t border-gray-100 pt-8">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+                                            <ArrowRightLeft className="w-5 h-5 text-maroon-800" />
+                                            Role Settings
+                                        </h3>
+                                        <p className="text-sm text-gray-500 mt-1">Change your account role</p>
+                                    </div>
+                                </div>
+
+                                {/* Current Role */}
+                                <div className="mb-6">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
+                                        <Shield className="w-4 h-4 text-maroon-800" />
+                                        Current Role
+                                    </label>
+                                    <div className="flex items-center gap-3">
+                                        <span className="px-3 py-1.5 bg-maroon-100 text-maroon-800 rounded-xl text-sm font-bold uppercase">
+                                            {profile?.role}
+                                        </span>
+                                        {profile?.requested_role && (
+                                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                Pending: {profile.requested_role}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Role Change */}
+                                {!profile?.requested_role && (
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
+                                            <ArrowRightLeft className="w-4 h-4 text-maroon-800" />
+                                            Switch Role
+                                        </label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {profile?.role !== 'student' && (
+                                                <button
+                                                    onClick={() => handleRoleChange('student')}
+                                                    disabled={isChangingRole}
+                                                    className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-all group disabled:opacity-50"
+                                                >
+                                                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                                                        <User className="w-5 h-5 text-green-700" />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="text-sm font-bold text-gray-900">Switch to Student</p>
+                                                        <p className="text-xs text-gray-500">Instant — no approval needed</p>
+                                                    </div>
+                                                </button>
+                                            )}
+                                            {profile?.role !== 'staff' && (
+                                                <button
+                                                    onClick={() => handleRoleChange('staff')}
+                                                    disabled={isChangingRole}
+                                                    className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all group disabled:opacity-50"
+                                                >
+                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                                                        <Shield className="w-5 h-5 text-blue-700" />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="text-sm font-bold text-gray-900">Request Staff Role</p>
+                                                        <p className="text-xs text-gray-500">Requires HR approval</p>
+                                                    </div>
+                                                </button>
+                                            )}
+                                        </div>
+                                        {isChangingRole && (
+                                            <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+                                                <div className="w-4 h-4 border-2 border-maroon-800/30 border-t-maroon-800 rounded-full animate-spin" />
+                                                Processing...
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {profile?.requested_role && (
+                                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                                        <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
+                                            <Clock className="w-4 h-4" />
+                                            Your request to switch to <span className="font-bold uppercase">{profile.requested_role}</span> is pending HR approval.
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </>

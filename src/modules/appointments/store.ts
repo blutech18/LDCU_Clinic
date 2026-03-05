@@ -41,7 +41,9 @@ export const useAppointmentStore = create<AppointmentState>()(
     fetchAppointments: async (filters) => {
       set({ isLoading: true });
       try {
-        let query = supabase.from('appointments').select('*');
+        let query = supabase
+          .from('appointments')
+          .select(`*, profiles:patient_id (avatar_url)`);
 
         // For nurses, automatically filter by their assigned campus
         const { data: { user } } = await supabase.auth.getUser();
@@ -150,7 +152,7 @@ export const useAppointmentStore = create<AppointmentState>()(
       try {
         // Get current appointment for audit log
         const currentApt = await supabase.from('appointments').select('*').eq('id', id).single();
-        
+
         const { error } = await supabase.from('appointments').update(data).eq('id', id);
 
         if (error) throw error;
@@ -189,7 +191,7 @@ export const useAppointmentStore = create<AppointmentState>()(
       try {
         // Get appointment details before deleting
         const { data: apt } = await supabase.from('appointments').select('*').eq('id', id).single();
-        
+
         const { error } = await supabase.from('appointments').delete().eq('id', id);
         if (error) throw error;
 

@@ -22,6 +22,9 @@ import { StudentRoute } from './components/StudentRoute';
 import { StaffRoute } from './components/StaffRoute';
 import { EmployeeLayout } from './components/layout';
 import { SupervisorRoute } from './components/SupervisorRoute';
+import { HRRoute } from './components/HRRoute';
+import { RoleSelectionPage } from './pages/RoleSelectionPage';
+import { HRDashboardPage } from './pages/HRDashboardPage';
 
 // Redirects users based on their role — only rendered after isInitialized is true
 function RoleBasedRedirect() {
@@ -30,11 +33,22 @@ function RoleBasedRedirect() {
   if (!profile) {
     return <Navigate to="/login" replace />;
   }
+  // New users who haven't selected a role yet → role selection page
+  if (profile.role_selected === false || profile.role === 'pending') {
+    // Pending users who already chose staff → let them use booking while waiting for HR
+    if (profile.role === 'pending' && profile.role_selected === true) {
+      return <Navigate to="/student/booking" replace />;
+    }
+    return <Navigate to="/select-role" replace />;
+  }
   if (profile.role === 'student') {
     return <Navigate to="/student/booking" replace />;
   }
   if (profile.role === 'staff') {
     return <Navigate to="/staff/booking" replace />;
+  }
+  if (profile.role === 'hr') {
+    return <Navigate to="/hr/dashboard" replace />;
   }
   // Everyone else goes to the supervisor dashboard
   return <Navigate to="/supervisor/dashboard" replace />;
@@ -74,6 +88,16 @@ function App() {
         }
       />
 
+      {/* Role Selection (new users) */}
+      <Route
+        path="/select-role"
+        element={
+          <ProtectedRoute>
+            <RoleSelectionPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Student Routes */}
       <Route
         path="/student/booking"
@@ -107,6 +131,9 @@ function App() {
         <Route path="/supervisor/audit-logs" element={<SupervisorRoute><AuditLogsPage /></SupervisorRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
+
+      {/* HR Dashboard — standalone page, no sidebar */}
+      <Route path="/hr/dashboard" element={<HRRoute><HRDashboardPage /></HRRoute>} />
     </Routes>
   );
 }

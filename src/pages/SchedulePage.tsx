@@ -176,13 +176,13 @@ export function SchedulePage() {
           <p className="text-gray-600 text-sm mt-1">View and manage clinic schedule</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 md:flex md:flex-row md:flex-wrap w-full md:w-auto gap-2 sm:gap-3">
           {/* Campus Buttons */}
           {campuses.map(campus => (
             <button
               key={campus.id}
               onClick={() => setSelectedCampus(campus.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
+              className={`w-full md:w-auto px-2 sm:px-4 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
                 ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
                 : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
                 }`}
@@ -193,8 +193,8 @@ export function SchedulePage() {
 
           {/* Max bookings editor */}
           {selectedCampusId && (
-            <div className="ml-2">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg border bg-white shadow-sm transition-all duration-200 border-gray-300 focus-within:border-maroon-800 focus-within:ring-2 focus-within:ring-maroon-200 focus-within:ring-offset-1">
+            <div className="col-span-2 md:col-span-auto w-full md:w-auto mt-2 md:mt-0">
+              <div className="w-full md:w-auto flex justify-center md:justify-start items-center gap-2 px-4 py-2.5 md:py-2 rounded-lg border bg-white shadow-sm transition-all duration-200 border-gray-300 focus-within:border-maroon-800 focus-within:ring-2 focus-within:ring-maroon-200 focus-within:ring-offset-1">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider select-none">Capacity:</span>
                 <input
                   type="number"

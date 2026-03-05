@@ -32,10 +32,9 @@ export function AuthCallbackPage() {
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileError && profileError.code !== 'PGRST116') {
-          // PGRST116 is "not found" error, which is expected for new users
+        if (profileError) {
           console.error('Error fetching profile:', profileError);
           setError('Error loading profile. Please try again.');
           setTimeout(() => navigate('/login'), 2000);
@@ -44,7 +43,7 @@ export function AuthCallbackPage() {
 
         if (existingProfile) {
           // Profile exists - check verification
-          if ('is_verified' in existingProfile && !existingProfile.is_verified && existingProfile.role !== 'admin' && existingProfile.role !== 'student' && existingProfile.role !== 'staff') {
+          if ('is_verified' in existingProfile && !existingProfile.is_verified && existingProfile.role !== 'admin' && existingProfile.role !== 'student' && existingProfile.role !== 'staff' && existingProfile.role !== 'hr' && existingProfile.role !== 'pending') {
             await supabase.auth.signOut();
             setError('Your account is pending verification. Please wait for admin approval.');
             setTimeout(() => navigate('/login'), 3000);
@@ -52,9 +51,19 @@ export function AuthCallbackPage() {
           }
 
           setProfile(existingProfile);
-          navigate('/dashboard');
+          // If user hasn't selected a role yet, redirect to role selection
+          if (existingProfile.role_selected === false || existingProfile.role === 'pending') {
+            // Fix role to 'pending' if it was auto-set to 'student' by old DB default
+            if (existingProfile.role === 'student' && existingProfile.role_selected === false) {
+              await supabase.from('profiles').update({ role: 'pending' }).eq('id', existingProfile.id);
+              setProfile({ ...existingProfile, role: 'pending' });
+            }
+            navigate('/select-role');
+          } else {
+            navigate('/dashboard');
+          }
         } else {
-          // New user - create profile
+          // New user - create or update profile
           const userMetadata = session.user.user_metadata;
           const email = session.user.email;
 
@@ -63,26 +72,50 @@ export function AuthCallbackPage() {
             email: email,
             first_name: userMetadata?.full_name?.split(' ')[0] || userMetadata?.name?.split(' ')[0] || 'User',
             last_name: userMetadata?.full_name?.split(' ').slice(1).join(' ') || userMetadata?.name?.split(' ').slice(1).join(' ') || '',
-            role: 'student',
+            role: 'pending',
             is_verified: true,
+            role_selected: false,
           };
 
-          const { error: createError } = await supabase
+          const { data: upsertedProfile, error: createError } = await supabase
             .from('profiles')
-            .insert(newProfile)
+            .upsert(newProfile, { onConflict: 'id' })
             .select()
             .single();
 
           if (createError) {
+            // If upsert still fails, try fetching existing profile as fallback
+            const { data: fallbackProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .maybeSingle();
+
+            if (fallbackProfile) {
+              setProfile(fallbackProfile);
+              if (fallbackProfile.role_selected === false) {
+                navigate('/select-role');
+              } else {
+                navigate('/dashboard');
+              }
+              return;
+            }
+
             console.error('Error creating profile:', createError);
             setError('Error creating profile. Please try again.');
             setTimeout(() => navigate('/login'), 2000);
             return;
           }
 
-          // New student accounts are auto-verified, proceed to dashboard
-          setProfile(newProfile as any);
-          navigate('/dashboard');
+          const profileData = upsertedProfile || newProfile;
+          setProfile(profileData as any);
+
+          // If role not yet selected, go to role selection
+          if (profileData.role_selected === false) {
+            navigate('/select-role');
+          } else {
+            navigate('/dashboard');
+          }
         }
       } catch (error) {
         console.error('Error handling auth callback:', error);

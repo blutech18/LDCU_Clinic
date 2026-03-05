@@ -30,8 +30,8 @@ export function SupervisorRoute({ children }: SupervisorRouteProps) {
     return <Navigate to="/staff/booking" replace />;
   }
 
-  // Only supervisors, nurses, doctors, and admins can access these routes
-  if (!['supervisor', 'nurse', 'doctor', 'admin'].includes(profile.role)) {
+  // Only supervisors, nurses, doctors, admins, and HR can access these routes
+  if (!['supervisor', 'nurse', 'doctor', 'admin', 'hr'].includes(profile.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 
