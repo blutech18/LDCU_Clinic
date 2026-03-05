@@ -1,59 +1,28 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Search, CheckCircle, XCircle, Clock, Users, RefreshCw, LogOut } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Search, CheckCircle, XCircle, Clock, Users, RefreshCw, LogOut, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '~/lib/supabase';
+import { useHRStore, type PendingUser } from '~/modules/hr';
 import { useAuthStore } from '~/modules/auth';
-import type { Profile } from '~/types';
-
-interface PendingUser extends Profile {
-    requested_role: string;
-}
 
 export function HRDashboardPage() {
     const { profile, logout } = useAuthStore();
-    const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { pendingUsers, isLoading, fetchPendingUsers, approveUser, rejectUser } = useHRStore();
+
     const [search, setSearch] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-    const fetchPending = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .not('requested_role', 'is', null)
-                .order('updated_at', { ascending: false });
-
-            if (error) throw error;
-            setPendingUsers((data || []) as PendingUser[]);
-        } catch (error) {
-            console.error('Failed to fetch pending users:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
-        fetchPending();
-    }, [fetchPending]);
+        fetchPendingUsers();
+    }, [fetchPendingUsers]);
 
     const handleApprove = async (user: PendingUser) => {
         setActionLoading(user.id);
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ role: user.requested_role, requested_role: null })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            setPendingUsers(prev => prev.filter(u => u.id !== user.id));
+            await approveUser(user);
             setMessage({ type: 'success', text: `Approved ${user.first_name} ${user.last_name} as ${user.requested_role}.` });
-        } catch (error) {
-            console.error('Failed to approve:', error);
+        } catch {
             setMessage({ type: 'error', text: 'Failed to approve. Please try again.' });
         } finally {
             setActionLoading(null);
@@ -63,32 +32,26 @@ export function HRDashboardPage() {
     const handleReject = async (user: PendingUser) => {
         setActionLoading(user.id);
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ requested_role: null })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            setPendingUsers(prev => prev.filter(u => u.id !== user.id));
+            await rejectUser(user);
             setMessage({ type: 'success', text: `Rejected role request from ${user.first_name} ${user.last_name}.` });
-        } catch (error) {
-            console.error('Failed to reject:', error);
+        } catch {
             setMessage({ type: 'error', text: 'Failed to reject. Please try again.' });
         } finally {
             setActionLoading(null);
         }
     };
 
-    const filteredUsers = pendingUsers.filter(user => {
+    const filteredUsers = useMemo(() => {
         const q = search.toLowerCase();
-        return (
-            user.first_name?.toLowerCase().includes(q) ||
-            user.last_name?.toLowerCase().includes(q) ||
-            user.email?.toLowerCase().includes(q) ||
-            user.requested_role?.toLowerCase().includes(q)
+        if (!q) return pendingUsers;
+        return pendingUsers.filter(
+            (user) =>
+                user.first_name?.toLowerCase().includes(q) ||
+                user.last_name?.toLowerCase().includes(q) ||
+                user.email?.toLowerCase().includes(q) ||
+                user.requested_role?.toLowerCase().includes(q)
         );
-    });
+    }, [pendingUsers, search]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -109,11 +72,18 @@ export function HRDashboardPage() {
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className="hidden sm:block text-right">
                                 <p className="text-sm font-semibold leading-tight">{profile?.first_name} {profile?.last_name}</p>
-                                <p className="text-[10px] text-maroon-200 uppercase font-bold">HR</p>
                             </div>
-                            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
-                                {profile?.first_name?.[0]}{profile?.last_name?.[0]}
-                            </div>
+                            {profile?.avatar_url ? (
+                                <img
+                                    src={profile.avatar_url}
+                                    alt="Profile"
+                                    className="w-9 h-9 rounded-full object-cover border border-white/20"
+                                />
+                            ) : (
+                                <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
+                                    {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                                </div>
+                            )}
                             <button
                                 onClick={() => setShowLogoutConfirm(true)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-white/10 hover:bg-white/20 rounded-lg transition-all"
@@ -137,9 +107,10 @@ export function HRDashboardPage() {
                         onClick={() => setShowLogoutConfirm(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            transition={{ type: 'spring', duration: 0.3 }}
                             onClick={e => e.stopPropagation()}
                             className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
                         >
@@ -148,13 +119,13 @@ export function HRDashboardPage() {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setShowLogoutConfirm(false)}
-                                    className="flex-1 px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all"
+                                    className="flex-1 px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-all shadow-sm"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => logout()}
-                                    className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all"
+                                    className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-sm"
                                 >
                                     Sign Out
                                 </button>
@@ -167,24 +138,11 @@ export function HRDashboardPage() {
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                 {/* Page Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                    <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-maroon-100 rounded-xl flex items-center justify-center">
-                                <Users className="w-5 h-5 text-maroon-800" />
-                            </div>
-                            Pending Verifications
-                        </h2>
-                        <p className="text-gray-500 text-sm mt-1 ml-[52px]">Review and approve staff role requests</p>
-                    </div>
-                    <button
-                        onClick={fetchPending}
-                        disabled={isLoading}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-maroon-800 bg-maroon-50 hover:bg-maroon-100 border border-maroon-200 rounded-xl transition-all duration-300 shadow-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        Refresh
-                    </button>
+                <div className="mb-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                        Pending Verifications
+                    </h2>
+                    <p className="text-gray-500 text-sm mt-1">Review and approve staff role requests</p>
                 </div>
 
                 {/* Message Banner */}
@@ -205,72 +163,91 @@ export function HRDashboardPage() {
                                 <XCircle className="w-5 h-5 text-red-600 shrink-0" />
                             )}
                             {message.text}
-                            <button
-                                onClick={() => setMessage(null)}
-                                className="ml-auto text-gray-400 hover:text-gray-600"
-                            >
-                                ×
-                            </button>
+                            <button onClick={() => setMessage(null)} className="ml-auto text-gray-400 hover:text-gray-600">×</button>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                {/* Search */}
-                <div className="relative mb-6">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search by name, email, or role..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all"
-                    />
+                {/* Controls */}
+                <div className="flex flex-row gap-3 mb-6">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <input
+                            type="text"
+                            placeholder="Search by name, email, or role..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full h-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all"
+                        />
+                    </div>
+                    <button
+                        onClick={fetchPendingUsers}
+                        disabled={isLoading}
+                        className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 text-sm font-bold text-maroon-800 bg-maroon-50 hover:bg-maroon-100 border border-maroon-200 rounded-xl transition-all shadow-sm disabled:opacity-50 shrink-0"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">Refresh</span>
+                    </button>
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col justify-center">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-amber-600" />
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+                                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                             </div>
-                            <div>
-                                <p className="text-2xl font-bold text-gray-900">{pendingUsers.length}</p>
-                                <p className="text-xs text-gray-500 font-medium">Pending Requests</p>
+                            <div className="min-w-0">
+                                <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">
+                                    {pendingUsers.filter(u => new Date(u.updated_at || new Date()).toDateString() === new Date().toDateString()).length}
+                                </p>
+                                <p className="text-[10px] sm:text-xs text-gray-500 font-medium truncate">Today</p>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col justify-center">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <Users className="w-5 h-5 text-blue-600" />
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                             </div>
-                            <div>
-                                <p className="text-2xl font-bold text-gray-900">
+                            <div className="min-w-0">
+                                <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{pendingUsers.length}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-500 font-medium truncate">Pending</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col justify-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">
                                     {pendingUsers.filter(u => u.requested_role === 'staff').length}
                                 </p>
-                                <p className="text-xs text-gray-500 font-medium">Staff Requests</p>
+                                <p className="text-[10px] sm:text-xs text-gray-500 font-medium truncate">Staff Reqs</p>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col justify-center">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                <CheckCircle className="w-5 h-5 text-green-600" />
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
+                                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                             </div>
-                            <div>
-                                <p className="text-2xl font-bold text-gray-900">{filteredUsers.length}</p>
-                                <p className="text-xs text-gray-500 font-medium">Showing</p>
+                            <div className="min-w-0">
+                                <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{filteredUsers.length}</p>
+                                <p className="text-[10px] sm:text-xs text-gray-500 font-medium truncate">Showing</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Desktop Table */}
+                <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {isLoading ? (
-                        <div className="flex items-center justify-center py-16">
-                            <div className="w-8 h-8 border-3 border-maroon-800 border-t-transparent rounded-full animate-spin" />
+                        <div className="p-8 text-center">
+                            <div className="w-8 h-8 border-4 border-maroon-800 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                            <p className="text-gray-500 text-sm">Loading pending requests...</p>
                         </div>
                     ) : filteredUsers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -282,114 +259,152 @@ export function HRDashboardPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Desktop Table */}
-                            <div className="hidden md:block overflow-x-auto">
+                            {/* Desktop Table View */}
+                            <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-gray-50 border-b border-gray-100">
                                         <tr>
                                             <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
-                                            <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                                            <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Current Role</th>
-                                            <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Requested Role</th>
-                                            <th className="text-right px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <th className="text-center px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                                            <th className="text-center px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Current Role</th>
+                                            <th className="text-center px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Requested Role</th>
+                                            <th className="text-center px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {filteredUsers.map((user) => (
-                                            <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 bg-gradient-to-br from-maroon-500 to-maroon-700 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-                                                            {user.first_name?.[0]}{user.last_name?.[0]}
+                                    <tbody className="divide-y divide-gray-100">
+                                        <AnimatePresence>
+                                            {filteredUsers.map((user, i) => (
+                                                <motion.tr
+                                                    key={user.id}
+                                                    initial={{ opacity: 0, y: 8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, x: -20 }}
+                                                    transition={{ duration: 0.2, delay: i * 0.04 }}
+                                                    className="hover:bg-gray-50/50 transition-colors"
+                                                >
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            {user.avatar_url ? (
+                                                                <img
+                                                                    src={user.avatar_url}
+                                                                    alt={`${user.first_name} ${user.last_name}`}
+                                                                    className="w-9 h-9 rounded-full object-cover ring-1 ring-gray-200 shrink-0"
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-9 h-9 bg-gradient-to-br from-maroon-500 to-maroon-700 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                                                    {user.first_name?.[0]}{user.last_name?.[0]}
+                                                                </div>
+                                                            )}
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-gray-900">{user.first_name} {user.last_name}</p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-gray-900">{user.first_name} {user.last_name}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-600 text-center">{user.email}</td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold uppercase">
+                                                            {user.role === 'pending' ? 'Pending' : user.role}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="px-2.5 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs font-bold uppercase">
+                                                            {user.requested_role}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={() => handleApprove(user)}
+                                                                disabled={actionLoading === user.id}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50"
+                                                            >
+                                                                <CheckCircle className="w-3.5 h-3.5" />
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleReject(user)}
+                                                                disabled={actionLoading === user.id}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all disabled:opacity-50"
+                                                            >
+                                                                <XCircle className="w-3.5 h-3.5" />
+                                                                Reject
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold uppercase">
-                                                        {user.role === 'pending' ? 'Pending' : user.role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-2.5 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs font-bold uppercase">
-                                                        {user.requested_role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleApprove(user)}
-                                                            disabled={actionLoading === user.id}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50"
-                                                        >
-                                                            <CheckCircle className="w-3.5 h-3.5" />
-                                                            Approve
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleReject(user)}
-                                                            disabled={actionLoading === user.id}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all disabled:opacity-50"
-                                                        >
-                                                            <XCircle className="w-3.5 h-3.5" />
-                                                            Reject
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </AnimatePresence>
                                     </tbody>
                                 </table>
-                            </div>
-
-                            {/* Mobile Cards */}
-                            <div className="md:hidden divide-y divide-gray-100">
-                                {filteredUsers.map((user) => (
-                                    <div key={user.id} className="p-4">
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-maroon-500 to-maroon-700 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-                                                {user.first_name?.[0]}{user.last_name?.[0]}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</p>
-                                                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-bold uppercase">
-                                                {user.role === 'pending' ? 'Pending' : user.role}
-                                            </span>
-                                            <span className="text-gray-400">→</span>
-                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-bold uppercase">
-                                                {user.requested_role}
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleApprove(user)}
-                                                disabled={actionLoading === user.id}
-                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50"
-                                            >
-                                                <CheckCircle className="w-3.5 h-3.5" />
-                                                Approve
-                                            </button>
-                                            <button
-                                                onClick={() => handleReject(user)}
-                                                disabled={actionLoading === user.id}
-                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all disabled:opacity-50"
-                                            >
-                                                <XCircle className="w-3.5 h-3.5" />
-                                                Reject
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         </>
                     )}
                 </div>
+
+                {/* Mobile/Tablet Cards Grid (Only shown when not loading, hidden on lg screens) */}
+                {!isLoading && filteredUsers.length > 0 && (
+                    <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <AnimatePresence>
+                            {filteredUsers.map((user, i) => (
+                                <motion.div
+                                    key={user.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.2, delay: i * 0.04 }}
+                                    className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow"
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        {user.avatar_url ? (
+                                            <img
+                                                src={user.avatar_url}
+                                                alt={`${user.first_name} ${user.last_name}`}
+                                                className="w-10 h-10 rounded-full object-cover ring-1 ring-gray-200 shrink-0"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 bg-gradient-to-br from-maroon-500 to-maroon-700 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                                {user.first_name?.[0]}{user.last_name?.[0]}
+                                            </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-bold uppercase">
+                                            {user.role === 'pending' ? 'Pending' : user.role}
+                                        </span>
+                                        <span className="text-gray-400">→</span>
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-bold uppercase">
+                                            {user.requested_role}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleApprove(user)}
+                                            disabled={actionLoading === user.id}
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                            Approve
+                                        </button>
+                                        <button
+                                            onClick={() => handleReject(user)}
+                                            disabled={actionLoading === user.id}
+                                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            <XCircle className="w-3.5 h-3.5" />
+                                            Reject
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                )}
             </main>
         </div>
     );
