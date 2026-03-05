@@ -63,13 +63,60 @@ export function AuthCallbackPage() {
             navigate('/dashboard');
           }
         } else {
+          // Check if there's a nurse invitation for this email
+          const { data: nurseInvitation, error: inviteError } = await supabase
+            .from('nurse_invitations')
+            .select('*')
+            .eq('email', session.user.email?.toLowerCase())
+            .is('used_at', null)
+            .maybeSingle();
+
+          if (!inviteError && nurseInvitation) {
+            // Found a nurse invitation - create profile as nurse
+            const userMetadata = session.user.user_metadata;
+            
+            const { data: nurseProfile, error: createNurseError } = await supabase
+              .from('profiles')
+              .insert({
+                id: session.user.id,
+                email: session.user.email?.toLowerCase(),
+                first_name: nurseInvitation.first_name || userMetadata?.full_name?.split(' ')[0] || 'User',
+                last_name: nurseInvitation.last_name || userMetadata?.full_name?.split(' ').slice(1).join(' ') || '',
+                role: 'nurse',
+                is_verified: true,
+                role_selected: true,
+                assigned_campus_id: nurseInvitation.assigned_campus_id,
+                avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
+              })
+              .select()
+              .single();
+
+            if (createNurseError) {
+              console.error('Error creating nurse profile:', createNurseError);
+              setError('Error creating your account. Please try again.');
+              setTimeout(() => navigate('/login'), 2000);
+              return;
+            }
+
+            // Mark the invitation as used
+            await supabase
+              .from('nurse_invitations')
+              .update({
+                used_at: new Date().toISOString(),
+                used_by: session.user.id,
+              })
+              .eq('id', nurseInvitation.id);
+
+            setProfile(nurseProfile);
+            navigate('/dashboard');
+            return;
+          }
           // New user - create or update profile
           const userMetadata = session.user.user_metadata;
-          const email = session.user.email;
 
           const newProfile = {
             id: session.user.id,
-            email: email,
+            email: session.user.email,
             first_name: userMetadata?.full_name?.split(' ')[0] || userMetadata?.name?.split(' ')[0] || 'User',
             last_name: userMetadata?.full_name?.split(' ').slice(1).join(' ') || userMetadata?.name?.split(' ').slice(1).join(' ') || '',
             role: 'pending',

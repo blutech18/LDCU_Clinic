@@ -13,10 +13,11 @@ import {
   isToday,
   isBefore,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Check, Settings, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Settings, Save, Lock, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
+import { useAuthStore } from '~/modules/auth';
 import { formatLocalDate } from '~/lib/utils';
 
 
@@ -25,6 +26,10 @@ export function SchedulePage() {
   // ── Stores ──
   const { fetchAppointments, fetchBookingCounts, bookingCounts, isLoading } = useAppointmentStore();
   const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, updateBookingSetting, fetchEmailTemplates, emailTemplates, upsertEmailTemplate, fetchScheduleConfig, scheduleConfig, dayOverrides, fetchDayOverrides, syncPhHolidays } = useScheduleStore();
+  const { profile } = useAuthStore();
+
+  // Check if user is a nurse with no assigned campus
+  const isNurseWithNoCampus = profile?.role === 'nurse' && !profile?.assigned_campus_id;
 
   const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
 
@@ -168,6 +173,46 @@ export function SchedulePage() {
   const hasClosedDays = useMemo(() => calendarDays.some(d => isSameMonth(d, currentMonth) && dayOverrides[formatLocalDate(d)]?.is_closed), [calendarDays, dayOverrides, currentMonth]);
 
   // ── RENDER ──
+
+  // Show locked state for nurses with no assigned campus
+  if (isNurseWithNoCampus) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="max-w-md w-full mx-4"
+        >
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-50 p-8 flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+                <Lock className="w-10 h-10 text-gray-400" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">No Campus Assigned</h2>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                You haven't been assigned to a campus yet. Please contact your supervisor to get assigned to a campus before you can access the schedule.
+              </p>
+            </div>
+            <div className="p-6 bg-amber-50 border-t border-amber-100">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-800 mb-1">What happens next?</h3>
+                  <ul className="text-sm text-amber-700 space-y-1">
+                    <li>• Your supervisor will assign you to a campus</li>
+                    <li>• Once assigned, you'll be able to view and manage appointments</li>
+                    <li>• You'll only see appointments for your assigned campus</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
