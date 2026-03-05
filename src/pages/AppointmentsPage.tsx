@@ -6,6 +6,7 @@ import { useScheduleStore } from '~/modules/schedule';
 import { useAuthStore } from '~/modules/auth';
 import { formatDate } from '~/lib/utils';
 import type { AppointmentStatus, AppointmentType } from '~/types';
+import { supabase } from '~/lib/supabase';
 
 export function AppointmentsPage() {
   const { appointments, fetchAppointments, isLoading, updateAppointment, deleteAppointment } = useAppointmentStore();
@@ -19,6 +20,8 @@ export function AppointmentsPage() {
   const [endDate, setEndDate] = useState('');
   const [sortField, setSortField] = useState<'appointment_date' | 'patient_name' | 'status' | 'appointment_type'>('appointment_date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const [patientAvatars, setPatientAvatars] = useState<Record<string, string>>({});
 
   // Modal State
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -44,6 +47,33 @@ export function AppointmentsPage() {
     fetchAppointments();
     fetchCampuses();
   }, [fetchAppointments, fetchCampuses]);
+
+  // Fetch patient avatars for appointments that have a linked profile
+  useEffect(() => {
+    const ids = appointments
+      .filter((a) => a.patient_id)
+      .map((a) => a.patient_id as string);
+
+    if (ids.length === 0) {
+      setPatientAvatars({});
+      return;
+    }
+
+    const uniqueIds = Array.from(new Set(ids));
+
+    supabase
+      .from('profiles')
+      .select('id, avatar_url')
+      .in('id', uniqueIds)
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const map: Record<string, string> = {};
+        data.forEach((p) => {
+          if (p.avatar_url) map[p.id] = p.avatar_url;
+        });
+        setPatientAvatars(map);
+      });
+  }, [appointments]);
 
   const filteredAppointments = useMemo(() => {
     return appointments
@@ -308,7 +338,9 @@ export function AppointmentsPage() {
                       <div className="flex items-center gap-3">
                         {/* Avatar */}
                         {(() => {
-                          const avatarUrl = (apt as any).profiles?.avatar_url;
+                          const avatarUrl =
+                            (apt as any).profiles?.avatar_url ||
+                            (apt.patient_id ? patientAvatars[apt.patient_id] : undefined);
                           const initials = (apt.patient_name || '?')[0].toUpperCase();
                           const colors = ['bg-violet-100 text-violet-700', 'bg-sky-100 text-sky-700', 'bg-emerald-100 text-emerald-700', 'bg-rose-100 text-rose-700', 'bg-amber-100 text-amber-700'];
                           const colorClass = colors[(apt.patient_name?.charCodeAt(0) || 0) % colors.length];

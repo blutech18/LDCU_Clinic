@@ -12,6 +12,7 @@ import { AdminPage } from './pages/AdminPage';
 import { ViewSchedulesPage } from './pages/ViewSchedulesPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { StudentBookingPage } from './pages/StudentBookingPage';
+import { StudentProfilePage } from './pages/StudentProfilePage';
 import { PublicCalendarPage } from './pages/PublicCalendarPage';
 import { ReschedulePage } from './pages/ReschedulePage';
 import { NurseAssignmentPage } from './pages/NurseAssignmentPage';
@@ -107,6 +108,14 @@ function App() {
           </StudentRoute>
         }
       />
+      <Route
+        path="/student/profile"
+        element={
+          <StudentRoute>
+            <StudentProfilePage />
+          </StudentRoute>
+        }
+      />
 
       {/* Staff Routes */}
       <Route
@@ -114,6 +123,14 @@ function App() {
         element={
           <StaffRoute>
             <StudentBookingPage />
+          </StaffRoute>
+        }
+      />
+      <Route
+        path="/staff/profile"
+        element={
+          <StaffRoute>
+            <StudentProfilePage />
           </StaffRoute>
         }
       />

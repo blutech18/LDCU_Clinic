@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, MapPin, Edit2, UserPlus, X, Trash2, AlertTriangle, Clock, Mail } from 'lucide-react';
+import { MapPin, Edit2, UserPlus, X, Trash2, AlertTriangle, Clock, Mail, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '~/modules/auth';
 import { supabase } from '~/lib/supabase';
@@ -92,6 +92,22 @@ export function NurseAssignmentPage() {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshNursesTable = async () => {
+    try {
+      const { data: nursesData, error: nursesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'nurse')
+        .order('first_name');
+
+      if (nursesError) throw nursesError;
+
+      setNurses(nursesData || []);
+    } catch (error) {
+      console.error('Error refreshing nurses:', error);
     }
   };
 
@@ -358,16 +374,19 @@ export function NurseAssignmentPage() {
           <p className="text-gray-600 mt-1">Assign nurses to specific campuses</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Users className="w-4 h-4" />
-            <span>{nurses.length} Nurses</span>
-          </div>
           <button
             onClick={() => setIsAddNurseModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white text-sm font-medium rounded-lg hover:bg-maroon-900 transition-colors shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
             Add Nurse
+          </button>
+          <button
+            onClick={refreshNursesTable}
+            className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -387,14 +406,17 @@ export function NurseAssignmentPage() {
                   Assigned Campus
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Actions
+                  Assign
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Delete
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {nurses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                     No active nurses found. Click "Add Nurse" to invite a nurse by email.
                   </td>
                 </tr>
@@ -443,7 +465,7 @@ export function NurseAssignmentPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center">
                           <button
                             onClick={() => openCampusModal(nurse)}
                             className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-gray-200 transition-opacity hover:opacity-80 active:scale-95 ${nurse.assigned_campus_id
@@ -456,6 +478,10 @@ export function NurseAssignmentPage() {
                             </span>
                             <Edit2 className="w-3 h-3 opacity-60" />
                           </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <div className="flex items-center justify-center">
                           <button
                             onClick={() => openDeleteModal(nurse)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
