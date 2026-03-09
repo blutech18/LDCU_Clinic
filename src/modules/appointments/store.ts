@@ -16,6 +16,7 @@ interface AppointmentState {
   selectedAppointment: Appointment | null;
   filters: AppointmentFilters;
   bookingCounts: Record<string, number>;
+  amPmBookingCounts: Record<string, { AM: number, PM: number }>;
   isLoading: boolean;
   isSaving: boolean;
 
@@ -35,6 +36,7 @@ export const useAppointmentStore = create<AppointmentState>()(
     selectedAppointment: null,
     filters: {},
     bookingCounts: {},
+    amPmBookingCounts: {},
     isLoading: false,
     isSaving: false,
 
@@ -87,7 +89,7 @@ export const useAppointmentStore = create<AppointmentState>()(
       try {
         let query = supabase
           .from('appointments')
-          .select('appointment_date')
+          .select('appointment_date, time_of_day')
           .neq('status', 'cancelled')
           .gte('appointment_date', startDate)
           .lte('appointment_date', endDate);
@@ -98,10 +100,20 @@ export const useAppointmentStore = create<AppointmentState>()(
         if (error) throw error;
 
         const counts: Record<string, number> = {};
-        (data || []).forEach((row: { appointment_date: string }) => {
-          counts[row.appointment_date] = (counts[row.appointment_date] || 0) + 1;
+        const amPmCounts: Record<string, { AM: number, PM: number }> = {};
+        
+        (data || []).forEach((row: { appointment_date: string, time_of_day?: 'AM' | 'PM' }) => {
+          const date = row.appointment_date;
+          counts[date] = (counts[date] || 0) + 1;
+          
+          if (!amPmCounts[date]) {
+            amPmCounts[date] = { AM: 0, PM: 0 };
+          }
+          if (row.time_of_day === 'AM') amPmCounts[date].AM += 1;
+          if (row.time_of_day === 'PM') amPmCounts[date].PM += 1;
         });
-        set({ bookingCounts: counts });
+        
+        set({ bookingCounts: counts, amPmBookingCounts: amPmCounts });
       } catch (error) {
         console.error('Error fetching booking counts:', error);
       }

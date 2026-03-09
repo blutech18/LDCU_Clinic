@@ -58,7 +58,13 @@ export function LoginPage() {
   // Get effective max bookings for a specific date
   const getMaxForDate = (dateStr: string) => {
     const override = dayOverrides[dateStr];
-    if (override) return override.is_closed ? 0 : override.max_bookings;
+    if (override) {
+      if (override.is_closed) return 0;
+      if (override.max_am_bookings !== null && override.max_am_bookings !== undefined) {
+        return override.max_am_bookings + (override.max_pm_bookings || 0);
+      }
+      return override.max_bookings;
+    }
     return globalMaxBookings;
   };
 

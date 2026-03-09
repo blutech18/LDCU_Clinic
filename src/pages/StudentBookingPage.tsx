@@ -16,6 +16,7 @@ import {
 import { ChevronLeft, ChevronRight, Calendar, X, Check, AlertCircle, LogOut, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StudentLayout } from '~/components/layout';
+import { SearchableSelect } from '~/components/ui';
 import { LogoutModal } from '~/components/modals/LogoutModal';
 import { AlertModal } from '~/components/modals/AlertModal';
 import { useAuthStore } from '~/modules/auth';
@@ -33,7 +34,7 @@ const APPOINTMENT_TYPES = [
 
 export function StudentBookingPage() {
     const { profile, logout } = useAuthStore();
-    const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, createAppointment, isLoading, isSaving } = useAppointmentStore();
+    const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, amPmBookingCounts, createAppointment, isLoading, isSaving } = useAppointmentStore();
     const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting, scheduleConfig, fetchScheduleConfig, dayOverrides, fetchDayOverrides } = useScheduleStore();
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -127,7 +128,13 @@ export function StudentBookingPage() {
     // Get effective max bookings for a specific date
     const getMaxForDate = (dateStr: string) => {
         const override = dayOverrides[dateStr];
-        if (override) return override.is_closed ? 0 : override.max_bookings;
+        if (override) {
+            if (override.is_closed) return 0;
+            if (override.max_am_bookings !== null && override.max_am_bookings !== undefined) {
+                return override.max_am_bookings + (override.max_pm_bookings || 0);
+            }
+            return override.max_bookings;
+        }
         return globalMaxBookings;
     };
 
@@ -481,9 +488,6 @@ export function StudentBookingPage() {
                                                             {count}/{effectiveMax}
                                                         </motion.span>
                                                     )}
-                                                    {hasAppointment && isCurrentMonth && (
-                                                        <span className="w-1.5 h-1.5 bg-maroon-600 rounded-full"></span>
-                                                    )}
                                                 </button>
                                             );
                                         })}
@@ -674,45 +678,72 @@ export function StudentBookingPage() {
                                                 const dateStr = selectedDate ? formatLocalDate(selectedDate) : '';
                                                 const override = dayOverrides[dateStr];
                                                 const hasAmPmLimits = override?.max_am_bookings !== null && override?.max_am_bookings !== undefined;
+                                                
+                                                const amBooked = amPmBookingCounts?.[dateStr]?.AM || 0;
+                                                const pmBooked = amPmBookingCounts?.[dateStr]?.PM || 0;
+                                                
+                                                const availableAm = Math.max(0, (override?.max_am_bookings || 0) - amBooked);
+                                                const availablePm = Math.max(0, (override?.max_pm_bookings || 0) - pmBooked);
+
                                                 return (
                                                     <>
-                                                        <div className="grid grid-cols-2 gap-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-1">
                                                             <button
                                                                 onClick={() => setTimeOfDay('AM')}
-                                                                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'AM'
-                                                                    ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
-                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                                className={`relative flex flex-col p-4 rounded-xl border text-left transition-all overflow-hidden ${timeOfDay === 'AM'
+                                                                    ? 'bg-maroon-800 text-white border-maroon-800 shadow-md ring-2 ring-maroon-800/20 ring-offset-1'
+                                                                    : 'bg-white text-gray-700 border-gray-200 hover:border-maroon-400 hover:shadow-sm'
                                                                     }`}
                                                             >
-                                                                <div className="flex flex-col items-center">
-                                                                    <span className="font-semibold">Morning</span>
-                                                                    <span className="text-xs mt-0.5 opacity-80">8:00 AM - 12:00 PM</span>
+                                                                {/* Decorative background element */}
+                                                                <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-xl transition-opacity duration-500 ${timeOfDay === 'AM' ? 'bg-white/10 opacity-100' : 'bg-amber-100/50 opacity-0'}`} />
+
+                                                                <div className="flex w-full items-center justify-between relative z-10">
+                                                                    <div>
+                                                                        <h4 className="font-bold text-base mb-0.5">Morning</h4>
+                                                                        <p className={`text-xs font-medium ${timeOfDay === 'AM' ? 'text-maroon-100' : 'text-gray-500'}`}>8:00 AM - 12:00 PM</p>
+                                                                    </div>
                                                                     {hasAmPmLimits && (
-                                                                        <span className="text-xs mt-1 font-bold text-amber-600">Limit: {override.max_am_bookings} slots</span>
+                                                                        <div className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-sm border ${availableAm === 0
+                                                                            ? 'bg-red-50 text-red-600 border-red-200'
+                                                                            : timeOfDay === 'AM'
+                                                                                ? 'bg-white/20 text-white border-white/20'
+                                                                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                            }`}>
+                                                                            {availableAm} LEFT
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                             </button>
+
                                                             <button
                                                                 onClick={() => setTimeOfDay('PM')}
-                                                                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'PM'
-                                                                    ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
-                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                                className={`relative flex flex-col p-4 rounded-xl border text-left transition-all overflow-hidden ${timeOfDay === 'PM'
+                                                                    ? 'bg-maroon-800 text-white border-maroon-800 shadow-md ring-2 ring-maroon-800/20 ring-offset-1'
+                                                                    : 'bg-white text-gray-700 border-gray-200 hover:border-maroon-400 hover:shadow-sm'
                                                                     }`}
                                                             >
-                                                                <div className="flex flex-col items-center">
-                                                                    <span className="font-semibold">Afternoon</span>
-                                                                    <span className="text-xs mt-0.5 opacity-80">1:00 PM - 5:00 PM</span>
+                                                                {/* Decorative background element */}
+                                                                <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-xl transition-opacity duration-500 ${timeOfDay === 'PM' ? 'bg-white/10 opacity-100' : 'bg-blue-100/50 opacity-0'}`} />
+
+                                                                <div className="flex w-full items-center justify-between relative z-10">
+                                                                    <div>
+                                                                        <h4 className="font-bold text-base mb-0.5">Afternoon</h4>
+                                                                        <p className={`text-xs font-medium ${timeOfDay === 'PM' ? 'text-maroon-100' : 'text-gray-500'}`}>1:00 PM - 5:00 PM</p>
+                                                                    </div>
                                                                     {hasAmPmLimits && (
-                                                                        <span className="text-xs mt-1 font-bold text-blue-600">Limit: {override.max_pm_bookings || 0} slots</span>
+                                                                        <div className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-sm border ${availablePm === 0
+                                                                            ? 'bg-red-50 text-red-600 border-red-200'
+                                                                            : timeOfDay === 'PM'
+                                                                                ? 'bg-white/20 text-white border-white/20'
+                                                                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                            }`}>
+                                                                            {availablePm} LEFT
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                             </button>
                                                         </div>
-                                                        {hasAmPmLimits && (
-                                                            <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
-                                                                <strong>Note:</strong> This date has custom AM/PM slot limits.
-                                                            </div>
-                                                        )}
                                                     </>
                                                 );
                                             })()}
@@ -750,18 +781,12 @@ export function StudentBookingPage() {
                                             {/* Department */}
                                             <div className="sm:col-span-2">
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                                                <select
+                                                <SearchableSelect
                                                     value={selectedDepartment}
-                                                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                                                    className="w-full px-3 py-2 min-h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none transition-shadow bg-white"
-                                                >
-                                                    <option value="">Select Department</option>
-                                                    {departments.map((dept) => (
-                                                        <option key={dept.id} value={dept.id}>
-                                                            {dept.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    onChange={setSelectedDepartment}
+                                                    options={departments.map((dept) => ({ value: dept.id, label: dept.name }))}
+                                                    placeholder="Select Department"
+                                                />
                                             </div>
                                         </div>
 
@@ -841,7 +866,7 @@ export function StudentBookingPage() {
 
                             {/* Modal Body */}
                             <div className="p-5 space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Date</p>
                                         <p className="text-base font-bold text-gray-900">

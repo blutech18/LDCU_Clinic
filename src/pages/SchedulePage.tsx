@@ -102,7 +102,13 @@ export function SchedulePage() {
   // Get effective max for a date (per-day override or global default)
   const getMaxForDate = (dateStr: string) => {
     const override = dayOverrides[dateStr];
-    if (override) return override.is_closed ? 0 : override.max_bookings;
+    if (override) {
+      if (override.is_closed) return 0;
+      if (override.max_am_bookings !== null && override.max_am_bookings !== undefined) {
+        return override.max_am_bookings + (override.max_pm_bookings || 0);
+      }
+      return override.max_bookings;
+    }
     return maxBookingsPerDay;
   };
 
@@ -221,43 +227,43 @@ export function SchedulePage() {
           <p className="text-gray-600 text-sm mt-1">View and manage clinic schedule</p>
         </div>
 
-        <div className="grid grid-cols-2 md:flex md:flex-row md:flex-wrap w-full md:w-auto gap-2 sm:gap-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center w-full md:w-auto gap-2 sm:gap-3">
           {/* Campus Buttons */}
-          {campuses.map(campus => (
-            <button
-              key={campus.id}
-              onClick={() => setSelectedCampus(campus.id)}
-              className={`w-full md:w-auto px-2 sm:px-4 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
-                ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
-                : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
-                }`}
-            >
-              {campus.name}
-            </button>
-          ))}
+          <div className="flex flex-wrap gap-2">
+            {campuses.map(campus => (
+              <button
+                key={campus.id}
+                onClick={() => setSelectedCampus(campus.id)}
+                className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm whitespace-nowrap ${selectedCampusId === campus.id
+                  ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                  }`}
+              >
+                {campus.name}
+              </button>
+            ))}
+          </div>
 
           {/* Max bookings editor */}
           {selectedCampusId && (
-            <div className="col-span-2 md:col-span-auto w-full md:w-auto mt-2 md:mt-0">
-              <div className="w-full md:w-auto flex justify-center md:justify-start items-center gap-2 px-4 py-2.5 md:py-2 rounded-lg border bg-white shadow-sm transition-all duration-200 border-gray-300 focus-within:border-maroon-800 focus-within:ring-2 focus-within:ring-maroon-200 focus-within:ring-offset-1">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider select-none">Capacity:</span>
-                <input
-                  type="number"
-                  value={tempMaxBookings}
-                  onChange={(e) => setTempMaxBookings(e.target.value)}
-                  onFocus={(e) => e.target.select()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    } else if (e.key === 'Escape') {
-                      e.currentTarget.blur();
-                      setTempMaxBookings(maxBookingsPerDay);
-                    }
-                  }}
-                  onBlur={handleSaveMaxBookings}
-                  className="w-[4ch] bg-transparent p-0 border-none outline-none text-sm font-bold text-gray-900 placeholder-gray-300 focus:ring-0 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
+            <div className="flex justify-center items-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg border bg-white shadow-sm transition-all duration-200 border-gray-300 focus-within:border-maroon-800 focus-within:ring-2 focus-within:ring-maroon-200 focus-within:ring-offset-1 w-full sm:w-auto">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider select-none">Capacity:</span>
+              <input
+                type="number"
+                value={tempMaxBookings}
+                onChange={(e) => setTempMaxBookings(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    e.currentTarget.blur();
+                    setTempMaxBookings(maxBookingsPerDay);
+                  }
+                }}
+                onBlur={handleSaveMaxBookings}
+                className="w-[4ch] bg-transparent p-0 border-none outline-none text-sm font-bold text-gray-900 placeholder-gray-300 focus:ring-0 text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
             </div>
           )}
         </div>
@@ -325,22 +331,9 @@ export function SchedulePage() {
                       <span className="mt-0.5 text-[10px] font-medium text-gray-400">Closed</span>
                     )}
                     {isCurrentMonth && isWeekday && !isClosed && !isHoliday && (
-                      override?.max_am_bookings !== null && override?.max_am_bookings !== undefined ? (
-                        <div className="mt-0.5 flex flex-col items-center gap-0.5">
-                          <span className={`text-[9px] font-semibold ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
-                            {count}/{dayMax}
-                          </span>
-                          <div className="flex items-center gap-1 text-[8px]">
-                            <span className="text-amber-600 font-bold">AM:{override.max_am_bookings}</span>
-                            <span className="text-gray-300">|</span>
-                            <span className="text-blue-600 font-bold">PM:{override.max_pm_bookings || 0}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
-                          {count}/{dayMax}
-                        </span>
-                      )
+                      <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                        {count}/{dayMax}
+                      </span>
                     )}
                   </button>
                 );

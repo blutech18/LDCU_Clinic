@@ -95,6 +95,7 @@ export function ScheduleDayPage() {
   // ── Email reminders ──
   const [isSendingReminders, setIsSendingReminders] = useState(false);
   const [remindersSent, setRemindersSent] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // ── Walk-in ──
   const [walkInType, setWalkInType] = useState<AppointmentType>('consultation');
@@ -294,13 +295,19 @@ export function ScheduleDayPage() {
     setIsSendingReminders(true);
     try {
       const result = await sendBulkReminders(dateStr, campusId);
-      alert(result.sent > 0
+      const msg = result.sent > 0
         ? `Sent ${result.sent} reminder(s)!${result.skipped ? ` (${result.skipped} skipped)` : ''}${result.failed ? ` (${result.failed} failed)` : ''}`
-        : result.message || 'No reminders to send.');
-    } catch (e: any) { alert(`Failed: ${e.message || 'Unknown error'}`); }
+        : result.message || 'No reminders to send.';
+      setToastMessage({ text: msg, type: result.sent > 0 ? 'success' : 'error' });
+    } catch (e: any) { 
+      setToastMessage({ text: `Failed: ${e.message || 'Unknown error'}`, type: 'error' });
+    }
     setIsSendingReminders(false);
     setRemindersSent(true);
-    setTimeout(() => setRemindersSent(false), 3000);
+    setTimeout(() => {
+      setRemindersSent(false);
+      setToastMessage(null);
+    }, 4000);
   };
 
   const handleWalkInBook = async () => {
@@ -1292,6 +1299,29 @@ export function ScheduleDayPage() {
           )}
         </div>
       </div>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 z-50 flex items-center shadow-lg rounded-xl overflow-hidden bg-white border border-gray-100"
+          >
+            <div className={`p-4 flex items-center justify-center ${toastMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+              {toastMessage.type === 'success' ? (
+                <Check className="w-5 h-5 text-white" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-white" />
+              )}
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-sm font-medium text-gray-800">{toastMessage.text}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

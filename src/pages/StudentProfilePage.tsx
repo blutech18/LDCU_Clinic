@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { User, Mail, Phone, Save, Shield, ArrowLeft, X, AlertTriangle } from 'lucide-react';
+import { User, Mail, Phone, Save, Shield, ArrowLeft, X, AlertTriangle, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '~/modules/auth';
@@ -173,33 +173,32 @@ export function StudentProfilePage() {
                             )}
                         </AnimatePresence>
 
-                        {/* Back icon + Profile card row */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
+                        {/* ── Profile Card ── */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={isNavigatingBack ? { opacity: 0, y: 10 } : { opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, ease: 'easeOut' }}
+                            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full relative"
+                        >
+
+                        {/* Banner */}
+                        <div className="relative bg-gradient-to-r from-maroon-900 via-maroon-800 to-maroon-900 overflow-hidden min-h-[160px] sm:min-h-0 sm:h-36 flex items-center">
+                            {/* Back Button */}
                             <button
                                 type="button"
                                 onClick={handleBackClick}
-                                className="mt-1 w-9 h-9 flex items-center justify-center rounded-full bg-white text-maroon-800 shadow-sm border border-gray-200 hover:bg-maroon-50 hover:text-maroon-900 transition-colors"
+                                className="absolute top-4 left-4 sm:top-1/2 sm:-translate-y-1/2 sm:left-6 z-20 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white border border-white/20 hover:text-maroon-900 transition-all shadow-sm"
                                 aria-label="Back to Booking"
                             >
-                                <ArrowLeft className="w-4 h-4" />
+                                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
 
-                            {/* ── Profile Card ── */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={isNavigatingBack ? { opacity: 0, y: 10 } : { opacity: 1, y: 0 }}
-                                transition={{ duration: 0.25, ease: 'easeOut' }}
-                                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 w-full"
-                            >
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full -mr-24 -mt-24 blur-3xl pointer-events-none" />
+                            <div className="absolute bottom-0 left-0 w-56 h-56 bg-gold-400/10 rounded-full -ml-14 -mb-14 blur-2xl pointer-events-none" />
 
-                        {/* Banner */}
-                        <div className="relative h-28 sm:h-36 bg-gradient-to-r from-maroon-900 via-maroon-800 to-maroon-900 overflow-hidden">
-                            <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full -mr-24 -mt-24 blur-3xl" />
-                            <div className="absolute bottom-0 left-0 w-56 h-56 bg-gold-400/10 rounded-full -ml-14 -mb-14 blur-2xl" />
-
-                            <div className="absolute inset-0 flex items-center px-6 sm:px-10 gap-5">
+                            <div className="relative z-10 w-full flex flex-col sm:flex-row items-center sm:items-center px-4 sm:px-10 gap-3 sm:gap-6 pt-12 pb-6 sm:py-0 sm:pl-20">
                                 {/* Avatar */}
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white p-0.5 rounded-2xl shadow-xl shrink-0 relative">
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white p-0.5 rounded-2xl shadow-xl shrink-0 relative mt-0 sm:mt-0">
                                     <div className="w-full h-full bg-gradient-to-br from-gold-400 to-gold-600 rounded-[14px] flex items-center justify-center overflow-hidden">
                                         {isLoadingProfile ? (
                                             <div className="w-5 h-5 border-2 border-maroon-900/30 border-t-maroon-900 rounded-full animate-spin" />
@@ -218,11 +217,11 @@ export function StudentProfilePage() {
                                 </div>
 
                                 {/* Name & meta */}
-                                <div className="text-white min-w-0 flex-1">
-                                    <h2 className="text-lg sm:text-2xl font-bold truncate leading-tight">
+                                <div className="text-white min-w-0 flex-1 flex flex-col items-center sm:items-start text-center sm:text-left w-full">
+                                    <h2 className="text-lg sm:text-2xl font-bold truncate leading-tight w-full max-w-full">
                                         {profile?.first_name} {profile?.middle_name ? `${profile.middle_name} ` : ''}{profile?.last_name}
                                     </h2>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2 w-full">
                                         <span className="px-2.5 py-0.5 bg-white/20 rounded-lg text-xs font-bold uppercase tracking-wider border border-white/20 flex items-center gap-1">
                                             <Shield className="w-3 h-3" />
                                             {profile?.role || 'User'}
@@ -249,10 +248,10 @@ export function StudentProfilePage() {
                                     <button
                                         type="button"
                                         onClick={() => setIsEditing(true)}
-                                        className="px-4 py-2 text-sm font-bold text-maroon-800 bg-maroon-50 hover:bg-maroon-100 border border-maroon-200 rounded-xl transition-all active:scale-95 flex items-center gap-2"
+                                        className="p-2 sm:px-4 sm:py-2 text-sm font-bold text-maroon-800 bg-maroon-50 hover:bg-maroon-100 border border-maroon-200 rounded-xl transition-all active:scale-95 flex items-center gap-2"
                                     >
-                                        <User className="w-4 h-4" />
-                                        Edit Profile
+                                        <Edit2 className="w-4 h-4 sm:w-4 sm:h-4" />
+                                        <span className="hidden sm:inline">Edit Profile</span>
                                     </button>
                                 ) : (
                                     <button
@@ -266,9 +265,10 @@ export function StudentProfilePage() {
                                                 contact_number: profile?.contact_number || '',
                                             });
                                         }}
-                                        className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all active:scale-95"
+                                        className="p-2 sm:px-4 sm:py-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                                     >
-                                        Cancel
+                                        <X className="w-4 h-4 sm:hidden" />
+                                        <span className="hidden sm:inline">Cancel</span>
                                     </button>
                                 )}
                             </div>
@@ -344,37 +344,39 @@ export function StudentProfilePage() {
                                 <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-0.5">Role</h3>
                                 <p className="text-sm text-gray-400 mb-5">Switch between Student and Staff accounts.</p>
 
-                                <div className="flex flex-wrap items-center gap-3">
-                                    {/* Student pill */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (profile?.role !== 'student') setRoleConfirm({ role: 'student' });
-                                        }}
-                                        disabled={isChangingRole || profile?.role === 'student'}
-                                        className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all border-2 ${profile?.role === 'student'
-                                            ? 'bg-maroon-800 text-white border-maroon-800 shadow-md cursor-default'
-                                            : 'bg-white text-gray-600 border-gray-300 hover:border-maroon-500 hover:text-maroon-700 active:scale-95'}`}
-                                    >
-                                        Student
-                                    </button>
-
-                                    {/* Staff pill */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (profile?.role === 'staff' || hasPending) return;
-                                            setRoleConfirm({ role: 'staff' });
-                                        }}
-                                        disabled={isChangingRole || profile?.role === 'staff'}
-                                        className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all border-2 ${profile?.role === 'staff'
-                                            ? 'bg-maroon-800 text-white border-maroon-800 shadow-md cursor-default'
-                                            : hasPending
-                                                ? 'bg-amber-50 text-amber-700 border-amber-300 cursor-not-allowed'
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                        {/* Student pill */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (profile?.role !== 'student') setRoleConfirm({ role: 'student' });
+                                            }}
+                                            disabled={isChangingRole || profile?.role === 'student'}
+                                            className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-full text-sm font-bold transition-all border-2 ${profile?.role === 'student'
+                                                ? 'bg-maroon-800 text-white border-maroon-800 shadow-md cursor-default'
                                                 : 'bg-white text-gray-600 border-gray-300 hover:border-maroon-500 hover:text-maroon-700 active:scale-95'}`}
-                                    >
-                                        Staff
-                                    </button>
+                                        >
+                                            Student
+                                        </button>
+
+                                        {/* Staff pill */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (profile?.role === 'staff' || hasPending) return;
+                                                setRoleConfirm({ role: 'staff' });
+                                            }}
+                                            disabled={isChangingRole || profile?.role === 'staff'}
+                                            className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-full text-sm font-bold transition-all border-2 ${profile?.role === 'staff'
+                                                ? 'bg-maroon-800 text-white border-maroon-800 shadow-md cursor-default'
+                                                : hasPending
+                                                    ? 'bg-amber-50 text-amber-700 border-amber-300 cursor-not-allowed'
+                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-maroon-500 hover:text-maroon-700 active:scale-95'}`}
+                                        >
+                                            Staff
+                                        </button>
+                                    </div>
 
                                     {/* Cancel pending */}
                                     {hasPending && (
@@ -382,7 +384,7 @@ export function StudentProfilePage() {
                                             type="button"
                                             onClick={() => setRoleConfirm({ role: 'student', cancelOnly: true })}
                                             disabled={isChangingRole}
-                                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-full transition-all active:scale-95"
+                                            className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-1.5 px-4 py-2.5 sm:py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-full transition-all active:scale-95"
                                         >
                                             <X className="w-4 h-4" />
                                             Cancel Request
@@ -391,7 +393,7 @@ export function StudentProfilePage() {
                                     )}
 
                                     {isChangingRole && (
-                                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                                        <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-500 w-full sm:w-auto">
                                             <div className="w-4 h-4 border-2 border-maroon-800/30 border-t-maroon-800 rounded-full animate-spin" />
                                             Processing...
                                         </div>
@@ -404,8 +406,8 @@ export function StudentProfilePage() {
                                 )}
                             </div>
                         )}
-                            </motion.div>
-                        </div>
+                        {/* End of Profile Card */}
+                        </motion.div>
                     </div>
                 </div>
             </div>

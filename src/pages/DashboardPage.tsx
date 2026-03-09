@@ -75,67 +75,67 @@ export function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
         {/* Today */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Today</p>
-              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+              <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Today</p>
+              <h3 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.today}
               </h3>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner">
-              <Calendar className="w-6 h-6" />
+            <div className="flex w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-100 text-blue-600 items-center justify-center shadow-inner">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
         </div>
 
         {/* Needs Reschedule */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-red-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Needs Reschedule</p>
-              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+            <div className="max-w-[60%] sm:max-w-none">
+              <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate sm:whitespace-normal">Needs Resched</p>
+              <h3 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.needsReschedule}
               </h3>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shadow-inner">
-              <AlertCircle className="w-6 h-6" />
+            <div className="flex w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-100 text-red-600 items-center justify-center shadow-inner">
+              <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
         </div>
 
         {/* Upcoming */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Upcoming</p>
-              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+              <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Upcoming</p>
+              <h3 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.upcoming}
               </h3>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-inner">
-              <Clock className="w-6 h-6" />
+            <div className="flex w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-100 text-indigo-600 items-center justify-center shadow-inner">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
         </div>
 
         {/* Completed */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Completed</p>
-              <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+              <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Completed</p>
+              <h3 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
                 {isLoading ? '...' : stats.completed}
               </h3>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
-              <FileText className="w-6 h-6" />
+            <div className="flex w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 text-emerald-600 items-center justify-center shadow-inner">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </div>
         </div>
