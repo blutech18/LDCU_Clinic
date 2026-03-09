@@ -27,27 +27,38 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    // Create Supabase client with service role for admin operations
+    const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Verify the user's JWT
+    // Verify the user's JWT token
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      console.error("Auth error:", authError);
+      return new Response(JSON.stringify({ error: "Unauthorized", details: authError?.message }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Check if user is staff
-    const { data: profile } = await supabase
+    // Check if user has valid role
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (!profile || !["admin", "doctor", "nurse", "supervisor", "staff", "student"].includes(profile.role)) {
-      return new Response(JSON.stringify({ error: "Unauthorized - Staff only" }), {
+    if (profileError || !profile) {
+      console.error("Profile error:", profileError);
+      return new Response(JSON.stringify({ error: "Profile not found" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!["admin", "doctor", "nurse", "supervisor", "staff", "student"].includes(profile.role)) {
+      return new Response(JSON.stringify({ error: "Unauthorized - Invalid role" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -98,7 +109,7 @@ serve(async (req) => {
       }
 
       // Fetch scheduled appointments for the date
-      const { data: appointments, error: fetchError } = await supabase
+      const { data: appointments, error: fetchError } = await supabaseAdmin
         .from("appointments")
         .select("id, appointment_date, start_time, end_time, appointment_type, patient_name, patient_email, status")
         .eq("appointment_date", dateStr)

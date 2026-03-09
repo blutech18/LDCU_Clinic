@@ -325,9 +325,22 @@ export function SchedulePage() {
                       <span className="mt-0.5 text-[10px] font-medium text-gray-400">Closed</span>
                     )}
                     {isCurrentMonth && isWeekday && !isClosed && !isHoliday && (
-                      <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
-                        {count}/{dayMax}
-                      </span>
+                      override?.max_am_bookings !== null && override?.max_am_bookings !== undefined ? (
+                        <div className="mt-0.5 flex flex-col items-center gap-0.5">
+                          <span className={`text-[9px] font-semibold ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                            {count}/{dayMax}
+                          </span>
+                          <div className="flex items-center gap-1 text-[8px]">
+                            <span className="text-amber-600 font-bold">AM:{override.max_am_bookings}</span>
+                            <span className="text-gray-300">|</span>
+                            <span className="text-blue-600 font-bold">PM:{override.max_pm_bookings || 0}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className={`mt-0.5 text-[10px] font-medium ${full ? 'text-red-500' : count > 0 ? 'text-maroon-600' : 'text-gray-400'}`}>
+                          {count}/{dayMax}
+                        </span>
+                      )
                     )}
                   </button>
                 );

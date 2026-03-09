@@ -670,32 +670,52 @@ export function StudentBookingPage() {
                                         {/* Time of Day (AM/PM) */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Preferred Time</label>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <button
-                                                    onClick={() => setTimeOfDay('AM')}
-                                                    className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'AM'
-                                                        ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
-                                                        : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="font-semibold">Morning</span>
-                                                        <span className="text-xs mt-0.5 opacity-80">8:00 AM - 12:00 PM</span>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    onClick={() => setTimeOfDay('PM')}
-                                                    className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'PM'
-                                                        ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
-                                                        : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="font-semibold">Afternoon</span>
-                                                        <span className="text-xs mt-0.5 opacity-80">1:00 PM - 5:00 PM</span>
-                                                    </div>
-                                                </button>
-                                            </div>
+                                            {(() => {
+                                                const dateStr = selectedDate ? formatLocalDate(selectedDate) : '';
+                                                const override = dayOverrides[dateStr];
+                                                const hasAmPmLimits = override?.max_am_bookings !== null && override?.max_am_bookings !== undefined;
+                                                return (
+                                                    <>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <button
+                                                                onClick={() => setTimeOfDay('AM')}
+                                                                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'AM'
+                                                                    ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="font-semibold">Morning</span>
+                                                                    <span className="text-xs mt-0.5 opacity-80">8:00 AM - 12:00 PM</span>
+                                                                    {hasAmPmLimits && (
+                                                                        <span className="text-xs mt-1 font-bold text-amber-600">Limit: {override.max_am_bookings} slots</span>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setTimeOfDay('PM')}
+                                                                className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'PM'
+                                                                    ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex flex-col items-center">
+                                                                    <span className="font-semibold">Afternoon</span>
+                                                                    <span className="text-xs mt-0.5 opacity-80">1:00 PM - 5:00 PM</span>
+                                                                    {hasAmPmLimits && (
+                                                                        <span className="text-xs mt-1 font-bold text-blue-600">Limit: {override.max_pm_bookings || 0} slots</span>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                        {hasAmPmLimits && (
+                                                            <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
+                                                                <strong>Note:</strong> This date has custom AM/PM slot limits.
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
