@@ -464,77 +464,183 @@ export function ScheduleDayPage() {
                       <p className="font-medium">No appointments on this date</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {allDateAppointments.map(apt => (
-                        <div
-                          key={apt.id}
-                          className={`rounded-xl border overflow-hidden bg-white shadow-sm
-                        ${apt.status === 'completed' ? 'border-green-200'
-                              : apt.status === 'cancelled' ? 'border-red-200'
-                                : apt.booker_role === 'staff' ? 'border-amber-200'
-                                  : 'border-gray-200'}`}
-                        >
-                          {/* Card header */}
-                          <div className={`px-3 py-2 flex items-start justify-between gap-2
-                        ${apt.status === 'completed' ? 'bg-green-50'
-                              : apt.status === 'cancelled' ? 'bg-red-50'
-                                : apt.booker_role === 'staff' ? 'bg-amber-50'
-                                  : 'bg-maroon-50'}`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              {/* Patient Avatar */}
-                              <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold bg-blue-100 text-blue-700">
-                                {apt.patient_id && patientAvatars[apt.patient_id] ? (
-                                  <img
-                                    src={patientAvatars[apt.patient_id]}
-                                    alt={apt.patient_name || ''}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                  />
-                                ) : (
-                                  <span>{(apt.patient_name || '?')[0].toUpperCase()}</span>
-                                )}
+                    <div className="space-y-6">
+                      {/* Morning Appointments (AM) */}
+                      {(() => {
+                        const morningApts = allDateAppointments.filter(apt => apt.time_of_day === 'AM');
+                        return morningApts.length > 0 && (
+                          <div key="morning">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg font-semibold text-sm flex items-center gap-2">
+                                <Sun className="w-4 h-4" />
+                                <span>Morning (8:00 AM - 12:00 PM)</span>
                               </div>
-                              <div className="min-w-0 flex flex-col gap-0.5">
-                                <p className="font-semibold text-gray-900 text-sm truncate capitalize">
-                                  {apt.patient_name || 'Unknown Patient'}
-                                </p>
-                                {apt.patient_email && (
-                                  <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>
-                                )}
-                              </div>
+                              <span className="text-sm text-gray-500">{morningApts.length} appointment{morningApts.length !== 1 ? 's' : ''}</span>
                             </div>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5
-                          ${apt.status === 'completed' ? 'bg-green-100 text-green-700'
-                                : apt.status === 'cancelled' ? 'bg-red-100 text-red-700'
-                                  : 'bg-blue-100 text-blue-700'}`}>
-                              {apt.status}
-                            </span>
-                          </div>
-                          {/* Card body */}
-                          <div className="px-3 py-2 flex flex-col gap-1">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Type</span>
-                                <span className="text-xs text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
-                              </div>
-                              <span className="text-gray-200">|</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Role</span>
-                                {apt.booker_role === 'staff'
-                                  ? <span className="text-xs text-amber-700 font-medium">Staff</span>
-                                  : <span className="text-xs text-blue-700 font-medium">Student</span>}
-                              </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {morningApts.map(apt => (
+                                <div
+                                  key={apt.id}
+                                  className={`rounded-xl border overflow-hidden bg-white shadow-sm ${apt.status === 'completed' ? 'border-green-200' : apt.status === 'cancelled' ? 'border-red-200' : apt.booker_role === 'staff' ? 'border-amber-200' : 'border-gray-200'}`}
+                                >
+                                  <div className={`px-3 py-2 flex items-start justify-between gap-2 ${apt.status === 'completed' ? 'bg-green-50' : apt.status === 'cancelled' ? 'bg-red-50' : apt.booker_role === 'staff' ? 'bg-amber-50' : 'bg-maroon-50'}`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold bg-blue-100 text-blue-700">
+                                        {apt.patient_id && patientAvatars[apt.patient_id] ? (
+                                          <img src={patientAvatars[apt.patient_id]} alt={apt.patient_name || ''} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        ) : (
+                                          <span>{(apt.patient_name || '?')[0].toUpperCase()}</span>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex flex-col gap-0.5">
+                                        <p className="font-semibold text-gray-900 text-sm truncate capitalize">{apt.patient_name || 'Unknown Patient'}</p>
+                                        {apt.patient_email && <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>}
+                                      </div>
+                                    </div>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5 ${apt.status === 'completed' ? 'bg-green-100 text-green-700' : apt.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{apt.status}</span>
+                                  </div>
+                                  <div className="px-3 py-2 flex flex-col gap-1">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Type</span>
+                                        <span className="text-xs text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
+                                      </div>
+                                      <span className="text-gray-200">|</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Role</span>
+                                        {apt.booker_role === 'staff' ? <span className="text-xs text-amber-700 font-medium">Staff</span> : <span className="text-xs text-blue-700 font-medium">Student</span>}
+                                      </div>
+                                    </div>
+                                    {apt.patient_phone && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Phone</span>
+                                        <span className="text-xs text-gray-600">{apt.patient_phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            {apt.patient_phone && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Phone</span>
-                                <span className="text-xs text-gray-600">{apt.patient_phone}</span>
-                              </div>
-                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })()}
+
+                      {/* Afternoon Appointments (PM) */}
+                      {(() => {
+                        const afternoonApts = allDateAppointments.filter(apt => apt.time_of_day === 'PM');
+                        return afternoonApts.length > 0 && (
+                          <div key="afternoon">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg font-semibold text-sm flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>Afternoon (1:00 PM - 5:00 PM)</span>
+                              </div>
+                              <span className="text-sm text-gray-500">{afternoonApts.length} appointment{afternoonApts.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {afternoonApts.map(apt => (
+                                <div
+                                  key={apt.id}
+                                  className={`rounded-xl border overflow-hidden bg-white shadow-sm ${apt.status === 'completed' ? 'border-green-200' : apt.status === 'cancelled' ? 'border-red-200' : apt.booker_role === 'staff' ? 'border-amber-200' : 'border-gray-200'}`}
+                                >
+                                  <div className={`px-3 py-2 flex items-start justify-between gap-2 ${apt.status === 'completed' ? 'bg-green-50' : apt.status === 'cancelled' ? 'bg-red-50' : apt.booker_role === 'staff' ? 'bg-amber-50' : 'bg-maroon-50'}`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold bg-blue-100 text-blue-700">
+                                        {apt.patient_id && patientAvatars[apt.patient_id] ? (
+                                          <img src={patientAvatars[apt.patient_id]} alt={apt.patient_name || ''} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        ) : (
+                                          <span>{(apt.patient_name || '?')[0].toUpperCase()}</span>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex flex-col gap-0.5">
+                                        <p className="font-semibold text-gray-900 text-sm truncate capitalize">{apt.patient_name || 'Unknown Patient'}</p>
+                                        {apt.patient_email && <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>}
+                                      </div>
+                                    </div>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5 ${apt.status === 'completed' ? 'bg-green-100 text-green-700' : apt.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{apt.status}</span>
+                                  </div>
+                                  <div className="px-3 py-2 flex flex-col gap-1">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Type</span>
+                                        <span className="text-xs text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
+                                      </div>
+                                      <span className="text-gray-200">|</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Role</span>
+                                        {apt.booker_role === 'staff' ? <span className="text-xs text-amber-700 font-medium">Staff</span> : <span className="text-xs text-blue-700 font-medium">Student</span>}
+                                      </div>
+                                    </div>
+                                    {apt.patient_phone && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Phone</span>
+                                        <span className="text-xs text-gray-600">{apt.patient_phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Legacy appointments without time_of_day */}
+                      {(() => {
+                        const legacyApts = allDateAppointments.filter(apt => !apt.time_of_day);
+                        return legacyApts.length > 0 && (
+                          <div key="legacy">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg font-semibold text-sm">All Day</div>
+                              <span className="text-sm text-gray-500">{legacyApts.length} appointment{legacyApts.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {legacyApts.map(apt => (
+                                <div
+                                  key={apt.id}
+                                  className={`rounded-xl border overflow-hidden bg-white shadow-sm ${apt.status === 'completed' ? 'border-green-200' : apt.status === 'cancelled' ? 'border-red-200' : apt.booker_role === 'staff' ? 'border-amber-200' : 'border-gray-200'}`}
+                                >
+                                  <div className={`px-3 py-2 flex items-start justify-between gap-2 ${apt.status === 'completed' ? 'bg-green-50' : apt.status === 'cancelled' ? 'bg-red-50' : apt.booker_role === 'staff' ? 'bg-amber-50' : 'bg-maroon-50'}`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold bg-blue-100 text-blue-700">
+                                        {apt.patient_id && patientAvatars[apt.patient_id] ? (
+                                          <img src={patientAvatars[apt.patient_id]} alt={apt.patient_name || ''} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        ) : (
+                                          <span>{(apt.patient_name || '?')[0].toUpperCase()}</span>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex flex-col gap-0.5">
+                                        <p className="font-semibold text-gray-900 text-sm truncate capitalize">{apt.patient_name || 'Unknown Patient'}</p>
+                                        {apt.patient_email && <span className="text-xs text-gray-500 truncate">{apt.patient_email}</span>}
+                                      </div>
+                                    </div>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 capitalize mt-0.5 ${apt.status === 'completed' ? 'bg-green-100 text-green-700' : apt.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{apt.status}</span>
+                                  </div>
+                                  <div className="px-3 py-2 flex flex-col gap-1">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Type</span>
+                                        <span className="text-xs text-gray-700 font-medium capitalize">{apt.appointment_type.replace(/_/g, ' ')}</span>
+                                      </div>
+                                      <span className="text-gray-200">|</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Role</span>
+                                        {apt.booker_role === 'staff' ? <span className="text-xs text-amber-700 font-medium">Staff</span> : <span className="text-xs text-blue-700 font-medium">Student</span>}
+                                      </div>
+                                    </div>
+                                    {apt.patient_phone && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0">Phone</span>
+                                        <span className="text-xs text-gray-600">{apt.patient_phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )
 

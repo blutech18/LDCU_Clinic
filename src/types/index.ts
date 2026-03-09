@@ -62,6 +62,7 @@ export interface Appointment {
   start_time: string;
   end_time: string;
   status: AppointmentStatus;
+  time_of_day?: 'AM' | 'PM';
   notes?: string;
   patient_name?: string;
   patient_email?: string;
@@ -93,6 +94,8 @@ export interface BookingSetting {
   id: string;
   campus_id: string;
   max_bookings_per_day: number;
+  max_am_bookings?: number;
+  max_pm_bookings?: number;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +133,8 @@ export interface DayOverride {
   override_date: string;
   is_closed: boolean;
   max_bookings: number;
+  max_am_bookings?: number;
+  max_pm_bookings?: number;
   notes?: string;
   created_at: string;
 }

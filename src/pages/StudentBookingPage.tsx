@@ -40,6 +40,7 @@ export function StudentBookingPage() {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [appointmentType, setAppointmentType] = useState<AppointmentType>('consultation');
     const [selectedCampus, setSelectedCampus] = useState<string>('');
+    const [timeOfDay, setTimeOfDay] = useState<'AM' | 'PM'>('AM');
     const [fullName, setFullName] = useState('');
     const [contactNumber, setContactNumber] = useState('');
     const [selectedDepartment, setSelectedDepartment] = useState('');
@@ -269,9 +270,10 @@ export function StudentBookingPage() {
                 campus_id: selectedCampus,
                 appointment_type: appointmentType,
                 appointment_date: dateStr,
-                start_time: '08:00',
-                end_time: '17:00',
+                start_time: timeOfDay === 'AM' ? '08:00' : '13:00',
+                end_time: timeOfDay === 'AM' ? '12:00' : '17:00',
                 status: 'scheduled',
+                time_of_day: timeOfDay,
                 notes: notes ? `Department: ${dept?.name || selectedDepartment}\n${notes}` : `Department: ${dept?.name || selectedDepartment}`,
                 patient_name: fullName.trim(),
                 patient_email: profile.email,
@@ -662,6 +664,37 @@ export function StudentBookingPage() {
                                                         {type.label}
                                                     </button>
                                                 ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Time of Day (AM/PM) */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Preferred Time</label>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <button
+                                                    onClick={() => setTimeOfDay('AM')}
+                                                    className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'AM'
+                                                        ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
+                                                        : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="font-semibold">Morning</span>
+                                                        <span className="text-xs mt-0.5 opacity-80">8:00 AM - 12:00 PM</span>
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    onClick={() => setTimeOfDay('PM')}
+                                                    className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${timeOfDay === 'PM'
+                                                        ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm'
+                                                        : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="font-semibold">Afternoon</span>
+                                                        <span className="text-xs mt-0.5 opacity-80">1:00 PM - 5:00 PM</span>
+                                                    </div>
+                                                </button>
                                             </div>
                                         </div>
 
