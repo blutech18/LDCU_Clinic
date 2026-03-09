@@ -161,11 +161,24 @@ export function ScheduleDayPage() {
       setDayMaxBookings(existing.max_bookings);
       setDayIsClosed(existing.is_closed);
       setDayNotes(existing.notes || '');
+      // Load AM/PM customization if it exists
+      if (existing.max_am_bookings !== null && existing.max_am_bookings !== undefined) {
+        setCustomizeAmPm(true);
+        setDayMaxAmBookings(existing.max_am_bookings);
+        setDayMaxPmBookings(existing.max_pm_bookings || 0);
+      } else {
+        setCustomizeAmPm(false);
+        setDayMaxAmBookings(null);
+        setDayMaxPmBookings(null);
+      }
     } else {
       setDayOverride(null);
       setDayMaxBookings(maxBookingsPerDay);
       setDayIsClosed(false);
       setDayNotes('');
+      setCustomizeAmPm(false);
+      setDayMaxAmBookings(null);
+      setDayMaxPmBookings(null);
     }
   }, [dayOverrides, dateStr, maxBookingsPerDay]);
 
@@ -742,6 +755,14 @@ export function ScheduleDayPage() {
                                     {apt.booker_role === 'staff'
                                       ? <span className="text-[10px] text-amber-700 font-medium">Staff</span>
                                       : <span className="text-[10px] text-blue-700 font-medium">Student</span>}
+                                    {apt.time_of_day && (
+                                      <>
+                                        <span className="text-gray-200 text-[10px]">|</span>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${apt.time_of_day === 'AM' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                          {apt.time_of_day === 'AM' ? '☀️ AM' : '🌤️ PM'}
+                                        </span>
+                                      </>
+                                    )}
                                   </div>
                                 </motion.div>
                               ))}
@@ -795,6 +816,14 @@ export function ScheduleDayPage() {
                                     {apt.booker_role === 'staff'
                                       ? <span className="text-[10px] text-amber-700 font-medium">Staff</span>
                                       : <span className="text-[10px] text-blue-700 font-medium">Student</span>}
+                                    {apt.time_of_day && (
+                                      <>
+                                        <span className="text-gray-200 text-[10px]">|</span>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${apt.time_of_day === 'AM' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                          {apt.time_of_day === 'AM' ? '☀️ AM' : '🌤️ PM'}
+                                        </span>
+                                      </>
+                                    )}
                                   </div>
                                 </motion.div>
                               ))}
