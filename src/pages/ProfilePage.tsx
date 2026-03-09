@@ -371,6 +371,7 @@ export function ProfilePage() {
                                     )}
                                 </div>
 
+                                {profile?.role !== 'supervisor' && (
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <MapPin className="w-4 h-4 text-maroon-800" />
@@ -402,6 +403,7 @@ export function ProfilePage() {
                                         </div>
                                     )}
                                 </div>
+                                )}
                             </div>
                         </div>
 
