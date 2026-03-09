@@ -105,12 +105,16 @@ export function ScheduleDayPage() {
   const [walkInCampusId, setWalkInCampusId] = useState(campusId);
   const [walkInNotes, setWalkInNotes] = useState('');
   const [walkInRole, setWalkInRole] = useState<'student' | 'staff'>('student');
+  const [walkInTimeOfDay, setWalkInTimeOfDay] = useState<'AM' | 'PM'>('AM');
   const [walkInError, setWalkInError] = useState<string | null>(null);
   const [walkInSuccess, setWalkInSuccess] = useState(false);
 
   // ── Day Settings ──
   const [dayOverride, setDayOverride] = useState<DayOverride | null>(null);
   const [dayMaxBookings, setDayMaxBookings] = useState(50);
+  const [dayMaxAmBookings, setDayMaxAmBookings] = useState<number | null>(null);
+  const [dayMaxPmBookings, setDayMaxPmBookings] = useState<number | null>(null);
+  const [customizeAmPm, setCustomizeAmPm] = useState(false);
   const [dayIsClosed, setDayIsClosed] = useState(false);
   const [dayNotes, setDayNotes] = useState('');
   const [savingDaySettings, setSavingDaySettings] = useState(false);
@@ -299,7 +303,10 @@ export function ScheduleDayPage() {
       await createAppointment({
         patient_id: null,
         campus_id: walkInCampusId, appointment_type: walkInType, appointment_date: dateStr,
-        start_time: '08:00', end_time: '17:00', status: 'scheduled',
+        start_time: walkInTimeOfDay === 'AM' ? '08:00' : '13:00',
+        end_time: walkInTimeOfDay === 'AM' ? '12:00' : '17:00',
+        status: 'scheduled',
+        time_of_day: walkInTimeOfDay,
         notes: `Walk-in${dept ? ` | Department: ${dept.name}` : ''}${walkInNotes ? `\n${walkInNotes}` : ''}`,
         patient_name: walkInName.trim(), patient_phone: walkInContact.trim(), patient_email: walkInEmail.trim(),
         booker_role: walkInRole,
@@ -314,7 +321,15 @@ export function ScheduleDayPage() {
     if (!campusId || !dateStr) return;
     setSavingDaySettings(true);
     try {
-      const payload = { campus_id: campusId, override_date: dateStr, max_bookings: dayMaxBookings, is_closed: dayIsClosed, notes: dayNotes };
+      const payload: any = { 
+        campus_id: campusId, 
+        override_date: dateStr, 
+        max_bookings: dayMaxBookings, 
+        is_closed: dayIsClosed, 
+        notes: dayNotes,
+        max_am_bookings: customizeAmPm ? dayMaxAmBookings : null,
+        max_pm_bookings: customizeAmPm ? dayMaxPmBookings : null
+      };
       if (dayOverride?.id) {
         await supabase.from('day_overrides').update(payload).eq('id', dayOverride.id);
       } else {
@@ -914,6 +929,30 @@ export function ScheduleDayPage() {
                         ))}
                       </div>
                     </div>
+                    {/* Time of Day (AM/PM) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Preferred Time</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setWalkInTimeOfDay('AM')}
+                          className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${walkInTimeOfDay === 'AM' ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="font-semibold">Morning</span>
+                            <span className="text-xs mt-0.5 opacity-80">8:00 AM - 12:00 PM</span>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => setWalkInTimeOfDay('PM')}
+                          className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${walkInTimeOfDay === 'PM' ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="font-semibold">Afternoon</span>
+                            <span className="text-xs mt-0.5 opacity-80">1:00 PM - 5:00 PM</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
                     {/* Name + Contact */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
@@ -1029,6 +1068,78 @@ export function ScheduleDayPage() {
                                 {v}
                               </button>
                             ))}
+                          </div>
+
+                          {/* AM/PM Customization Toggle */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <h5 className="text-sm font-semibold text-gray-700">Customize AM/PM Slots</h5>
+                                <p className="text-xs text-gray-500 mt-0.5">Set different limits for morning and afternoon</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setCustomizeAmPm(!customizeAmPm);
+                                  if (!customizeAmPm) {
+                                    setDayMaxAmBookings(Math.floor(dayMaxBookings / 2));
+                                    setDayMaxPmBookings(Math.floor(dayMaxBookings / 2));
+                                  }
+                                }}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${customizeAmPm ? 'bg-maroon-800' : 'bg-gray-300'}`}
+                              >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${customizeAmPm ? 'translate-x-6' : 'translate-x-1'}`} />
+                              </button>
+                            </div>
+
+                            {customizeAmPm && (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Morning Slots (8 AM - 12 PM)</label>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="range"
+                                      min={0}
+                                      max={dayMaxBookings}
+                                      value={dayMaxAmBookings || 0}
+                                      onChange={e => setDayMaxAmBookings(parseInt(e.target.value))}
+                                      className="flex-1 h-2 bg-amber-200 rounded-full appearance-none cursor-pointer accent-amber-600"
+                                    />
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={dayMaxBookings}
+                                      value={dayMaxAmBookings || 0}
+                                      onChange={e => setDayMaxAmBookings(Math.max(0, parseInt(e.target.value) || 0))}
+                                      className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-center font-semibold text-amber-700 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Afternoon Slots (1 PM - 5 PM)</label>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="range"
+                                      min={0}
+                                      max={dayMaxBookings}
+                                      value={dayMaxPmBookings || 0}
+                                      onChange={e => setDayMaxPmBookings(parseInt(e.target.value))}
+                                      className="flex-1 h-2 bg-blue-200 rounded-full appearance-none cursor-pointer accent-blue-600"
+                                    />
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={dayMaxBookings}
+                                      value={dayMaxPmBookings || 0}
+                                      onChange={e => setDayMaxPmBookings(Math.max(0, parseInt(e.target.value) || 0))}
+                                      className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-center font-semibold text-blue-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg p-2">
+                                  <strong>Total:</strong> {(dayMaxAmBookings || 0) + (dayMaxPmBookings || 0)} slots ({dayMaxAmBookings || 0} AM + {dayMaxPmBookings || 0} PM)
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
