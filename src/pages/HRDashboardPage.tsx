@@ -64,7 +64,6 @@ export function HRDashboardPage() {
                             <img src="/ldcu-logo.png" alt="LDCU" className="w-8 h-8 object-contain" />
                             <div>
                                 <h1 className="text-base sm:text-lg font-bold leading-tight">LDCU Clinic</h1>
-                                <p className="text-[10px] sm:text-xs text-maroon-200 font-medium leading-none">HR Dashboard</p>
                             </div>
                         </div>
 
@@ -355,7 +354,7 @@ export function HRDashboardPage() {
                                     transition={{ duration: 0.2, delay: i * 0.04 }}
                                     className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow"
                                 >
-                                    <div className="flex items-center gap-3 mb-3">
+                                    <div className="flex items-start gap-3 mb-4">
                                         {user.avatar_url ? (
                                             <img
                                                 src={user.avatar_url}
@@ -370,17 +369,17 @@ export function HRDashboardPage() {
                                         )}
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                            <p className="text-xs text-gray-500 truncate mb-2">{user.email}</p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-bold uppercase">
+                                                    {user.role === 'pending' ? 'Pending' : user.role}
+                                                </span>
+                                                <span className="text-gray-400">→</span>
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-bold uppercase">
+                                                    {user.requested_role}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-bold uppercase">
-                                            {user.role === 'pending' ? 'Pending' : user.role}
-                                        </span>
-                                        <span className="text-gray-400">→</span>
-                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-bold uppercase">
-                                            {user.requested_role}
-                                        </span>
                                     </div>
                                     <div className="flex gap-2">
                                         <button

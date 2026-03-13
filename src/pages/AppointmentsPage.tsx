@@ -181,9 +181,9 @@ export function AppointmentsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div className="flex flex-col xl:flex-row gap-3 w-full">
+        <div className="flex flex-col lg:flex-row gap-3 w-full">
           {/* Search Bar */}
-          <div className="relative h-[42px] w-full">
+          <div className="relative h-[42px] w-full lg:flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -195,12 +195,12 @@ export function AppointmentsPage() {
           </div>
 
           {/* Filters Wrap */}
-          <div className="grid grid-cols-2 md:flex md:flex-wrap lg:flex-nowrap gap-3 items-center w-full xl:w-auto">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap lg:flex-nowrap gap-3 items-center w-full lg:w-auto">
             {profile?.role !== 'nurse' && (
               <select
                 value={campusFilter}
                 onChange={(e) => setCampusFilter(e.target.value)}
-                className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full md:w-[150px]"
+                className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[140px] lg:w-[150px]"
               >
                 <option value="">All Campuses</option>
                 {campuses.map((campus) => (
@@ -214,7 +214,7 @@ export function AppointmentsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | '')}
-              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full md:w-[150px]"
+              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[140px] lg:w-[150px]"
             >
               <option value="">All Statuses</option>
               <option value="scheduled">Scheduled</option>
@@ -226,7 +226,7 @@ export function AppointmentsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as AppointmentType | '')}
-              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full md:w-[150px]"
+              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[140px] lg:w-[150px]"
             >
               <option value="">All Types</option>
               <option value="physical_exam">Physical Exam</option>
@@ -235,23 +235,23 @@ export function AppointmentsPage() {
             </select>
 
             {/* Date Range Wrapper */}
-            <div className="col-span-2 md:col-span-auto grid grid-cols-2 sm:flex sm:flex-row gap-3 w-full md:w-auto">
-              <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow flex items-center flex-1 lg:w-[200px] xl:w-[220px] overflow-hidden">
+            <div className="col-span-2 sm:col-span-auto grid grid-cols-2 sm:flex sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow flex items-center flex-1 sm:w-[160px] lg:w-[180px] xl:w-[200px] overflow-hidden">
                 <span className="w-10 sm:w-12 text-center text-[10px] text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap select-none border-r border-gray-100 h-full flex items-center justify-center bg-gray-50/50 rounded-l-lg shrink-0">From</span>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="flex-1 h-full bg-transparent px-2 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
+                  className="flex-1 h-full bg-transparent px-1.5 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
                 />
               </div>
-              <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow flex items-center flex-1 lg:w-[200px] xl:w-[220px] overflow-hidden">
+              <div className="relative border border-gray-300 rounded-lg h-[42px] bg-white focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-shadow flex items-center flex-1 sm:w-[160px] lg:w-[180px] xl:w-[200px] overflow-hidden">
                 <span className="w-10 sm:w-12 text-center text-[10px] text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap select-none border-r border-gray-100 h-full flex items-center justify-center bg-gray-50/50 rounded-l-lg shrink-0">To</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="flex-1 h-full bg-transparent px-2 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
+                  className="flex-1 h-full bg-transparent px-1.5 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
                 />
               </div>
             </div>

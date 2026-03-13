@@ -44,12 +44,12 @@ export function Header() {
       <header className="bg-maroon-800 text-white shadow-lg sticky top-0 z-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+            <Link to="/" className="flex items-center space-x-3 group min-w-0">
+              <div className="w-10 h-10 flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shrink-0">
                 <img src="/ldcu-logo.png" alt="LDCU Logo" className="w-full h-full object-contain" />
               </div>
-              <div className="flex flex-col">
-                <h1 className="text-lg font-bold whitespace-nowrap">Medical and Dental Clinic</h1>
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-base sm:text-lg font-bold whitespace-nowrap truncate">Medical and Dental Clinic</h1>
               </div>
             </Link>
 
