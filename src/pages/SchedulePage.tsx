@@ -240,23 +240,36 @@ export function SchedulePage() {
         </div>
 
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center w-full md:w-auto gap-2 sm:gap-3">
-          {/* Campus Buttons – nurses only see their own campus */}
+          {/* Campus Indicator/Buttons */}
           <div className="flex flex-wrap gap-2">
-            {campuses
-              .filter(campus => !isNurse || campus.id === nurseAssignedCampusId)
-              .map(campus => (
+            {isNurse ? (
+              // Nurses see a static indicator of their assigned campus
+              campuses
+                .filter(campus => campus.id === nurseAssignedCampusId)
+                .map(campus => (
+                  <div
+                    key={campus.id}
+                    className="flex-1 sm:flex-none flex items-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-semibold bg-maroon-50 text-maroon-900 border border-maroon-100 shadow-sm"
+                  >
+                    <MapPin className="w-4 h-4 text-maroon-700" />
+                    {campus.name}
+                  </div>
+                ))
+            ) : (
+              // Other roles see the clickable buttons to switch campuses
+              campuses.map(campus => (
                 <button
                   key={campus.id}
-                  onClick={() => !isNurse && setSelectedCampus(campus.id)}
-                  disabled={isNurse}
+                  onClick={() => setSelectedCampus(campus.id)}
                   className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm whitespace-nowrap ${selectedCampusId === campus.id
                     ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
                     : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
-                    } ${isNurse ? 'cursor-default' : ''}`}
+                    }`}
                 >
                   {campus.name}
                 </button>
-              ))}
+              ))
+            )}
           </div>
 
           {/* Max bookings editor */}
