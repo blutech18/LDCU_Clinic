@@ -28,8 +28,11 @@ export function SchedulePage() {
   const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, updateBookingSetting, fetchEmailTemplates, emailTemplates, upsertEmailTemplate, fetchScheduleConfig, scheduleConfig, dayOverrides, fetchDayOverrides, syncPhHolidays } = useScheduleStore();
   const { profile } = useAuthStore();
 
+  // Nurse role helpers
+  const isNurse = profile?.role === 'nurse';
+  const nurseAssignedCampusId = profile?.assigned_campus_id ?? null;
   // Check if user is a nurse with no assigned campus
-  const isNurseWithNoCampus = profile?.role === 'nurse' && !profile?.assigned_campus_id;
+  const isNurseWithNoCampus = isNurse && !nurseAssignedCampusId;
 
   const maxBookingsPerDay = bookingSetting?.max_bookings_per_day || 50;
 
@@ -63,7 +66,16 @@ export function SchedulePage() {
 
   // ── Data fetching ──
   useEffect(() => { fetchCampuses(); }, [fetchCampuses]);
-  useEffect(() => { if (campuses.length > 0 && !selectedCampusId) setSelectedCampus(campuses[0].id); }, [campuses, selectedCampusId, setSelectedCampus]);
+  useEffect(() => {
+    if (campuses.length > 0 && !selectedCampusId) {
+      // For nurses, always default to their assigned campus
+      if (isNurse && nurseAssignedCampusId) {
+        setSelectedCampus(nurseAssignedCampusId);
+      } else {
+        setSelectedCampus(campuses[0].id);
+      }
+    }
+  }, [campuses, selectedCampusId, setSelectedCampus, isNurse, nurseAssignedCampusId]);
   useEffect(() => {
     if (selectedCampusId) {
       fetchBookingSetting(selectedCampusId);
@@ -228,20 +240,23 @@ export function SchedulePage() {
         </div>
 
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center w-full md:w-auto gap-2 sm:gap-3">
-          {/* Campus Buttons */}
+          {/* Campus Buttons – nurses only see their own campus */}
           <div className="flex flex-wrap gap-2">
-            {campuses.map(campus => (
-              <button
-                key={campus.id}
-                onClick={() => setSelectedCampus(campus.id)}
-                className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm whitespace-nowrap ${selectedCampusId === campus.id
-                  ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
-                  }`}
-              >
-                {campus.name}
-              </button>
-            ))}
+            {campuses
+              .filter(campus => !isNurse || campus.id === nurseAssignedCampusId)
+              .map(campus => (
+                <button
+                  key={campus.id}
+                  onClick={() => !isNurse && setSelectedCampus(campus.id)}
+                  disabled={isNurse}
+                  className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm whitespace-nowrap ${selectedCampusId === campus.id
+                    ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                    } ${isNurse ? 'cursor-default' : ''}`}
+                >
+                  {campus.name}
+                </button>
+              ))}
           </div>
 
           {/* Max bookings editor */}
