@@ -13,13 +13,17 @@ export function DashboardPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        await fetchAppointments();
+        // Nurses: auto-filter by their assigned campus
+        const nurseCampus = profile?.role === 'nurse' && profile.assigned_campus_id
+          ? profile.assigned_campus_id
+          : undefined;
+        await fetchAppointments(nurseCampus ? { campusId: nurseCampus } : undefined);
       } finally {
         setInitialLoading(false);
       }
     };
     loadData();
-  }, [fetchAppointments]);
+  }, [fetchAppointments, profile?.role, profile?.assigned_campus_id]);
 
   // Calculate stats from appointments
   const todayStr = formatLocalDate(new Date());

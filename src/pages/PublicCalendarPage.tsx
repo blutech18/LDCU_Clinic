@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, LogIn } from 'lucide-react';
@@ -6,15 +6,58 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { Header, Footer } from '~/components/layout';
 import { SignInPromptModal } from '~/components/modals/SignInPromptModal';
 import { useAppointmentStore } from '~/modules/appointments';
+import { useScheduleStore } from '~/modules/schedule';
+import { formatLocalDate } from '~/lib/utils';
 
 export function PublicCalendarPage() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [direction, setDirection] = useState(0);
-    const { appointments } = useAppointmentStore();
+    const [selectedCampusId, setSelectedCampusId] = useState<string | null>(null);
+    const { fetchBookingCounts, bookingCounts } = useAppointmentStore();
+    const { campuses, fetchCampuses, fetchScheduleConfig, bookingSetting, fetchBookingSetting, dayOverrides, fetchDayOverrides } = useScheduleStore();
 
     const today = new Date();
+
+    // Fetch campuses on mount
+    useEffect(() => {
+        fetchCampuses();
+    }, [fetchCampuses]);
+
+    // Set default campus
+    useEffect(() => {
+        if (campuses.length > 0 && !selectedCampusId) {
+            setSelectedCampusId(campuses[0].id);
+        }
+    }, [campuses, selectedCampusId]);
+
+    // Fetch booking counts when month or campus changes
+    useEffect(() => {
+        if (!selectedCampusId) return;
+        const start = startOfMonth(subMonths(currentMonth, 1));
+        const end = endOfMonth(addMonths(currentMonth, 1));
+        const startStr = formatLocalDate(start);
+        const endStr = formatLocalDate(end);
+        fetchBookingCounts(startStr, endStr, selectedCampusId);
+        fetchScheduleConfig(selectedCampusId);
+        fetchBookingSetting(selectedCampusId);
+        fetchDayOverrides(selectedCampusId, startStr, endStr);
+    }, [currentMonth, selectedCampusId, fetchBookingCounts, fetchScheduleConfig, fetchBookingSetting, fetchDayOverrides]);
+
+    const globalMaxBookings = bookingSetting?.max_bookings_per_day || 50;
+
+    const getMaxForDate = (dateStr: string) => {
+        const override = dayOverrides[dateStr];
+        if (override) {
+            if (override.is_closed) return 0;
+            if (override.max_am_bookings !== null && override.max_am_bookings !== undefined) {
+                return override.max_am_bookings + (override.max_pm_bookings || 0);
+            }
+            return override.max_bookings;
+        }
+        return globalMaxBookings;
+    };
 
     // Generate calendar days
     const calendarDays = useMemo(() => {
@@ -43,19 +86,13 @@ export function PublicCalendarPage() {
         setIsModalOpen(true);
     };
 
-    // Get booked slots for selected date
-    const bookedSlots = useMemo(() => {
-        if (!selectedDate) return [];
-        const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        return appointments
-            .filter(apt => apt.appointment_date === dateStr && apt.status !== 'cancelled')
-            .map(apt => apt.start_time);
-    }, [selectedDate, appointments]);
+    // Public page: no individual appointment details
+    const bookedSlots: string[] = [];
 
-    // Check if a date has appointments
+    // Check if a date has bookings using counts
     const hasAppointments = (date: Date) => {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        return appointments.some(apt => apt.appointment_date === dateStr && apt.status !== 'cancelled');
+        const dateStr = formatLocalDate(date);
+        return (bookingCounts[dateStr] || 0) > 0;
     };
 
     const slideVariants = {
@@ -92,6 +129,25 @@ export function PublicCalendarPage() {
                             Sign In to Book
                         </Link>
                     </div>
+
+                    {/* Campus Selector */}
+                    {campuses.length > 1 && (
+                        <div className="mb-4 flex flex-wrap gap-2">
+                            {campuses.map(campus => (
+                                <button
+                                    key={campus.id}
+                                    onClick={() => setSelectedCampusId(campus.id)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${
+                                        selectedCampusId === campus.id
+                                            ? 'bg-maroon-800 text-white border-maroon-800'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                                    }`}
+                                >
+                                    {campus.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Calendar Card */}
                     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -143,10 +199,14 @@ export function PublicCalendarPage() {
                                             );
                                         }
 
+                                        const dateStr = formatLocalDate(day);
                                         const isToday = isSameDay(day, today);
                                         const isCurrentMonth = isSameMonth(day, currentMonth);
                                         const isWeekendDay = isWeekend(day);
                                         const hasAppts = hasAppointments(day);
+                                        const count = bookingCounts[dateStr] || 0;
+                                        const effectiveMax = getMaxForDate(dateStr);
+                                        const isFull = effectiveMax > 0 && count >= effectiveMax;
 
                                         return (
                                             <button
@@ -157,6 +217,7 @@ export function PublicCalendarPage() {
                           transition-all duration-200 hover:bg-maroon-50 cursor-pointer
                           ${!isCurrentMonth ? 'text-gray-300' : ''}
                           ${isWeekendDay ? 'bg-gray-50' : ''}
+                          ${isFull && isCurrentMonth ? 'bg-red-50' : ''}
                         `}
                                             >
                                                 <span
@@ -169,8 +230,10 @@ export function PublicCalendarPage() {
                                                 >
                                                     {format(day, 'd')}
                                                 </span>
-                                                {hasAppts && (
-                                                    <span className="mt-1 w-1.5 h-1.5 bg-maroon-600 rounded-full" />
+                                                {isCurrentMonth && count > 0 && (
+                                                    <span className={`mt-0.5 text-[10px] font-medium ${isFull ? 'text-red-500' : 'text-maroon-600'}`}>
+                                                        {count}/{effectiveMax}
+                                                    </span>
                                                 )}
                                             </button>
                                         );

@@ -17,11 +17,13 @@ import { PublicCalendarPage } from './pages/PublicCalendarPage';
 import { ReschedulePage } from './pages/ReschedulePage';
 import { NurseAssignmentPage } from './pages/NurseAssignmentPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { StudentRoute } from './components/StudentRoute';
 import { StaffRoute } from './components/StaffRoute';
 import { EmployeeLayout } from './components/layout';
+import { ClinicStaffRoute } from './components/ClinicStaffRoute';
 import { SupervisorRoute } from './components/SupervisorRoute';
 import { HRRoute } from './components/HRRoute';
 import { RoleSelectionPage } from './pages/RoleSelectionPage';
@@ -76,6 +78,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/calendar" element={<PublicCalendarPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
       <Route path="/view-schedules" element={<ViewSchedulesPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
@@ -139,11 +142,11 @@ function App() {
       <Route element={<EmployeeLayout />}>
         <Route path="/supervisor/dashboard" element={<SupervisorRoute><DashboardPage /></SupervisorRoute>} />
         <Route path="/employee/dashboard" element={<SupervisorRoute><DashboardPage /></SupervisorRoute>} /> {/* Legacy redirect */}
-        <Route path="/appointments" element={<AppointmentsPage />} />
-        <Route path="/schedule" element={<SchedulePage />} />
-        <Route path="/schedule/day/:date" element={<ScheduleDayPage />} />
-        <Route path="/reschedule" element={<ReschedulePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/appointments" element={<ClinicStaffRoute><AppointmentsPage /></ClinicStaffRoute>} />
+        <Route path="/schedule" element={<ClinicStaffRoute><SchedulePage /></ClinicStaffRoute>} />
+        <Route path="/schedule/day/:date" element={<ClinicStaffRoute><ScheduleDayPage /></ClinicStaffRoute>} />
+        <Route path="/reschedule" element={<ClinicStaffRoute><ReschedulePage /></ClinicStaffRoute>} />
+        <Route path="/profile" element={<ClinicStaffRoute><ProfilePage /></ClinicStaffRoute>} />
         <Route path="/supervisor/nurses" element={<SupervisorRoute><NurseAssignmentPage /></SupervisorRoute>} />
         <Route path="/supervisor/audit-logs" element={<SupervisorRoute><AuditLogsPage /></SupervisorRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />

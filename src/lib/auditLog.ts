@@ -1,16 +1,14 @@
 import { supabase } from './supabase';
 
 interface AuditLogParams {
-  userId: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ASSIGN';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ASSIGN' | 'LOGIN' | 'LOGOUT';
   resourceType: string;
   resourceId?: string;
   campusId?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export async function logUserAction({
-  userId,
   action,
   resourceType,
   resourceId,
@@ -19,7 +17,6 @@ export async function logUserAction({
 }: AuditLogParams): Promise<void> {
   try {
     await supabase.rpc('log_user_action', {
-      p_user_id: userId,
       p_action: action,
       p_resource_type: resourceType,
       p_resource_id: resourceId || null,

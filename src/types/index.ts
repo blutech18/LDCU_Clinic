@@ -35,6 +35,7 @@ export interface Profile {
   requested_role?: string | null;
   role_selected?: boolean;
   avatar_url?: string;
+  force_reauth_at?: string; // ISO timestamp — set by DB trigger when admin changes user role
   created_at: string;
   updated_at: string;
 }

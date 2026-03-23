@@ -35,8 +35,7 @@ interface AuditLog {
 }
 
 export function AuditLogsPage() {
-  const [allLogs, setAllLogs] = useState<AuditLog[]>([]); // Store all logs
-  const [logs, setLogs] = useState<AuditLog[]>([]); // Filtered logs for display
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +49,11 @@ export function AuditLogsPage() {
     endDate: '',
   });
 
+  // Pagination
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+
   // Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -57,17 +61,16 @@ export function AuditLogsPage() {
   useEffect(() => {
     fetchCampuses();
     fetchUsers();
-    fetchLogs();
   }, []);
 
   useEffect(() => {
-    fetchLogs();
+    setPage(0); // Reset to first page on filter change
+    fetchLogs(0);
   }, [filters]);
 
-  // Live search and filter effect
   useEffect(() => {
-    applyFilters();
-  }, [searchTerm, allLogs]);
+    fetchLogs(page);
+  }, [page]);
 
   const fetchCampuses = async () => {
     try {
@@ -97,9 +100,11 @@ export function AuditLogsPage() {
     }
   };
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (pageNum = 0) => {
     try {
       setLoading(true);
+      const from = pageNum * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
       let query = supabase
         .from('audit_logs')
@@ -107,65 +112,45 @@ export function AuditLogsPage() {
           *,
           user:profiles!audit_logs_user_id_fkey(first_name, last_name, email, role, avatar_url),
           campus:campuses(name)
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(from, to);
 
-      // Apply filters
-      if (filters.campusId) {
-        query = query.eq('campus_id', filters.campusId);
-      }
-      if (filters.action) {
-        query = query.eq('action', filters.action);
-      }
-      if (filters.startDate) {
-        query = query.gte('created_at', filters.startDate);
-      }
-      if (filters.endDate) {
-        query = query.lte('created_at', filters.endDate);
-      }
+      // Apply server-side filters
+      if (filters.campusId) query = query.eq('campus_id', filters.campusId);
+      if (filters.action)   query = query.eq('action', filters.action);
+      if (filters.startDate) query = query.gte('created_at', filters.startDate);
+      if (filters.endDate)   query = query.lte('created_at', `${filters.endDate}T23:59:59`);
+      if (filters.userId)    query = query.eq('user_id', filters.userId);
 
-      const { data, error } = await query;
-
+      const { data, error, count } = await query;
       if (error) throw error;
 
-      // Filter by role and userId if specified (client-side since they're nested fields)
       let filteredData = data || [];
+      // role is a nested field — client-side filter only
       if (filters.role) {
         filteredData = filteredData.filter(log => log.user?.role === filters.role);
       }
-      if (filters.userId) {
-        filteredData = filteredData.filter(log => log.user_id === filters.userId);
+      // search term filter
+      if (searchTerm) {
+        const s = searchTerm.toLowerCase();
+        filteredData = filteredData.filter(log =>
+          log.user?.first_name?.toLowerCase().includes(s) ||
+          log.user?.last_name?.toLowerCase().includes(s) ||
+          log.user?.email?.toLowerCase().includes(s) ||
+          log.action.toLowerCase().includes(s) ||
+          log.resource_type.toLowerCase().includes(s)
+        );
       }
 
-      setAllLogs(filteredData);
-      applyFilters(filteredData);
+      setLogs(filteredData);
+
+      setTotalCount(count ?? 0);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const applyFilters = (logsToFilter?: AuditLog[]) => {
-    const sourceData = logsToFilter || allLogs;
-    let filteredData = [...sourceData];
-
-    // Filter by search term
-    if (searchTerm) {
-      filteredData = filteredData.filter(log => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          log.user?.first_name?.toLowerCase().includes(searchLower) ||
-          log.user?.last_name?.toLowerCase().includes(searchLower) ||
-          log.user?.email?.toLowerCase().includes(searchLower) ||
-          log.action.toLowerCase().includes(searchLower) ||
-          log.resource_type.toLowerCase().includes(searchLower)
-        );
-      });
-    }
-
-    setLogs(filteredData);
   };
 
   const getActionColor = (action: string) => {
@@ -227,7 +212,7 @@ export function AuditLogsPage() {
           <p className="text-gray-600 mt-1">Monitor all user activities across the system</p>
         </div>
         <button
-          onClick={fetchLogs}
+          onClick={() => fetchLogs(page)}
           className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white rounded-lg hover:bg-maroon-900 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
@@ -455,8 +440,25 @@ export function AuditLogsPage() {
         </div>
       </div>
 
-      <div className="text-sm text-gray-500 text-center">
-        Showing {logs.length} most recent logs (max 100)
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <span>Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount} logs</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0 || loading}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+          >
+            ← Prev
+          </button>
+          <span className="px-3 py-1.5 font-semibold text-gray-700">Page {page + 1}</span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={(page + 1) * PAGE_SIZE >= totalCount || loading}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+          >
+            Next →
+          </button>
+        </div>
       </div>
 
       {/* ── Details Modal ── */}

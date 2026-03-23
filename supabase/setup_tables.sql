@@ -27,9 +27,21 @@ DROP POLICY IF EXISTS "email_templates_insert" ON email_templates;
 DROP POLICY IF EXISTS "email_templates_update" ON email_templates;
 DROP POLICY IF EXISTS "email_templates_delete" ON email_templates;
 CREATE POLICY "email_templates_select" ON email_templates FOR SELECT TO authenticated USING (true);
-CREATE POLICY "email_templates_insert" ON email_templates FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "email_templates_update" ON email_templates FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "email_templates_delete" ON email_templates FOR DELETE TO authenticated USING (true);
+CREATE POLICY "email_templates_insert" ON email_templates FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor', 'nurse'))
+  );
+CREATE POLICY "email_templates_update" ON email_templates FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor', 'nurse'))
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor', 'nurse'))
+  );
+CREATE POLICY "email_templates_delete" ON email_templates FOR DELETE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor', 'nurse'))
+  );
 
 -- 2. Pending Emails queue
 CREATE TABLE IF NOT EXISTS pending_emails (
@@ -44,7 +56,10 @@ ALTER TABLE pending_emails ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "pending_emails_insert" ON pending_emails;
 DROP POLICY IF EXISTS "pending_emails_select" ON pending_emails;
 CREATE POLICY "pending_emails_insert" ON pending_emails FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "pending_emails_select" ON pending_emails FOR SELECT TO authenticated USING (true);
+CREATE POLICY "pending_emails_select" ON pending_emails FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  );
 
 -- 3. Schedule Config table
 CREATE TABLE IF NOT EXISTS schedule_config (
@@ -63,9 +78,21 @@ DROP POLICY IF EXISTS "schedule_config_insert" ON schedule_config;
 DROP POLICY IF EXISTS "schedule_config_update" ON schedule_config;
 DROP POLICY IF EXISTS "schedule_config_delete" ON schedule_config;
 CREATE POLICY "schedule_config_select" ON schedule_config FOR SELECT TO authenticated USING (true);
-CREATE POLICY "schedule_config_insert" ON schedule_config FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "schedule_config_update" ON schedule_config FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "schedule_config_delete" ON schedule_config FOR DELETE TO authenticated USING (true);
+CREATE POLICY "schedule_config_insert" ON schedule_config FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  );
+CREATE POLICY "schedule_config_update" ON schedule_config FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  );
+CREATE POLICY "schedule_config_delete" ON schedule_config FOR DELETE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  );
 
 -- 4. Booking Settings table
 CREATE TABLE IF NOT EXISTS booking_settings (
@@ -81,8 +108,17 @@ DROP POLICY IF EXISTS "booking_settings_select" ON booking_settings;
 DROP POLICY IF EXISTS "booking_settings_insert" ON booking_settings;
 DROP POLICY IF EXISTS "booking_settings_update" ON booking_settings;
 CREATE POLICY "booking_settings_select" ON booking_settings FOR SELECT TO authenticated USING (true);
-CREATE POLICY "booking_settings_insert" ON booking_settings FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "booking_settings_update" ON booking_settings FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "booking_settings_insert" ON booking_settings FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  );
+CREATE POLICY "booking_settings_update" ON booking_settings FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'supervisor'))
+  );
 
 -- 5. Departments table
 CREATE TABLE IF NOT EXISTS departments (
@@ -96,8 +132,10 @@ DROP POLICY IF EXISTS "departments_select" ON departments;
 DROP POLICY IF EXISTS "departments_insert" ON departments;
 DROP POLICY IF EXISTS "departments_public_select" ON departments;
 CREATE POLICY "departments_select" ON departments FOR SELECT TO authenticated USING (true);
-CREATE POLICY "departments_insert" ON departments FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "departments_public_select" ON departments FOR SELECT TO anon USING (true);
+CREATE POLICY "departments_insert" ON departments FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
 
 -- ============================================
 -- Seed LDCU Departments

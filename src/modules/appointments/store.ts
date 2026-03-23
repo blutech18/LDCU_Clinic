@@ -47,22 +47,7 @@ export const useAppointmentStore = create<AppointmentState>()(
           .from('appointments')
           .select(`*, profiles:patient_id (avatar_url)`);
 
-        // For nurses, automatically filter by their assigned campus
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role, assigned_campus_id')
-            .eq('id', user.id)
-            .single();
-
-          if (profile?.role === 'nurse' && profile.assigned_campus_id) {
-            // Override campusId filter with nurse's assigned campus
-            query = query.eq('campus_id', profile.assigned_campus_id);
-          } else if (filters?.campusId) {
-            query = query.eq('campus_id', filters.campusId);
-          }
-        } else if (filters?.campusId) {
+        if (filters?.campusId) {
           query = query.eq('campus_id', filters.campusId);
         }
 
@@ -122,30 +107,55 @@ export const useAppointmentStore = create<AppointmentState>()(
     createAppointment: async (data) => {
       set({ isSaving: true });
       try {
-        const { data: newAppointment, error } = await supabase
-          .from('appointments')
-          .insert(data)
-          .select()
-          .single();
+        // Use the atomic book_appointment() DB function with advisory lock
+        // to prevent race conditions and double-booking
+        const { data: result, error } = await supabase.rpc('book_appointment', {
+          p_patient_id: data.patient_id ?? null,
+          p_campus_id: data.campus_id,
+          p_appointment_type: data.appointment_type ?? 'consultation',
+          p_appointment_date: data.appointment_date,
+          p_start_time: data.start_time ?? '08:00',
+          p_end_time: data.end_time ?? '12:00',
+          p_status: data.status ?? 'scheduled',
+          p_time_of_day: data.time_of_day ?? 'AM',
+          p_notes: data.notes ?? null,
+          p_patient_name: data.patient_name ?? null,
+          p_patient_email: data.patient_email ?? null,
+          p_patient_phone: data.patient_phone ?? null,
+          p_booker_role: data.booker_role ?? 'student',
+        });
 
-        if (error) throw error;
+        if (error) {
+          // Surface user-friendly messages for booking errors
+          if (error.message?.includes('ALREADY_BOOKED')) {
+            throw new Error('You already have a scheduled appointment. Please complete or cancel it before booking a new one.');
+          }
+          if (error.message?.includes('FULLY_BOOKED_AM')) {
+            throw new Error('The morning (AM) session is fully booked. Please select a different time or date.');
+          }
+          if (error.message?.includes('FULLY_BOOKED_PM')) {
+            throw new Error('The afternoon (PM) session is fully booked. Please select a different time or date.');
+          }
+          if (error.message?.includes('FULLY_BOOKED')) {
+            throw new Error('This date is fully booked. Please select another date.');
+          }
+          throw error;
+        }
+
+        const newAppointment = result as Appointment;
 
         // Log appointment creation
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await logUserAction({
-            userId: user.id,
-            action: 'CREATE',
-            resourceType: 'appointment',
-            resourceId: newAppointment.id,
-            campusId: newAppointment.campus_id,
-            details: {
-              appointment_type: newAppointment.appointment_type,
-              appointment_date: newAppointment.appointment_date,
-              patient_name: newAppointment.patient_name,
-            },
-          });
-        }
+        await logUserAction({
+          action: 'CREATE',
+          resourceType: 'appointment',
+          resourceId: newAppointment.id,
+          campusId: newAppointment.campus_id,
+          details: {
+            appointment_type: newAppointment.appointment_type,
+            appointment_date: newAppointment.appointment_date,
+            patient_name: newAppointment.patient_name,
+          },
+        });
 
         set((state) => {
           state.appointments.push(newAppointment);
@@ -157,6 +167,7 @@ export const useAppointmentStore = create<AppointmentState>()(
         set({ isSaving: false });
         throw error;
       }
+
     },
 
     updateAppointment: async (id, data) => {
@@ -170,10 +181,8 @@ export const useAppointmentStore = create<AppointmentState>()(
         if (error) throw error;
 
         // Log appointment update
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && currentApt.data) {
+        if (currentApt.data) {
           await logUserAction({
-            userId: user.id,
             action: 'UPDATE',
             resourceType: 'appointment',
             resourceId: id,
@@ -208,10 +217,8 @@ export const useAppointmentStore = create<AppointmentState>()(
         if (error) throw error;
 
         // Log appointment deletion
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && apt) {
+        if (apt) {
           await logUserAction({
-            userId: user.id,
             action: 'DELETE',
             resourceType: 'appointment',
             resourceId: id,
@@ -258,7 +265,6 @@ export const useAppointmentStore = create<AppointmentState>()(
         const holidayDates: string[] = schedConfig?.holiday_dates || [];
 
         // Always start from TOMORROW, regardless of the original appointment date
-        // This prevents rescheduling into past dates when handling old appointments
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const startDate = new Date(today);
@@ -270,16 +276,12 @@ export const useAppointmentStore = create<AppointmentState>()(
           d.setDate(d.getDate() + i);
           const dow = d.getDay();
 
-          // Skip Sunday (0) unless included
           if (dow === 0 && !includeSunday) continue;
-          // Skip Saturday (6) unless included
           if (dow === 6 && !includeSaturday) continue;
 
           const dateStr = d.toISOString().split('T')[0];
 
-          // Skip holidays
           if (holidayDates.includes(dateStr)) continue;
-          // Skip the original rescheduled date itself
           if (dateStr === date) continue;
 
           futureDates.push(dateStr);
@@ -299,20 +301,27 @@ export const useAppointmentStore = create<AppointmentState>()(
         });
 
         // Spread unfinished appointments across available dates (closest first)
+        // Uses the atomic reschedule_appointment() DB function with advisory locks
         let dateIndex = 0;
         for (const aptId of unfinishedIds) {
-          // Find next date with available capacity
           while (dateIndex < futureDates.length) {
             const targetDate = futureDates[dateIndex];
             const currentCount = countMap[targetDate] || 0;
             if (currentCount < maxPerDay) {
-              // Assign this appointment to this date
-              const { error } = await supabase
-                .from('appointments')
-                .update({ appointment_date: targetDate, status: 'scheduled' })
-                .eq('id', aptId);
+              const { error } = await supabase.rpc('reschedule_appointment', {
+                p_appointment_id: aptId,
+                p_target_date: targetDate,
+                p_campus_id: campusId,
+              });
 
-              if (error) throw error;
+              if (error) {
+                // If target date is full (race condition), try next date
+                if (error.message?.includes('FULLY_BOOKED')) {
+                  dateIndex++;
+                  continue;
+                }
+                throw error;
+              }
 
               countMap[targetDate] = currentCount + 1;
               break;

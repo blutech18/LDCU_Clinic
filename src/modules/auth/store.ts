@@ -3,6 +3,30 @@ import { immer } from 'zustand/middleware/immer';
 import type { Profile } from '~/types';
 import { supabase } from '~/lib/supabase';
 
+// ─── Idle Session Timeout (30 minutes) ───────────────────────────────────────
+// Auto-logout after 30 min of inactivity. Protects shared campus computers.
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+let _idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function resetIdleTimer(onTimeout: () => void) {
+  if (_idleTimer) clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(onTimeout, IDLE_TIMEOUT_MS);
+}
+
+function startIdleWatcher(onTimeout: () => void) {
+  const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+  const reset = () => resetIdleTimer(onTimeout);
+  events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+  resetIdleTimer(onTimeout); // Start the first timer
+  return () => {
+    if (_idleTimer) clearTimeout(_idleTimer);
+    events.forEach((e) => window.removeEventListener(e, reset));
+  };
+}
+
+let _stopIdleWatcher: (() => void) | null = null;
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface RegisterData {
   email: string;
   password: string;
@@ -32,6 +56,7 @@ interface AuthState {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   clearAuth: () => void;
+  deleteAccount: () => Promise<void>;
 }
 
 // Guard to prevent initialize() from running more than once
@@ -73,6 +98,20 @@ export const useAuthStore = create<AuthState>()(
               set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
               return;
             }
+
+            // Session invalidation: if admin changed this user's role, force re-login
+            if (profile.force_reauth_at) {
+              const reauthAt = new Date(profile.force_reauth_at).getTime();
+              const sessionCreatedAt = session.user.last_sign_in_at
+                ? new Date(session.user.last_sign_in_at).getTime()
+                : 0;
+              if (reauthAt > sessionCreatedAt) {
+                await supabase.auth.signOut();
+                set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
+                return;
+              }
+            }
+
             const sessionAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null;
             const avatarUrl = sessionAvatar || profile.avatar_url || null;
             // Persist avatar_url to profile if from Google and not already saved
@@ -82,6 +121,14 @@ export const useAuthStore = create<AuthState>()(
               profile.avatar_url = sessionAvatar;
             }
             set({ profile, avatarUrl, isAuthenticated: true, isLoading: false, isInitialized: true });
+
+            // Start idle watcher — auto-logout after 30 min of inactivity
+            if (_stopIdleWatcher) _stopIdleWatcher();
+            _stopIdleWatcher = startIdleWatcher(async () => {
+              await supabase.auth.signOut();
+              set({ profile: null, avatarUrl: null, isAuthenticated: false, isInitialized: true });
+              if (_stopIdleWatcher) { _stopIdleWatcher(); _stopIdleWatcher = null; }
+            });
           } else {
             set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
           }
@@ -95,6 +142,7 @@ export const useAuthStore = create<AuthState>()(
         // would cause infinite re-render loops in React components.
         supabase.auth.onAuthStateChange((_event) => {
           if (_event === 'SIGNED_OUT') {
+            if (_stopIdleWatcher) { _stopIdleWatcher(); _stopIdleWatcher = null; }
             set({ profile: null, avatarUrl: null, isAuthenticated: false, isInitialized: true });
           }
           // All other events (SIGNED_IN, TOKEN_REFRESHED, etc.) — do nothing.
@@ -103,7 +151,9 @@ export const useAuthStore = create<AuthState>()(
         });
 
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error initializing auth:', error);
+        }
         set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
       }
     },
@@ -151,7 +201,9 @@ export const useAuthStore = create<AuthState>()(
 
         return true;
       } catch (error) {
-        console.error('Error verifying role:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error verifying role:', error);
+        }
         return false;
       }
     },
@@ -168,7 +220,9 @@ export const useAuthStore = create<AuthState>()(
         if (error) throw error;
         set({ profile: data, isAuthenticated: true, isLoading: false });
       } catch (error) {
-        console.error('Error fetching profile:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error fetching profile:', error);
+        }
         set({ isLoading: false });
         throw error;
       }
@@ -177,12 +231,38 @@ export const useAuthStore = create<AuthState>()(
     login: async (email: string, password: string) => {
       set({ isLoading: true });
       try {
+        // Check rate limit before attempting login
+        const { data: rateLimitCheck } = await supabase.rpc('check_login_rate_limit', {
+          p_email: email.toLowerCase(),
+        });
+
+        if (rateLimitCheck && !rateLimitCheck.allowed) {
+          const lockoutUntil = new Date(rateLimitCheck.lockout_until);
+          const minutesRemaining = Math.ceil((lockoutUntil.getTime() - Date.now()) / 60000);
+          throw new Error(
+            `Too many failed login attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`
+          );
+        }
+
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          // Record failed login attempt
+          await supabase.rpc('record_login_attempt', {
+            p_email: email.toLowerCase(),
+            p_success: false,
+          });
+          throw error;
+        }
+
+        // Record successful login attempt
+        await supabase.rpc('record_login_attempt', {
+          p_email: email.toLowerCase(),
+          p_success: true,
+        });
 
         if (data.user) {
           const { data: profile, error: profileError } = await supabase
@@ -207,6 +287,31 @@ export const useAuthStore = create<AuthState>()(
       }
     },
 
+    deleteAccount: async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('No user logged in');
+
+        // Delete user's profile and related data
+        // Note: This requires a Supabase Edge Function or database trigger
+        // to handle cascading deletes and auth.users cleanup
+        const { error } = await supabase.functions.invoke('delete-account', {
+          body: { userId: user.id },
+        });
+
+        if (error) throw error;
+
+        // Sign out after successful deletion
+        await supabase.auth.signOut();
+        set({ profile: null, avatarUrl: null, isAuthenticated: false });
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error deleting account:', error);
+        }
+        throw error;
+      }
+    },
+
     loginWithGoogle: async () => {
       try {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -221,7 +326,9 @@ export const useAuthStore = create<AuthState>()(
         // The actual navigation happens via OAuth redirect
         // Profile will be fetched after callback
       } catch (error) {
-        console.error('Error with Google login:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error with Google login:', error);
+        }
         throw error;
       }
     },
@@ -242,7 +349,7 @@ export const useAuthStore = create<AuthState>()(
             email: data.email,
             first_name: data.firstName,
             last_name: data.lastName,
-            role: 'supervisor',
+            role: 'pending',
             is_verified: false,
           };
 
@@ -271,10 +378,13 @@ export const useAuthStore = create<AuthState>()(
 
     logout: async () => {
       try {
+        if (_stopIdleWatcher) { _stopIdleWatcher(); _stopIdleWatcher = null; }
         await supabase.auth.signOut();
         set({ profile: null, avatarUrl: null, isAuthenticated: false });
       } catch (error) {
-        console.error('Error logging out:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error logging out:', error);
+        }
         throw error;
       }
     },

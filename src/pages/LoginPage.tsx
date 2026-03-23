@@ -16,7 +16,7 @@ export function LoginPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [direction, setDirection] = useState(0);
   const [selectedCampusId, setSelectedCampusId] = useState<string | null>(null);
-  const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts } = useAppointmentStore();
+  const { fetchBookingCounts, bookingCounts } = useAppointmentStore();
   const { scheduleConfig, fetchScheduleConfig, fetchBookingSetting, bookingSetting, campuses, fetchCampuses, dayOverrides, fetchDayOverrides } = useScheduleStore();
   const { profile, isInitialized } = useAuthStore();
 
@@ -43,15 +43,11 @@ export function LoginPage() {
     const startStr = formatLocalDate(start);
     const endStr = formatLocalDate(end);
 
-    fetchAppointments({
-      dateRange: { start: startStr, end: endStr },
-      campusId: selectedCampusId
-    });
     fetchBookingCounts(startStr, endStr, selectedCampusId);
     fetchDayOverrides(selectedCampusId, startStr, endStr);
     fetchScheduleConfig(selectedCampusId);
     fetchBookingSetting(selectedCampusId);
-  }, [currentMonth, selectedCampusId, fetchAppointments, fetchBookingCounts, fetchDayOverrides, fetchScheduleConfig, fetchBookingSetting]);
+  }, [currentMonth, selectedCampusId, fetchBookingCounts, fetchDayOverrides, fetchScheduleConfig, fetchBookingSetting]);
 
   const globalMaxBookings = bookingSetting?.max_bookings_per_day || 50;
 
@@ -84,14 +80,8 @@ export function LoginPage() {
     return days;
   }, [currentMonth]);
 
-  // Get booked slots for selected date — must be above early returns (Rules of Hooks)
-  const bookedSlots = useMemo(() => {
-    if (!selectedDate) return [];
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    return appointments
-      .filter(apt => apt.appointment_date === dateStr && apt.status !== 'cancelled')
-      .map(apt => apt.start_time);
-  }, [selectedDate, appointments]);
+  // Unauthenticated users don't see individual appointment details
+  const bookedSlots: string[] = [];
 
   // Show loading screen while auth is being initialized to prevent flash
   if (!isInitialized) {

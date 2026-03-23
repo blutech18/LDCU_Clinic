@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { GraduationCap, Briefcase, ArrowRight, Clock, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '~/modules/auth';
 import { supabase } from '~/lib/supabase';
+import { Link } from 'react-router-dom';
 
 export function RoleSelectionPage() {
     const { profile, isAuthenticated, isInitialized, setProfile } = useAuthStore();
@@ -11,6 +12,7 @@ export function RoleSelectionPage() {
     const [selectedRole, setSelectedRole] = useState<'student' | 'staff' | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     // Not authenticated → login
     if (isInitialized && !isAuthenticated) {
@@ -175,11 +177,35 @@ export function RoleSelectionPage() {
                     </motion.button>
                 </div>
 
+                {/* Terms & Privacy Checkbox */}
+                <div className="mb-6">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                            type="checkbox"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            className="mt-1 w-4 h-4 rounded border-gray-300 text-maroon-800 focus:ring-maroon-500 cursor-pointer"
+                        />
+                        <span className="text-sm text-gray-600 leading-relaxed">
+                            I agree to the{' '}
+                            <Link
+                                to="/privacy-policy"
+                                target="_blank"
+                                className="text-maroon-800 font-semibold underline underline-offset-2 hover:text-maroon-600"
+                            >
+                                Privacy Policy
+                            </Link>{' '}
+                            and consent to the collection and processing of my personal data as described therein,
+                            in accordance with Republic Act No. 10173 (Data Privacy Act of 2012).
+                        </span>
+                    </label>
+                </div>
+
                 {/* Submit Button */}
                 <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={handleSubmit}
-                    disabled={!selectedRole || isSubmitting}
+                    disabled={!selectedRole || isSubmitting || !acceptedTerms}
                     className="w-full bg-maroon-800 text-white py-4 px-6 rounded-2xl font-bold text-lg hover:bg-maroon-700 transition-all duration-300 shadow-xl hover:shadow-2xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-maroon-800 disabled:hover:shadow-xl flex items-center justify-center gap-3"
                 >
                     {isSubmitting ? (

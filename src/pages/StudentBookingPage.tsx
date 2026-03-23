@@ -223,8 +223,9 @@ export function StudentBookingPage() {
             setBookingError('Please enter your full name.');
             return;
         }
-        if (!contactNumber.trim() || contactNumber.trim().length !== 11) {
-            setBookingError('Please enter a valid 11-digit contact number.');
+        const phoneRegex = /^09\d{9}$/;
+        if (!phoneRegex.test(contactNumber.trim())) {
+            setBookingError('Please enter a valid Philippine mobile number (e.g., 09171234567).');
             return;
         }
         if (!selectedDepartment) {
@@ -234,24 +235,10 @@ export function StudentBookingPage() {
 
         // Check if user already has ANY scheduled appointment (prevent multiple bookings)
         const dateStr = formatLocalDate(selectedDate);
-        console.log('Booking check:', {
-            dateStr,
-            profileId: profile?.id,
-            myAppointments: myAppointments.length,
-            allAppointments: appointments.length
-        });
 
-        const existingScheduledAppointment = myAppointments.find(apt => {
-            console.log('Checking appointment:', {
-                aptDate: apt.appointment_date,
-                status: apt.status,
-                patientId: apt.patient_id
-            });
-            return apt.status === 'scheduled';
-        });
+        const existingScheduledAppointment = myAppointments.find(apt => apt.status === 'scheduled');
 
         if (existingScheduledAppointment) {
-            console.log('Found existing scheduled appointment, blocking new booking');
             setAlertModal({
                 isOpen: true,
                 message: 'You already have a scheduled appointment. Please complete or cancel your existing appointment before booking a new one.',
@@ -272,6 +259,7 @@ export function StudentBookingPage() {
             setBookingError(null);
             const dept = departments.find(d => d.id === selectedDepartment);
 
+            const sanitizedNotes = notes.replace(/[<>]/g, '');
             await createAppointment({
                 patient_id: profile.id,
                 campus_id: selectedCampus,
@@ -281,7 +269,7 @@ export function StudentBookingPage() {
                 end_time: timeOfDay === 'AM' ? '12:00' : '17:00',
                 status: 'scheduled',
                 time_of_day: timeOfDay,
-                notes: notes ? `Department: ${dept?.name || selectedDepartment}\n${notes}` : `Department: ${dept?.name || selectedDepartment}`,
+                notes: sanitizedNotes ? `Department: ${dept?.name || selectedDepartment}\n${sanitizedNotes}` : `Department: ${dept?.name || selectedDepartment}`,
                 patient_name: fullName.trim(),
                 patient_email: profile.email,
                 patient_phone: contactNumber.trim(),

@@ -101,7 +101,7 @@ export async function sendBookingConfirmation(
           </p>
 
           <div style="margin-top: 30px; text-align: center;">
-            <a href="https://ldcu-clinic.vercel.app/" style="display: inline-block; background-color: #800000; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px;">View Appointment</a>
+            <a href="${typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL ? import.meta.env.VITE_APP_URL : 'https://ldcu-clinic.vercel.app'}" style="display: inline-block; background-color: #800000; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px;">View Appointment</a>
           </div>
         </div>
         
@@ -210,7 +210,7 @@ export async function sendAppointmentReminder(
           </p>
 
           <div style="margin-top: 30px; text-align: center;">
-            <a href="https://ldcu-clinic.vercel.app/" style="display: inline-block; background-color: #800000; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px;">Manage Appointment</a>
+            <a href="${typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL ? import.meta.env.VITE_APP_URL : 'https://ldcu-clinic.vercel.app'}" style="display: inline-block; background-color: #800000; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px;">Manage Appointment</a>
           </div>
         </div>
         

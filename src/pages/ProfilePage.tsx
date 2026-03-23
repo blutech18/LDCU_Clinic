@@ -87,7 +87,6 @@ export function ProfilePage() {
 
             // Log profile update
             await logUserAction({
-                userId: profile.id,
                 action: 'UPDATE',
                 resourceType: 'profile',
                 resourceId: profile.id,
@@ -98,6 +97,7 @@ export function ProfilePage() {
                     new_campus: formData.campus_id,
                 },
             });
+
 
             setProfile({ ...profile, ...formData } as typeof profile);
             setMessage({ type: 'success', text: 'Profile updated successfully!' });

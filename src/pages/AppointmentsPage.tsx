@@ -33,6 +33,10 @@ export function AppointmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Pagination
+  const PAGE_SIZE = 25;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const toggleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('asc'); }
@@ -44,9 +48,13 @@ export function AppointmentsPage() {
   };
 
   useEffect(() => {
-    fetchAppointments();
+    // Nurses: auto-filter by their assigned campus
+    const nurseCampus = profile?.role === 'nurse' && profile.assigned_campus_id
+      ? profile.assigned_campus_id
+      : undefined;
+    fetchAppointments(nurseCampus ? { campusId: nurseCampus } : undefined);
     fetchCampuses();
-  }, [fetchAppointments, fetchCampuses]);
+  }, [fetchAppointments, fetchCampuses, profile?.role, profile?.assigned_campus_id]);
 
   // Fetch patient avatars for appointments that have a linked profile
   useEffect(() => {
@@ -102,6 +110,17 @@ export function AppointmentsPage() {
         return sortDir === 'asc' ? cmp : -cmp;
       });
   }, [appointments, searchTerm, statusFilter, typeFilter, campusFilter, startDate, endDate, sortField, sortDir]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, typeFilter, campusFilter, startDate, endDate]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / PAGE_SIZE));
+  const paginatedAppointments = filteredAppointments.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -331,7 +350,7 @@ export function AppointmentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredAppointments.map((apt) => (
+                {paginatedAppointments.map((apt) => (
                   <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                     {/* Patient — left-aligned */}
                     <td className="px-4 py-3.5 max-w-[280px]">
@@ -401,6 +420,56 @@ export function AppointmentsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {!isLoading && filteredAppointments.length > PAGE_SIZE && (
+          <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 5) {
+                  page = i + 1;
+                } else if (currentPage <= 3) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  page = totalPages - 4 + i;
+                } else {
+                  page = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 text-xs font-medium rounded-lg transition-colors ${
+                      currentPage === page
+                        ? 'bg-maroon-800 text-white'
+                        : 'border border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

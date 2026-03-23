@@ -1,0 +1,21 @@
+User-agent: *
+
+# Allow public pages
+Allow: /$
+Allow: /login
+Allow: /calendar
+Allow: /view-schedules
+
+# Block all authenticated/admin routes
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /supervisor/
+Disallow: /student/
+Disallow: /staff/
+Disallow: /hr/
+Disallow: /profile
+Disallow: /appointments
+Disallow: /schedule
+Disallow: /reschedule
+Disallow: /auth/
+Disallow: /select-role
