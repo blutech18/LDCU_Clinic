@@ -53,8 +53,12 @@ export function HomePage() {
 
       <section className="bg-maroon-800 pb-20 pt-12 animate-fade-in">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 animate-slide-up">
+          <div className="text-center relative">
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 md:left-0 md:translate-x-0 bg-blue-600/20 text-blue-200 text-sm font-semibold px-3 py-1 rounded-full border border-blue-400/30 flex items-center gap-2 backdrop-blur-sm shadow-sm animate-fade-in">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+              BETA v1.0.0
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 animate-slide-up mt-4 md:mt-0">
               University Clinic
               <span className="block text-gold-400 mt-2">Scheduling Made Simple</span>
             </h2>
