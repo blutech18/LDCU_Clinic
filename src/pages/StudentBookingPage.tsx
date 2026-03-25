@@ -34,7 +34,7 @@ const APPOINTMENT_TYPES = [
 
 export function StudentBookingPage() {
     const { profile, logout } = useAuthStore();
-    const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, amPmBookingCounts, createAppointment, isLoading, isSaving } = useAppointmentStore();
+    const { appointments, fetchAppointments, fetchBookingCounts, bookingCounts, amPmBookingCounts, createAppointment, isLoading } = useAppointmentStore();
     const { campuses, departments, fetchCampuses, fetchDepartments, fetchBookingSetting, bookingSetting, scheduleConfig, fetchScheduleConfig, dayOverrides, fetchDayOverrides } = useScheduleStore();
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -52,6 +52,8 @@ export function StudentBookingPage() {
     const [direction, setDirection] = useState(0);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [bookingClosing, setBookingClosing] = useState(false);
+    const [isBooking, setIsBooking] = useState(false);
     const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; type?: 'error' | 'warning' | 'info' }>({ isOpen: false, message: '' });
 
     const variants = {
@@ -219,6 +221,8 @@ export function StudentBookingPage() {
     const handleBookAppointment = async () => {
         if (!selectedDate || !selectedCampus || !profile) return;
 
+        setIsBooking(true);
+
         if (!fullName.trim()) {
             setBookingError('Please enter your full name.');
             return;
@@ -291,6 +295,9 @@ export function StudentBookingPage() {
             setBookingSuccess(true);
             setNotes('');
 
+            // After 1s show the "closing" loading state
+            setTimeout(() => setBookingClosing(true), 1000);
+
             // Refresh appointments and counts
             const start = startOfMonth(subMonths(currentMonth, 1));
             const end = endOfMonth(addMonths(currentMonth, 1));
@@ -308,11 +315,13 @@ export function StudentBookingPage() {
             setTimeout(() => {
                 setShowBookingModal(false);
                 setBookingSuccess(false);
+                setBookingClosing(false);
                 setSelectedDate(null);
-            }, 2000);
+            }, 2500);
         } catch (error) {
             console.error('Error booking appointment:', error);
             setBookingError('Failed to book appointment. Please try again.');
+            setIsBooking(false);
         }
     };
 
@@ -321,6 +330,8 @@ export function StudentBookingPage() {
         setSelectedDate(null);
         setBookingError(null);
         setBookingSuccess(false);
+        setBookingClosing(false);
+        setIsBooking(false);
     };
 
     const handleLogout = () => {
@@ -632,11 +643,25 @@ export function StudentBookingPage() {
                             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
                                 {bookingSuccess ? (
                                     <div className="text-center py-8">
-                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Check className="w-8 h-8 text-green-600" />
-                                        </div>
-                                        <h4 className="text-lg font-semibold text-gray-900">Appointment Booked!</h4>
-                                        <p className="text-gray-600 mt-1">We'll see you on {format(selectedDate, 'MMMM d, yyyy')}</p>
+                                        {bookingClosing ? (
+                                            // Loading state — refreshing data before closing
+                                            <>
+                                                <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                                    <div className="w-12 h-12 border-4 border-maroon-200 border-t-maroon-800 rounded-full animate-spin" />
+                                                </div>
+                                                <h4 className="text-lg font-semibold text-gray-900">Updating your schedule...</h4>
+                                                <p className="text-gray-500 text-sm mt-1">Please wait a moment</p>
+                                            </>
+                                        ) : (
+                                            // Success checkmark
+                                            <>
+                                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Check className="w-8 h-8 text-green-600" />
+                                                </div>
+                                                <h4 className="text-lg font-semibold text-gray-900">Appointment Booked!</h4>
+                                                <p className="text-gray-600 mt-1">We'll see you on {format(selectedDate, 'MMMM d, yyyy')}</p>
+                                            </>
+                                        )}
                                     </div>
                                 ) : (
                                     <>
@@ -802,10 +827,10 @@ export function StudentBookingPage() {
                                         <div className="pt-2">
                                             <button
                                                 onClick={handleBookAppointment}
-                                                disabled={isSaving}
-                                                className="w-full py-3 px-4 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow active:scale-[0.99]"
+                                                disabled={isBooking}
+                                                className="w-full py-3 px-4 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow active:scale-[0.99]"
                                             >
-                                                {isSaving ? (
+                                                {isBooking ? (
                                                     <div className="flex items-center justify-center gap-2">
                                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                                         <span>Booking...</span>

@@ -19,7 +19,10 @@ const pageLabels: Record<string, string> = {
   '/schedule': 'Schedule',
   '/appointments': 'Appointments',
   '/profile': 'Profile',
-  '/admin': 'Admin',
+  '/admin/booking-settings': 'Booking Settings',
+  '/admin/email-templates': 'Email Templates',
+  '/admin/schedule-config': 'Schedule Config',
+  '/admin': 'User Management',
 };
 
 export function SidebarLayout({ children }: SidebarLayoutProps) {

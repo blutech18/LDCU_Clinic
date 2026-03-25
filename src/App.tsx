@@ -8,7 +8,10 @@ import { AppointmentsPage } from './pages/AppointmentsPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { ScheduleDayPage } from './pages/ScheduleDayPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { AdminPage } from './pages/AdminPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
+import { AdminBookingSettingsPage } from './pages/AdminBookingSettingsPage';
+import { AdminEmailTemplatesPage } from './pages/AdminEmailTemplatesPage';
+import { AdminScheduleConfigPage } from './pages/AdminScheduleConfigPage';
 import { ViewSchedulesPage } from './pages/ViewSchedulesPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { StudentBookingPage } from './pages/StudentBookingPage';
@@ -149,7 +152,10 @@ function App() {
         <Route path="/profile" element={<ClinicStaffRoute><ProfilePage /></ClinicStaffRoute>} />
         <Route path="/supervisor/nurses" element={<SupervisorRoute><NurseAssignmentPage /></SupervisorRoute>} />
         <Route path="/supervisor/audit-logs" element={<SupervisorRoute><AuditLogsPage /></SupervisorRoute>} />
-        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+        <Route path="/admin" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+        <Route path="/admin/booking-settings" element={<AdminRoute><AdminBookingSettingsPage /></AdminRoute>} />
+        <Route path="/admin/email-templates" element={<AdminRoute><AdminEmailTemplatesPage /></AdminRoute>} />
+        <Route path="/admin/schedule-config" element={<AdminRoute><AdminScheduleConfigPage /></AdminRoute>} />
       </Route>
 
       {/* HR Dashboard — standalone page, no sidebar */}

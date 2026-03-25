@@ -226,24 +226,14 @@ export const useScheduleStore = create<ScheduleState>()(
 
       updateScheduleConfig: async (campusId, config) => {
         try {
-          const { data: existing } = await supabase
+          const { error } = await supabase
             .from('schedule_config')
-            .select('id')
-            .eq('campus_id', campusId)
-            .single();
+            .upsert(
+              { campus_id: campusId, ...config, updated_at: new Date().toISOString() },
+              { onConflict: 'campus_id' }
+            );
 
-          if (existing) {
-            const { error } = await supabase
-              .from('schedule_config')
-              .update({ ...config, updated_at: new Date().toISOString() })
-              .eq('id', existing.id);
-            if (error) throw error;
-          } else {
-            const { error } = await supabase
-              .from('schedule_config')
-              .insert({ campus_id: campusId, ...config });
-            if (error) throw error;
-          }
+          if (error) throw error;
 
           set({ scheduleConfig: { campus_id: campusId, ...config } as ScheduleConfig });
         } catch (error) {

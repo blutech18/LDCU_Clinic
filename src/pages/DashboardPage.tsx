@@ -82,7 +82,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
         {/* Today */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full transition-all scale-0 opacity-0 group-hover:scale-[2] group-hover:opacity-100 duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div>
               <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Today</p>
@@ -98,7 +98,7 @@ export function DashboardPage() {
 
         {/* Needs Reschedule */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-red-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-red-50 rounded-full transition-all scale-0 opacity-0 group-hover:scale-[2] group-hover:opacity-100 duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div className="max-w-[60%] sm:max-w-none">
               <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 truncate sm:whitespace-normal">Needs Resched</p>
@@ -114,7 +114,7 @@ export function DashboardPage() {
 
         {/* Upcoming */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full transition-all scale-0 opacity-0 group-hover:scale-[2] group-hover:opacity-100 duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div>
               <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Upcoming</p>
@@ -130,7 +130,7 @@ export function DashboardPage() {
 
         {/* Completed */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full transition-transform group-hover:scale-[2] duration-500 ease-out"></div>
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full transition-all scale-0 opacity-0 group-hover:scale-[2] group-hover:opacity-100 duration-500 ease-out"></div>
           <div className="relative z-10 flex items-start justify-between">
             <div>
               <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Completed</p>

@@ -551,10 +551,10 @@ export function AdminPage() {
                             <thead className="bg-gray-50 border-b">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Email</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Role</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -575,12 +575,12 @@ export function AdminPage() {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-4 text-gray-600">{user.email}</td>
-                                        <td className="px-4 py-4">
+                                        <td className="px-4 py-4 text-center text-gray-600">{user.email}</td>
+                                        <td className="px-4 py-4 text-center">
                                             <select
                                                 value={user.role}
                                                 onChange={(e) => changeRole(user.id, e.target.value)}
-                                                className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                                                className="px-2 py-1 text-center border border-gray-300 rounded text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                                             >
                                                 <option value="supervisor">Supervisor</option>
                                                 <option value="student">Student</option>
@@ -590,7 +590,7 @@ export function AdminPage() {
                                                 <option value="admin">Admin</option>
                                             </select>
                                         </td>
-                                        <td className="px-4 py-4">
+                                        <td className="px-4 py-4 text-center">
                                             <span
                                                 className={`px-2 py-1 text-xs font-medium rounded ${user.is_verified
                                                         ? 'bg-green-100 text-green-800'
@@ -601,23 +601,25 @@ export function AdminPage() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-4">
-                                            {!user.is_verified ? (
-                                                <button
-                                                    onClick={() => verifyUser(user.id, true)}
-                                                    className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded text-sm font-medium hover:bg-green-200 transition-colors"
-                                                >
-                                                    <Check className="w-4 h-4" />
-                                                    Verify
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => verifyUser(user.id, false)}
-                                                    className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium hover:bg-red-200 transition-colors"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                    Revoke
-                                                </button>
-                                            )}
+                                            <div className="flex justify-center">
+                                                {!user.is_verified ? (
+                                                    <button
+                                                        onClick={() => verifyUser(user.id, true)}
+                                                        className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded text-sm font-medium hover:bg-green-200 transition-colors"
+                                                    >
+                                                        <Check className="w-4 h-4" />
+                                                        Verify
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => verifyUser(user.id, false)}
+                                                        className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium hover:bg-red-200 transition-colors"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                        Revoke
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

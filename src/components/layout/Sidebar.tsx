@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt, FaUserNurse, FaClipboardList } from 'react-icons/fa';
+import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt, FaUserNurse, FaClipboardList, FaUsers, FaEnvelope, FaCalendarCheck } from 'react-icons/fa';
 import { useState } from 'react';
 import { useAuthStore } from '~/modules/auth';
 import { LogoutModal } from '~/components/modals/LogoutModal';
@@ -29,15 +29,21 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
     const { profile, logout } = useAuthStore();
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-    const adminItem = profile?.role === 'admin' ? { path: '/admin', icon: FaCog, label: 'Admin' } : null;
+    // Admin sub-items (only shown for admin role)
+    const adminItems = profile?.role === 'admin'
+        ? [
+            { path: '/admin', icon: FaUsers, label: 'User Management', exact: true },
+            { path: '/admin/booking-settings', icon: FaCog, label: 'Booking Settings', exact: false },
+            { path: '/admin/email-templates', icon: FaEnvelope, label: 'Email Templates', exact: false },
+            { path: '/admin/schedule-config', icon: FaCalendarCheck, label: 'Schedule Config', exact: false },
+          ]
+        : [];
+
     const isSupervisor = profile?.role === 'supervisor';
 
     let navigation = menuItems.filter(item => item.path !== '/profile');
     if (isSupervisor) {
         navigation = [...navigation, ...supervisorItems];
-    }
-    if (adminItem) {
-        navigation = [...navigation, adminItem];
     }
 
     // Always ensure profile is at the bottom
@@ -104,6 +110,53 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
                                 </li>
                             );
                         })}
+
+                        {/* Admin-only section */}
+                        {adminItems.length > 0 && (
+                            <>
+                                {/* Admin section label */}
+                                <motion.li
+                                    initial={false}
+                                    animate={{ opacity: isOpen ? 1 : 0, height: isOpen ? 'auto' : 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                >
+                                    <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-maroon-300/70">
+                                        Admin
+                                    </p>
+                                </motion.li>
+                                {adminItems.map((item) => {
+                                    const isActive = item.exact
+                                        ? location.pathname === item.path
+                                        : location.pathname.startsWith(item.path);
+                                    const Icon = item.icon;
+                                    return (
+                                        <li key={item.path}>
+                                            <NavLink
+                                                to={item.path}
+                                                end={item.exact}
+                                                className={`flex items-center h-12 rounded-lg transition-colors duration-200 text-maroon-100 hover:bg-maroon-700 hover:text-white ${isActive ? 'text-gold-400 font-semibold' : ''}`}
+                                            >
+                                                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+                                                    <Icon className={`w-5 h-5 ${isActive ? 'text-gold-400' : ''}`} />
+                                                </div>
+                                                <motion.span
+                                                    initial={false}
+                                                    animate={{
+                                                        opacity: isOpen ? 1 : 0,
+                                                        width: isOpen ? 'auto' : 0,
+                                                    }}
+                                                    transition={{ duration: 0.2, delay: isOpen ? 0.1 : 0 }}
+                                                    className="whitespace-nowrap overflow-hidden text-sm font-medium"
+                                                >
+                                                    {item.label}
+                                                </motion.span>
+                                            </NavLink>
+                                        </li>
+                                    );
+                                })}
+                            </>
+                        )}
                     </ul>
                 </nav>
 

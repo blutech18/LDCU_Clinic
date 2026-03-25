@@ -115,8 +115,8 @@ BEGIN
     start_time, end_time, status, time_of_day,
     notes, patient_name, patient_email, patient_phone, booker_role
   ) VALUES (
-    p_patient_id, p_campus_id, p_appointment_type, p_appointment_date,
-    p_start_time, p_end_time, p_status, p_time_of_day,
+    p_patient_id, p_campus_id, p_appointment_type::appointment_type, p_appointment_date,
+    p_start_time::time, p_end_time::time, p_status::appointment_status, p_time_of_day,
     p_notes, p_patient_name, p_patient_email, p_patient_phone, p_booker_role
   )
   RETURNING id INTO v_new_id;
