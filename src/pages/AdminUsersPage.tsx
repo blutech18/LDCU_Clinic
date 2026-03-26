@@ -99,33 +99,78 @@ export function AdminUsersPage() {
                 return;
             }
             
-            // Create user via Edge Function (no confirmation email)
+            // Try Edge Function first (preferred method - no confirmation email)
             const tempPassword = Math.random().toString(36).slice(-12) + 'A1!';
-            const { data, error } = await supabase.functions.invoke('create-user', {
-                body: {
+            let userCreated = false;
+            let userId: string | null = null;
+            
+            try {
+                const response = await supabase.functions.invoke('create-user', {
+                    body: {
+                        email: fullEmail,
+                        password: tempPassword,
+                        first_name: newUser.first_name.trim(),
+                        last_name: newUser.last_name.trim(),
+                        middle_name: newUser.middle_name.trim(),
+                        contact_number: newUser.contact_number.trim(),
+                        role: newUser.role,
+                        department_id: newUser.department_id || null,
+                    }
+                });
+                
+                console.log('Edge Function response:', response);
+                
+                if (!response.error && response.data?.success) {
+                    userCreated = true;
+                    userId = response.data.user?.id;
+                } else {
+                    console.warn('Edge Function failed, falling back to regular signup:', response.error || response.data);
+                }
+            } catch (edgeFunctionError) {
+                console.warn('Edge Function not available, falling back to regular signup:', edgeFunctionError);
+            }
+            
+            // Fallback: Use regular signup if Edge Function failed
+            if (!userCreated) {
+                console.log('Using fallback signup method...');
+                const { data: authData, error: authError } = await supabase.auth.signUp({
                     email: fullEmail,
                     password: tempPassword,
-                    first_name: newUser.first_name.trim(),
-                    last_name: newUser.last_name.trim(),
-                    middle_name: newUser.middle_name.trim(),
-                    contact_number: newUser.contact_number.trim(),
-                    role: newUser.role,
-                    department_id: newUser.department_id || null,
+                    options: {
+                        data: {
+                            first_name: newUser.first_name.trim(),
+                            last_name: newUser.last_name.trim(),
+                            middle_name: newUser.middle_name.trim(),
+                        }
+                    }
+                });
+                
+                if (authError) throw authError;
+                if (!authData.user) throw new Error('Failed to create user');
+                
+                userId = authData.user.id;
+                
+                // Wait a bit for the profile to be created by trigger
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Update the profile (it should exist now from the trigger)
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({
+                        first_name: newUser.first_name.trim(),
+                        last_name: newUser.last_name.trim(),
+                        middle_name: newUser.middle_name.trim() || null,
+                        contact_number: newUser.contact_number.trim() || null,
+                        role: newUser.role,
+                        department_id: newUser.department_id || null,
+                        is_verified: true,
+                    })
+                    .eq('id', userId);
+                
+                if (updateError) {
+                    console.error('Profile update error:', updateError);
+                    throw updateError;
                 }
-            });
-            
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(error.message || 'Failed to call create-user function');
-            }
-            
-            if (data?.error) {
-                console.error('Create user error:', data.error);
-                throw new Error(data.error);
-            }
-            
-            if (!data?.success) {
-                throw new Error('Failed to create user - no success response');
             }
             
             setCreateSuccess(true);
