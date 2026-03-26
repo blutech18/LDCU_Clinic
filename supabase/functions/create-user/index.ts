@@ -85,10 +85,12 @@ serve(async (req) => {
     if (createError) throw createError;
     if (!authData.user) throw new Error("Failed to create user");
 
-    // Update profile with additional info
-    const { error: updateError } = await supabaseAdmin
+    // Insert profile directly (don't rely on trigger)
+    const { error: insertError } = await supabaseAdmin
       .from("profiles")
-      .update({
+      .insert({
+        id: authData.user.id,
+        email: email,
         first_name,
         last_name,
         middle_name: middle_name || null,
@@ -96,10 +98,26 @@ serve(async (req) => {
         role,
         department_id: department_id || null,
         is_verified: true,
-      })
-      .eq("id", authData.user.id);
+        created_at: new Date().toISOString(),
+      });
 
-    if (updateError) throw updateError;
+    if (insertError) {
+      // If insert fails, try update (in case profile was created by trigger)
+      const { error: updateError } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          first_name,
+          last_name,
+          middle_name: middle_name || null,
+          contact_number: contact_number || null,
+          role,
+          department_id: department_id || null,
+          is_verified: true,
+        })
+        .eq("id", authData.user.id);
+
+      if (updateError) throw updateError;
+    }
 
     return new Response(
       JSON.stringify({ success: true, user: authData.user }),
