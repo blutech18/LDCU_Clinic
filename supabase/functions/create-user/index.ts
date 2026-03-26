@@ -128,8 +128,19 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error("Error creating user:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message || "Failed to create user",
+        details: error.details || null,
+        hint: error.hint || null,
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,

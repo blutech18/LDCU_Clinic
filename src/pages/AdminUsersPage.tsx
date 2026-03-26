@@ -114,8 +114,19 @@ export function AdminUsersPage() {
                 }
             });
             
-            if (error) throw error;
-            if (!data?.success) throw new Error(data?.error || 'Failed to create user');
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(error.message || 'Failed to call create-user function');
+            }
+            
+            if (data?.error) {
+                console.error('Create user error:', data.error);
+                throw new Error(data.error);
+            }
+            
+            if (!data?.success) {
+                throw new Error('Failed to create user - no success response');
+            }
             
             setCreateSuccess(true);
             setTimeout(() => {
