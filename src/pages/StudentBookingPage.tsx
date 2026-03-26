@@ -105,10 +105,11 @@ export function StudentBookingPage() {
         }
     }, [campuses, selectedCampus, profile?.campus_id]);
 
-    // Fetch departments, booking settings, and schedule config when campus changes
+    // Fetch ALL departments (not filtered by campus), booking settings, and schedule config when campus changes
     useEffect(() => {
+        // Fetch all departments regardless of campus
+        fetchDepartments();
         if (selectedCampus) {
-            fetchDepartments(selectedCampus);
             fetchBookingSetting(selectedCampus);
             fetchScheduleConfig(selectedCampus);
         }
@@ -225,15 +226,18 @@ export function StudentBookingPage() {
 
         if (!fullName.trim()) {
             setBookingError('Please enter your full name.');
+            setIsBooking(false);
             return;
         }
         const phoneRegex = /^09\d{9}$/;
         if (!phoneRegex.test(contactNumber.trim())) {
             setBookingError('Please enter a valid Philippine mobile number (e.g., 09171234567).');
+            setIsBooking(false);
             return;
         }
         if (!selectedDepartment) {
             setBookingError('Please select your department.');
+            setIsBooking(false);
             return;
         }
 
@@ -248,6 +252,7 @@ export function StudentBookingPage() {
                 message: 'You already have a scheduled appointment. Please complete or cancel your existing appointment before booking a new one.',
                 type: 'warning'
             });
+            setIsBooking(false);
             return;
         }
 
@@ -256,6 +261,7 @@ export function StudentBookingPage() {
         const max = getMaxForDate(dateStr);
         if (currentCount >= max) {
             setBookingError('This date is fully booked. Please select another date.');
+            setIsBooking(false);
             return;
         }
 
@@ -288,8 +294,9 @@ export function StudentBookingPage() {
                     format(selectedDate, 'MMMM d, yyyy'),
                     appointmentType.replace('_', ' ')
                 );
+                console.log('Booking confirmation email sent to:', profile.email);
             } catch (emailErr) {
-                console.warn('Confirmation email failed (non-blocking):', emailErr);
+                console.error('Confirmation email failed:', emailErr);
             }
 
             setBookingSuccess(true);

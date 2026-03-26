@@ -9,8 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { formatLocalDate } from '~/lib/utils';
-import { sendBulkReminders } from '~/lib/email';
+import { sendBulkReminders, sendBookingConfirmation } from '~/lib/email';
 import { supabase } from '~/lib/supabase';
+import { SearchableSelect } from '~/components/ui';
 import type { AppointmentType, DayOverride } from '~/types';
 
 const APPOINTMENT_TYPES: { value: AppointmentType; label: string }[] = [
@@ -33,7 +34,7 @@ export function ScheduleDayPage() {
   } = useAppointmentStore();
 
   const {
-    campuses, departments, fetchCampuses, fetchDepartments,
+    departments, fetchCampuses, fetchDepartments,
     fetchBookingSetting, bookingSetting,
     fetchDayOverrides, dayOverrides,
     scheduleConfig, fetchScheduleConfig, updateScheduleConfig,
@@ -189,8 +190,8 @@ export function ScheduleDayPage() {
   const [walkInName, setWalkInName] = useState('');
   const [walkInContact, setWalkInContact] = useState('');
   const [walkInEmail, setWalkInEmail] = useState('');
+  const [walkInEmailDetecting, setWalkInEmailDetecting] = useState(false);
   const [walkInDepartment, setWalkInDepartment] = useState('');
-  const [walkInCampusId, setWalkInCampusId] = useState(campusId);
   const [walkInNotes, setWalkInNotes] = useState('');
   const [walkInRole, setWalkInRole] = useState<'student' | 'staff'>('student');
   const [walkInTimeOfDay, setWalkInTimeOfDay] = useState<'AM' | 'PM'>('AM');
@@ -222,9 +223,10 @@ export function ScheduleDayPage() {
   // ── Data loading ──
   useEffect(() => {
     fetchCampuses();
+    // Fetch ALL departments (no campus filter)
+    fetchDepartments();
     if (campusId) {
       fetchBookingSetting(campusId);
-      fetchDepartments(campusId);
       fetchScheduleConfig(campusId);
     }
   }, [campusId, fetchCampuses, fetchBookingSetting, fetchDepartments, fetchScheduleConfig]);
@@ -405,31 +407,152 @@ export function ScheduleDayPage() {
   };
 
   const handleWalkInBook = async () => {
-    if (!walkInCampusId || !dateStr) return;
+    if (!campusId || !dateStr) return;
     if (!walkInName.trim()) { setWalkInError('Please enter patient name.'); return; }
     if (!walkInContact.trim() || walkInContact.trim().length !== 11) { setWalkInError('Please enter a valid 11-digit contact number.'); return; }
-    if (!walkInEmail.trim()) { setWalkInError('Please enter email address.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(walkInEmail.trim())) { setWalkInError('Please enter a valid email address.'); return; }
+    if (!walkInEmail.trim()) { setWalkInError('Please enter email username.'); return; }
+    
+    // Construct full email with @liceo.edu.ph domain
+    const fullEmail = `${walkInEmail.trim()}@liceo.edu.ph`;
+    
+    // Validate email format (should not contain @ since we're adding it)
+    if (walkInEmail.includes('@')) { 
+      setWalkInError('Please enter only your email username (without @liceo.edu.ph).'); 
+      return; 
+    }
+    
+    // Validate username format (alphanumeric, dots, underscores, hyphens)
+    if (!/^[a-zA-Z0-9._-]+$/.test(walkInEmail.trim())) { 
+      setWalkInError('Please enter a valid email username.'); 
+      return; 
+    }
+    
+    // Check for duplicate email with scheduled appointment
+    try {
+      const { data: existingAppointments, error: checkError } = await supabase
+        .from('appointments')
+        .select('id, appointment_date, patient_name')
+        .eq('patient_email', fullEmail)
+        .eq('status', 'scheduled');
+      
+      if (checkError) throw checkError;
+      
+      if (existingAppointments && existingAppointments.length > 0) {
+        const existingApt = existingAppointments[0];
+        setWalkInError(`This email (${fullEmail}) already has a scheduled appointment on ${format(new Date(existingApt.appointment_date), 'MMMM d, yyyy')}. Please use a different email or cancel the existing appointment first.`);
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking for duplicate email:', err);
+      setWalkInError('Failed to verify email. Please try again.');
+      return;
+    }
+    
     if ((bookingCounts[dateStr] || 0) >= maxBookingsPerDay) { setWalkInError('This date is fully booked.'); return; }
+    
     try {
       setWalkInError(null);
+      
+      // Check if user exists in profiles table
+      let patientId = null;
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', fullEmail)
+        .maybeSingle();
+      
+      if (existingProfile) {
+        patientId = existingProfile.id;
+      }
+      
       const dept = departments.find(d => d.id === walkInDepartment);
       await createAppointment({
-        patient_id: null,
-        campus_id: walkInCampusId, appointment_type: walkInType, appointment_date: dateStr,
+        patient_id: patientId, // Link to profile if exists, otherwise null
+        campus_id: campusId, appointment_type: walkInType, appointment_date: dateStr,
         start_time: walkInTimeOfDay === 'AM' ? '08:00' : '13:00',
         end_time: walkInTimeOfDay === 'AM' ? '12:00' : '17:00',
         status: 'scheduled',
         time_of_day: walkInTimeOfDay,
         notes: `Walk-in${dept ? ` | Department: ${dept.name}` : ''}${walkInNotes ? `\n${walkInNotes}` : ''}`,
-        patient_name: walkInName.trim(), patient_phone: walkInContact.trim(), patient_email: walkInEmail.trim(),
+        patient_name: walkInName.trim(), patient_phone: walkInContact.trim(), patient_email: fullEmail,
         booker_role: walkInRole,
       });
+      
+      // Send booking confirmation email
+      try {
+        await sendBookingConfirmation(
+          fullEmail,
+          walkInName.trim(),
+          format(selectedDate!, 'MMMM d, yyyy'),
+          walkInType.replace('_', ' ')
+        );
+      } catch (emailErr) {
+        console.warn('Confirmation email failed (non-blocking):', emailErr);
+      }
+      
       setWalkInSuccess(true);
       await refreshData();
       setTimeout(() => { setWalkInSuccess(false); setWalkInName(''); setWalkInContact(''); setWalkInEmail(''); setWalkInNotes(''); }, 3000);
     } catch { setWalkInError('Failed to book walk-in appointment.'); }
   };
+
+  // Auto-detect user name from email
+  const handleEmailChange = async (emailUsername: string) => {
+    // Remove @ and anything after it
+    const cleanUsername = emailUsername.replace(/@.*$/, '');
+    setWalkInEmail(cleanUsername);
+  };
+
+  // Debounced effect to fetch user data when email changes
+  useEffect(() => {
+    // If username is empty, don't fetch
+    if (!walkInEmail.trim()) {
+      setWalkInEmailDetecting(false);
+      return;
+    }
+    
+    setWalkInEmailDetecting(true);
+    
+    // Debounce the API call
+    const timeoutId = setTimeout(async () => {
+      // Construct full email
+      const fullEmail = `${walkInEmail.trim()}@liceo.edu.ph`;
+      
+      // Try to find existing user by email in profiles table
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('first_name, middle_name, last_name, contact_number, department_id')
+          .eq('email', fullEmail)
+          .maybeSingle();
+        
+        if (!error && profile) {
+          // Auto-fill name from profile
+          const fullName = `${profile.first_name || ''} ${profile.middle_name ? profile.middle_name + ' ' : ''}${profile.last_name || ''}`.trim();
+          if (fullName) {
+            setWalkInName(fullName);
+          }
+          // Auto-fill contact number if available
+          if (profile.contact_number) {
+            setWalkInContact(profile.contact_number);
+          }
+          // Auto-fill department if available
+          if (profile.department_id) {
+            setWalkInDepartment(profile.department_id);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      } finally {
+        setWalkInEmailDetecting(false);
+      }
+    }, 500); // Wait 500ms after user stops typing
+    
+    return () => {
+      clearTimeout(timeoutId);
+      setWalkInEmailDetecting(false);
+    };
+  }, [walkInEmail]);
 
   const handleSaveDaySettings = async () => {
     if (!campusId || !dateStr) return;
@@ -1312,39 +1435,44 @@ export function ScheduleDayPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address *</label>
-                        <input type="email" value={walkInEmail} onChange={e => setWalkInEmail(e.target.value)} placeholder="Enter email address"
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            value={walkInEmail} 
+                            onChange={e => handleEmailChange(e.target.value)} 
+                            placeholder="username"
+                            className="w-full px-3 py-2.5 pr-32 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" 
+                          />
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none gap-2">
+                            {walkInEmailDetecting && (
+                              <div className="w-4 h-4 border-2 border-maroon-300 border-t-maroon-800 rounded-full animate-spin"></div>
+                            )}
+                            <span className="text-gray-500 text-sm">@liceo.edu.ph</span>
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
-                        <select value={walkInDepartment} onChange={e => setWalkInDepartment(e.target.value)}
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm">
-                          <option value="">Select Department</option>
-                          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        </select>
+                        <SearchableSelect
+                          value={walkInDepartment}
+                          onChange={setWalkInDepartment}
+                          options={departments.map(d => ({ value: d.id, label: d.name }))}
+                          placeholder="Select Department"
+                        />
                       </div>
                     </div>
-                    {/* Campus + Person Type */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
-                        <select value={walkInCampusId} onChange={e => setWalkInCampusId(e.target.value)}
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm">
-                          {campuses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Person Type</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(['student', 'staff'] as const).map(role => (
-                            <button key={role} type="button"
-                              onClick={() => setWalkInRole(role)}
-                              className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all capitalize
-                                ${walkInRole === role ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}>
-                              {role.charAt(0).toUpperCase() + role.slice(1)}
-                            </button>
-                          ))}
-                        </div>
+                    {/* Person Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Person Type</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['student', 'staff'] as const).map(role => (
+                          <button key={role} type="button"
+                            onClick={() => setWalkInRole(role)}
+                            className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all capitalize
+                              ${walkInRole === role ? 'bg-maroon-800 text-white border-maroon-800 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500'}`}>
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     {/* Notes */}
