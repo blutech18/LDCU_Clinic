@@ -25,9 +25,18 @@ export function AdminUsersPage() {
         last_name: '',
         middle_name: '',
         contact_number: '',
-        role: 'student' as 'student' | 'staff' | 'nurse' | 'doctor' | 'supervisor' | 'admin',
+        role: 'student' as 'student' | 'staff' | 'nurse' | 'supervisor' | 'admin',
         department_id: '',
     });
+
+    // Available roles (excluding doctor and employee)
+    const availableRoles = [
+        { value: 'student', label: 'Student' },
+        { value: 'staff', label: 'Staff' },
+        { value: 'nurse', label: 'Nurse' },
+        { value: 'supervisor', label: 'Supervisor' },
+        { value: 'admin', label: 'Admin' },
+    ];
 
     useEffect(() => {
         fetchUsers();
@@ -366,12 +375,11 @@ export function AdminUsersPage() {
                                                 onChange={(e) => changeRole(user.id, e.target.value)}
                                                 className="px-2 py-1 text-center border border-gray-300 rounded text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                                             >
-                                                <option value="supervisor">Supervisor</option>
-                                                <option value="student">Student</option>
-                                                <option value="staff">Staff</option>
-                                                <option value="nurse">Nurse</option>
-                                                <option value="doctor">Doctor</option>
-                                                <option value="admin">Admin</option>
+                                                {availableRoles.map(role => (
+                                                    <option key={role.value} value={role.value}>
+                                                        {role.label}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </td>
                                         <td className="px-4 py-4 text-center">
@@ -570,12 +578,11 @@ export function AdminUsersPage() {
                                                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
                                                     disabled={isCreatingUser}
                                                 >
-                                                    <option value="student">Student</option>
-                                                    <option value="staff">Staff</option>
-                                                    <option value="nurse">Nurse</option>
-                                                    <option value="doctor">Doctor</option>
-                                                    <option value="supervisor">Supervisor</option>
-                                                    <option value="admin">Admin</option>
+                                                    {availableRoles.map(role => (
+                                                        <option key={role.value} value={role.value}>
+                                                            {role.label}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                             </div>
                                         </div>
