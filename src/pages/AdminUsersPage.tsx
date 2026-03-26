@@ -150,28 +150,67 @@ export function AdminUsersPage() {
                 
                 userId = authData.user.id;
                 
-                // Wait a bit for the profile to be created by trigger
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Wait for the profile to be created by trigger
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                // Update the profile (it should exist now from the trigger)
-                const { error: updateError } = await supabase
+                // Check if profile exists
+                const { data: existingProfile } = await supabase
                     .from('profiles')
-                    .update({
-                        first_name: newUser.first_name.trim(),
-                        last_name: newUser.last_name.trim(),
-                        middle_name: newUser.middle_name.trim() || null,
-                        contact_number: newUser.contact_number.trim() || null,
-                        role: newUser.role,
-                        department_id: newUser.department_id || null,
-                        is_verified: true,
-                        role_selected: true, // Mark role as already selected
-                    })
-                    .eq('id', userId);
+                    .select('id')
+                    .eq('id', userId)
+                    .maybeSingle();
                 
-                if (updateError) {
-                    console.error('Profile update error:', updateError);
-                    throw updateError;
+                if (!existingProfile) {
+                    // Profile doesn't exist yet, insert it
+                    const { error: insertError } = await supabase
+                        .from('profiles')
+                        .insert({
+                            id: userId,
+                            email: fullEmail,
+                            first_name: newUser.first_name.trim(),
+                            last_name: newUser.last_name.trim(),
+                            middle_name: newUser.middle_name.trim() || null,
+                            contact_number: newUser.contact_number.trim() || null,
+                            role: newUser.role,
+                            department_id: newUser.department_id || null,
+                            is_verified: true,
+                            role_selected: true,
+                        });
+                    
+                    if (insertError) {
+                        console.error('Profile insert error:', insertError);
+                        throw insertError;
+                    }
+                } else {
+                    // Profile exists, update it
+                    const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({
+                            first_name: newUser.first_name.trim(),
+                            last_name: newUser.last_name.trim(),
+                            middle_name: newUser.middle_name.trim() || null,
+                            contact_number: newUser.contact_number.trim() || null,
+                            role: newUser.role,
+                            department_id: newUser.department_id || null,
+                            is_verified: true,
+                            role_selected: true,
+                        })
+                        .eq('id', userId);
+                    
+                    if (updateError) {
+                        console.error('Profile update error:', updateError);
+                        throw updateError;
+                    }
                 }
+                
+                // Verify the update worked
+                const { data: verifyProfile } = await supabase
+                    .from('profiles')
+                    .select('role, role_selected, is_verified')
+                    .eq('id', userId)
+                    .single();
+                
+                console.log('Profile after update:', verifyProfile);
             }
             
             setCreateSuccess(true);
