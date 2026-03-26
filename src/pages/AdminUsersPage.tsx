@@ -1,15 +1,35 @@
 import { useEffect, useState } from 'react';
-import { Users, Check, X, Search } from 'lucide-react';
+import { Users, Check, X, Search, UserPlus, Mail, User, Phone, Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminStore } from '~/modules/admin';
+import { useScheduleStore } from '~/modules/schedule';
+import { SearchableSelect } from '~/components/ui';
+import { supabase } from '~/lib/supabase';
 
 export function AdminUsersPage() {
     const { users, isLoadingUsers: isLoading, fetchUsers, verifyUser, changeRole } = useAdminStore();
+    const { departments, fetchDepartments } = useScheduleStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
+    const [showAddUserModal, setShowAddUserModal] = useState(false);
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [createSuccess, setCreateSuccess] = useState(false);
+    
+    const [newUser, setNewUser] = useState({
+        email: '',
+        first_name: '',
+        last_name: '',
+        middle_name: '',
+        contact_number: '',
+        role: 'student' as 'student' | 'staff' | 'nurse' | 'doctor' | 'supervisor' | 'admin',
+        department_id: '',
+    });
 
     useEffect(() => {
         fetchUsers();
-    }, [fetchUsers]);
+        fetchDepartments();
+    }, [fetchUsers, fetchDepartments]);
 
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
@@ -28,6 +48,111 @@ export function AdminUsersPage() {
 
     const pendingCount = users.filter((u) => !u.is_verified).length;
 
+    const handleCreateUser = async () => {
+        setCreateError(null);
+        
+        // Validate email
+        const fullEmail = `${newUser.email.trim()}@liceo.edu.ph`;
+        if (!newUser.email.trim()) {
+            setCreateError('Please enter email username.');
+            return;
+        }
+        if (newUser.email.includes('@')) {
+            setCreateError('Please enter only the username (without @liceo.edu.ph).');
+            return;
+        }
+        if (!/^[a-zA-Z0-9._-]+$/.test(newUser.email.trim())) {
+            setCreateError('Please enter a valid email username.');
+            return;
+        }
+        
+        // Validate other fields
+        if (!newUser.first_name.trim()) {
+            setCreateError('Please enter first name.');
+            return;
+        }
+        if (!newUser.last_name.trim()) {
+            setCreateError('Please enter last name.');
+            return;
+        }
+        if (newUser.contact_number && newUser.contact_number.length !== 11) {
+            setCreateError('Contact number must be 11 digits.');
+            return;
+        }
+        
+        setIsCreatingUser(true);
+        
+        try {
+            // Check if email already exists
+            const { data: existingUser } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', fullEmail)
+                .maybeSingle();
+            
+            if (existingUser) {
+                setCreateError('A user with this email already exists.');
+                setIsCreatingUser(false);
+                return;
+            }
+            
+            // Create auth user with a temporary password
+            const tempPassword = Math.random().toString(36).slice(-12) + 'A1!';
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: fullEmail,
+                password: tempPassword,
+                options: {
+                    data: {
+                        first_name: newUser.first_name.trim(),
+                        last_name: newUser.last_name.trim(),
+                        middle_name: newUser.middle_name.trim(),
+                    }
+                }
+            });
+            
+            if (authError) throw authError;
+            if (!authData.user) throw new Error('Failed to create user');
+            
+            // Update profile with additional info
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({
+                    first_name: newUser.first_name.trim(),
+                    last_name: newUser.last_name.trim(),
+                    middle_name: newUser.middle_name.trim() || null,
+                    contact_number: newUser.contact_number.trim() || null,
+                    role: newUser.role,
+                    department_id: newUser.department_id || null,
+                    is_verified: true,
+                })
+                .eq('id', authData.user.id);
+            
+            if (profileError) throw profileError;
+            
+            setCreateSuccess(true);
+            setTimeout(() => {
+                setShowAddUserModal(false);
+                setCreateSuccess(false);
+                setNewUser({
+                    email: '',
+                    first_name: '',
+                    last_name: '',
+                    middle_name: '',
+                    contact_number: '',
+                    role: 'student',
+                    department_id: '',
+                });
+                fetchUsers();
+            }, 1500);
+            
+        } catch (error: any) {
+            console.error('Error creating user:', error);
+            setCreateError(error.message || 'Failed to create user. Please try again.');
+        } finally {
+            setIsCreatingUser(false);
+        }
+    };
+
     return (
         <>
             <div className="flex items-center justify-between mb-6">
@@ -35,12 +160,21 @@ export function AdminUsersPage() {
                     <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
                     <p className="text-gray-600">Manage users and their roles</p>
                 </div>
-                {pendingCount > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
-                        <Users className="w-4 h-4" />
-                        {pendingCount} pending verification
-                    </div>
-                )}
+                <div className="flex items-center gap-3">
+                    {pendingCount > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
+                            <Users className="w-4 h-4" />
+                            {pendingCount} pending
+                        </div>
+                    )}
+                    <button
+                        onClick={() => setShowAddUserModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white rounded-lg font-medium hover:bg-maroon-900 transition-colors shadow-sm"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Add User
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -168,6 +302,209 @@ export function AdminUsersPage() {
                     </div>
                 )}
             </div>
+
+            {/* Add User Modal */}
+            <AnimatePresence>
+                {showAddUserModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !isCreatingUser && setShowAddUserModal(false)}
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+                        >
+                            {createSuccess ? (
+                                <div className="p-8 text-center">
+                                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Check className="w-8 h-8 text-green-600" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-2">User Created!</h3>
+                                    <p className="text-gray-600">The user has been successfully created.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-maroon-100 rounded-lg flex items-center justify-center">
+                                                <UserPlus className="w-5 h-5 text-maroon-800" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-bold text-gray-900">Add New User</h2>
+                                                <p className="text-sm text-gray-500">Create a new user account</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowAddUserModal(false)}
+                                            disabled={isCreatingUser}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors disabled:opacity-50"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <div className="p-6 space-y-4">
+                                        {/* Email */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                                <Mail className="w-4 h-4 inline mr-1" />
+                                                Email Address *
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={newUser.email}
+                                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value.replace(/@.*$/, '') })}
+                                                    placeholder="username"
+                                                    className="w-full px-3 py-2.5 pr-32 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+                                                    disabled={isCreatingUser}
+                                                />
+                                                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                                    <span className="text-gray-500 text-sm">@liceo.edu.ph</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Name Fields */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                                    <User className="w-4 h-4 inline mr-1" />
+                                                    First Name *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={newUser.first_name}
+                                                    onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+                                                    placeholder="First name"
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+                                                    disabled={isCreatingUser}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Last Name *</label>
+                                                <input
+                                                    type="text"
+                                                    value={newUser.last_name}
+                                                    onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+                                                    placeholder="Last name"
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+                                                    disabled={isCreatingUser}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Middle Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={newUser.middle_name}
+                                                    onChange={(e) => setNewUser({ ...newUser, middle_name: e.target.value })}
+                                                    placeholder="Optional"
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+                                                    disabled={isCreatingUser}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Contact & Role */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                                    <Phone className="w-4 h-4 inline mr-1" />
+                                                    Contact Number
+                                                </label>
+                                                <input
+                                                    type="tel"
+                                                    value={newUser.contact_number}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                                        setNewUser({ ...newUser, contact_number: val });
+                                                    }}
+                                                    placeholder="09XXXXXXXXX"
+                                                    maxLength={11}
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+                                                    disabled={isCreatingUser}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                                    <Shield className="w-4 h-4 inline mr-1" />
+                                                    Role *
+                                                </label>
+                                                <select
+                                                    value={newUser.role}
+                                                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
+                                                    disabled={isCreatingUser}
+                                                >
+                                                    <option value="student">Student</option>
+                                                    <option value="staff">Staff</option>
+                                                    <option value="nurse">Nurse</option>
+                                                    <option value="doctor">Doctor</option>
+                                                    <option value="supervisor">Supervisor</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* Department */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>
+                                            <SearchableSelect
+                                                value={newUser.department_id}
+                                                onChange={(value) => setNewUser({ ...newUser, department_id: value })}
+                                                options={departments.map(d => ({ value: d.id, label: d.name }))}
+                                                placeholder="Select Department (Optional)"
+                                            />
+                                        </div>
+
+                                        {/* Error Message */}
+                                        {createError && (
+                                            <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg border border-red-100">
+                                                <X className="w-5 h-5 flex-shrink-0" />
+                                                <p className="text-sm">{createError}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="flex gap-3 pt-4">
+                                            <button
+                                                onClick={() => setShowAddUserModal(false)}
+                                                disabled={isCreatingUser}
+                                                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleCreateUser}
+                                                disabled={isCreatingUser}
+                                                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-maroon-800 hover:bg-maroon-900 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                            >
+                                                {isCreatingUser ? (
+                                                    <>
+                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        Creating...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserPlus className="w-4 h-4" />
+                                                        Create User
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </>
     );
 }

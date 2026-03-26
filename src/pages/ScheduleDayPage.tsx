@@ -1415,23 +1415,7 @@ export function ScheduleDayPage() {
                         </button>
                       </div>
                     </div>
-                    {/* Name + Contact */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
-                        <input type="text" value={walkInName} onChange={e => setWalkInName(e.target.value)} placeholder="Enter patient name"
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number *</label>
-                        <input type="tel" value={walkInContact} onChange={e => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 11);
-                          setWalkInContact(val);
-                        }} placeholder="09XXXXXXXXX" maxLength={11}
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
-                      </div>
-                    </div>
-                    {/* Email + Department */}
+                    {/* Email + Full Name */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address *</label>
@@ -1450,6 +1434,22 @@ export function ScheduleDayPage() {
                             <span className="text-gray-500 text-sm">@liceo.edu.ph</span>
                           </div>
                         </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
+                        <input type="text" value={walkInName} onChange={e => setWalkInName(e.target.value)} placeholder="Enter patient name"
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
+                      </div>
+                    </div>
+                    {/* Contact Number + Department */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number *</label>
+                        <input type="tel" value={walkInContact} onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                          setWalkInContact(val);
+                        }} placeholder="09XXXXXXXXX" maxLength={11}
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Department</label>

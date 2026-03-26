@@ -3,8 +3,10 @@ import { User, Mail, Phone, Save, Shield, ArrowLeft, X, AlertTriangle, Edit2 } f
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '~/modules/auth';
+import { useScheduleStore } from '~/modules/schedule';
 import { supabase } from '~/lib/supabase';
 import { StudentLayout } from '~/components/layout';
+import { SearchableSelect } from '~/components/ui';
 
 // cancelOnly = true means just clear requested_role, don't navigate
 type RoleConfirm = { role: 'student' | 'staff'; cancelOnly?: boolean } | null;
@@ -12,6 +14,7 @@ type RoleConfirm = { role: 'student' | 'staff'; cancelOnly?: boolean } | null;
 export function StudentProfilePage() {
     const navigate = useNavigate();
     const { profile, avatarUrl, setProfile } = useAuthStore();
+    const { departments, fetchDepartments } = useScheduleStore();
 
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -26,6 +29,7 @@ export function StudentProfilePage() {
         last_name: profile?.last_name || '',
         middle_name: profile?.middle_name || '',
         contact_number: profile?.contact_number || '',
+        department_id: profile?.department_id || '',
     });
 
     const refreshProfile = useCallback(async () => {
@@ -47,6 +51,11 @@ export function StudentProfilePage() {
 
     useEffect(() => { refreshProfile(); }, [refreshProfile]);
 
+    // Fetch all departments
+    useEffect(() => {
+        fetchDepartments();
+    }, [fetchDepartments]);
+
     useEffect(() => {
         if (profile) {
             setFormData({
@@ -54,6 +63,7 @@ export function StudentProfilePage() {
                 last_name: profile.last_name || '',
                 middle_name: profile.middle_name || '',
                 contact_number: profile.contact_number || '',
+                department_id: profile.department_id || '',
             });
         }
     }, [profile]);
@@ -263,6 +273,7 @@ export function StudentProfilePage() {
                                                 last_name: profile?.last_name || '',
                                                 middle_name: profile?.middle_name || '',
                                                 contact_number: profile?.contact_number || '',
+                                                department_id: profile?.department_id || '',
                                             });
                                         }}
                                         className="p-2 sm:px-4 sm:py-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -273,7 +284,7 @@ export function StudentProfilePage() {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                 {/* First Name */}
                                 <Field label="First Name">
                                     {isEditing
@@ -309,14 +320,24 @@ export function StudentProfilePage() {
                                         : <FieldValue>{profile?.contact_number || '-'}</FieldValue>}
                                 </Field>
 
+                                {/* Department */}
+                                <Field label="Department">
+                                    {isEditing
+                                        ? <SearchableSelect
+                                            value={formData.department_id}
+                                            onChange={(value) => setFormData(prev => ({ ...prev, department_id: value }))}
+                                            options={departments.map(d => ({ value: d.id, label: d.name }))}
+                                            placeholder="Select Department"
+                                        />
+                                        : <FieldValue>{departments.find(d => d.id === profile?.department_id)?.name || '-'}</FieldValue>}
+                                </Field>
+
                                 {/* Email — always locked */}
-                                <div className="sm:col-span-2">
-                                    <Field label="Email Address" icon={<Mail className="w-3.5 h-3.5" />} hint="locked">
-                                        <p className="text-gray-400 py-3 px-4 bg-gray-50 rounded-xl text-sm italic select-none">
-                                            {profile?.email || '-'}
-                                        </p>
-                                    </Field>
-                                </div>
+                                <Field label="Email Address" icon={<Mail className="w-3.5 h-3.5" />} hint="locked">
+                                    <p className="text-gray-400 py-3 px-4 bg-gray-50 rounded-xl text-sm italic select-none">
+                                        {profile?.email || '-'}
+                                    </p>
+                                </Field>
                             </div>
 
                             {isEditing && (
