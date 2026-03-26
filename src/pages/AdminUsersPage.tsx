@@ -25,7 +25,7 @@ export function AdminUsersPage() {
         last_name: '',
         middle_name: '',
         contact_number: '',
-        role: 'student' as 'student' | 'staff' | 'nurse' | 'supervisor' | 'admin',
+        role: 'student' as 'student' | 'staff' | 'nurse' | 'supervisor' | 'admin' | 'hr',
         department_id: '',
     });
 
@@ -34,6 +34,7 @@ export function AdminUsersPage() {
         { value: 'student', label: 'Student' },
         { value: 'staff', label: 'Staff' },
         { value: 'nurse', label: 'Nurse' },
+        { value: 'hr', label: 'HR' },
         { value: 'supervisor', label: 'Supervisor' },
         { value: 'admin', label: 'Admin' },
     ];
