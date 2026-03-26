@@ -96,38 +96,23 @@ export function AdminUsersPage() {
                 return;
             }
             
-            // Create auth user with a temporary password
+            // Create user via Edge Function (no confirmation email)
             const tempPassword = Math.random().toString(36).slice(-12) + 'A1!';
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: fullEmail,
-                password: tempPassword,
-                options: {
-                    data: {
-                        first_name: newUser.first_name.trim(),
-                        last_name: newUser.last_name.trim(),
-                        middle_name: newUser.middle_name.trim(),
-                    }
+            const { data, error } = await supabase.functions.invoke('create-user', {
+                body: {
+                    email: fullEmail,
+                    password: tempPassword,
+                    first_name: newUser.first_name.trim(),
+                    last_name: newUser.last_name.trim(),
+                    middle_name: newUser.middle_name.trim(),
+                    contact_number: newUser.contact_number.trim(),
+                    role: newUser.role,
+                    department_id: newUser.department_id || null,
                 }
             });
             
-            if (authError) throw authError;
-            if (!authData.user) throw new Error('Failed to create user');
-            
-            // Update profile with additional info
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({
-                    first_name: newUser.first_name.trim(),
-                    last_name: newUser.last_name.trim(),
-                    middle_name: newUser.middle_name.trim() || null,
-                    contact_number: newUser.contact_number.trim() || null,
-                    role: newUser.role,
-                    department_id: newUser.department_id || null,
-                    is_verified: true,
-                })
-                .eq('id', authData.user.id);
-            
-            if (profileError) throw profileError;
+            if (error) throw error;
+            if (!data?.success) throw new Error(data?.error || 'Failed to create user');
             
             setCreateSuccess(true);
             setTimeout(() => {
