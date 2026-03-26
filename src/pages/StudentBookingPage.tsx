@@ -141,10 +141,12 @@ export function StudentBookingPage() {
         return globalMaxBookings;
     };
 
-    // Get user's appointments
+    // Get user's appointments (by both ID and email)
     const myAppointments = useMemo(() => {
-        return appointments.filter((apt) => apt.patient_id === profile?.id);
-    }, [appointments, profile?.id]);
+        return appointments.filter((apt) => 
+            apt.patient_id === profile?.id || apt.patient_email === profile?.email
+        );
+    }, [appointments, profile?.id, profile?.email]);
 
     // Generate calendar days
     const calendarDays = useMemo(() => {
