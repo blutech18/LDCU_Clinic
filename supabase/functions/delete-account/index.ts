@@ -59,9 +59,18 @@ serve(async (req) => {
 
     const { userId } = await req.json();
 
-    // Verify the user is deleting their own account
-    if (userId !== user.id) {
-      return new Response(JSON.stringify({ error: "Cannot delete another user's account" }), {
+    // Check if the requesting user is an admin
+    const { data: requestingUserProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const isAdmin = requestingUserProfile?.role === "admin";
+
+    // Allow if user is deleting their own account OR if user is an admin
+    if (userId !== user.id && !isAdmin) {
+      return new Response(JSON.stringify({ error: "Unauthorized - Admin access required to delete other users" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

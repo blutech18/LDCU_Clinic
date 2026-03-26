@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Check, X, Search, UserPlus, Mail, User, Phone, Shield } from 'lucide-react';
+import { Users, Check, X, Search, UserPlus, Mail, User, Phone, Shield, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminStore } from '~/modules/admin';
 import { useScheduleStore } from '~/modules/schedule';
@@ -15,6 +15,9 @@ export function AdminUsersPage() {
     const [isCreatingUser, setIsCreatingUser] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
     const [createSuccess, setCreateSuccess] = useState(false);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
     
     const [newUser, setNewUser] = useState({
         email: '',
@@ -135,6 +138,32 @@ export function AdminUsersPage() {
             setCreateError(error.message || 'Failed to create user. Please try again.');
         } finally {
             setIsCreatingUser(false);
+        }
+    };
+
+    const handleDeleteUser = async () => {
+        if (!userToDelete) return;
+        
+        setDeletingUserId(userToDelete.id);
+        
+        try {
+            // Call the delete-account Edge Function
+            const { error } = await supabase.functions.invoke('delete-account', {
+                body: { userId: userToDelete.id }
+            });
+            
+            if (error) throw error;
+            
+            // Refresh users list
+            await fetchUsers();
+            
+            setShowDeleteConfirm(false);
+            setUserToDelete(null);
+        } catch (error: any) {
+            console.error('Error deleting user:', error);
+            alert(`Failed to delete user: ${error.message}`);
+        } finally {
+            setDeletingUserId(null);
         }
     };
 
@@ -260,7 +289,7 @@ export function AdminUsersPage() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <div className="flex justify-center">
+                                            <div className="flex justify-center gap-2">
                                                 {!user.is_verified ? (
                                                     <button
                                                         onClick={() => verifyUser(user.id, true)}
@@ -278,6 +307,24 @@ export function AdminUsersPage() {
                                                         Revoke
                                                     </button>
                                                 )}
+                                                <button
+                                                    onClick={() => {
+                                                        setUserToDelete({ 
+                                                            id: user.id, 
+                                                            name: `${user.first_name} ${user.last_name}` 
+                                                        });
+                                                        setShowDeleteConfirm(true);
+                                                    }}
+                                                    disabled={deletingUserId === user.id}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                                                >
+                                                    {deletingUserId === user.id ? (
+                                                        <div className="w-4 h-4 border-2 border-red-800/30 border-t-red-800 rounded-full animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-4 h-4" />
+                                                    )}
+                                                    Delete
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -486,6 +533,72 @@ export function AdminUsersPage() {
                                     </div>
                                 </>
                             )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteConfirm && userToDelete && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !deletingUserId && setShowDeleteConfirm(false)}
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                    <Trash2 className="w-6 h-6 text-red-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Delete User</h3>
+                                    <p className="text-sm text-gray-500">This action cannot be undone</p>
+                                </div>
+                            </div>
+                            
+                            <p className="text-gray-700 mb-6">
+                                Are you sure you want to delete <span className="font-semibold">{userToDelete.name}</span>? 
+                                This will permanently remove the user from both the database and authentication system.
+                            </p>
+                            
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowDeleteConfirm(false);
+                                        setUserToDelete(null);
+                                    }}
+                                    disabled={!!deletingUserId}
+                                    className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteUser}
+                                    disabled={!!deletingUserId}
+                                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {deletingUserId ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 className="w-4 h-4" />
+                                            Delete User
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}
