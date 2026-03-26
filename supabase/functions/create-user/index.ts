@@ -98,6 +98,7 @@ serve(async (req) => {
         role,
         department_id: department_id || null,
         is_verified: true,
+        role_selected: true,
         created_at: new Date().toISOString(),
       });
 
@@ -113,6 +114,7 @@ serve(async (req) => {
           role,
           department_id: department_id || null,
           is_verified: true,
+          role_selected: true,
         })
         .eq("id", authData.user.id);
 

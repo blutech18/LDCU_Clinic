@@ -164,6 +164,7 @@ export function AdminUsersPage() {
                         role: newUser.role,
                         department_id: newUser.department_id || null,
                         is_verified: true,
+                        role_selected: true, // Mark role as already selected
                     })
                     .eq('id', userId);
                 
