@@ -457,11 +457,11 @@ export function StudentBookingPage() {
                                                     disabled={!bookable || !isCurrentMonth}
                                                     className={`
                                                         flex flex-col items-center justify-center p-1 border-b border-r border-gray-100
-                                                        transition-all duration-200 cursor-pointer
+                                                        transition-all duration-200
                                                         ${!isCurrentMonth ? 'text-gray-300' : ''}
                                                         ${isOffDay || isClosedOverride ? 'bg-gray-50' : holiday && isCurrentMonth ? 'bg-orange-50' : 'bg-white'}
                                                         ${full && isCurrentMonth && isActiveDay && !isPast ? 'bg-red-50' : ''}
-                                                        ${!bookable || !isCurrentMonth ? 'cursor-not-allowed' : 'hover:bg-maroon-50'}
+                                                        ${!bookable || !isCurrentMonth ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-maroon-50'}
                                                     `}
                                                 >
                                                     <span
@@ -905,7 +905,7 @@ export function StudentBookingPage() {
 
                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
                                     <div className="space-y-1">
-                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Service Type</p>
+                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Appointment Type</p>
                                         <p className="font-medium text-gray-800 capitalize">
                                             {selectedAppointment.appointment_type.replace('_', ' ')}
                                         </p>

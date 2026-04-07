@@ -288,21 +288,21 @@ export function StudentProfilePage() {
                                 {/* First Name */}
                                 <Field label="First Name">
                                     {isEditing
-                                        ? <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} className={inputClass} />
+                                        ? <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} maxLength={50} className={inputClass} />
                                         : <FieldValue>{profile?.first_name || '-'}</FieldValue>}
                                 </Field>
 
                                 {/* Last Name */}
                                 <Field label="Last Name">
                                     {isEditing
-                                        ? <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} className={inputClass} />
+                                        ? <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} maxLength={50} className={inputClass} />
                                         : <FieldValue>{profile?.last_name || '-'}</FieldValue>}
                                 </Field>
 
                                 {/* Middle Name */}
                                 <Field label="Middle Name" hint="optional">
                                     {isEditing
-                                        ? <input type="text" name="middle_name" value={formData.middle_name} onChange={handleChange} className={inputClass} />
+                                        ? <input type="text" name="middle_name" value={formData.middle_name} onChange={handleChange} maxLength={50} className={inputClass} />
                                         : <FieldValue>{profile?.middle_name || '-'}</FieldValue>}
                                 </Field>
 

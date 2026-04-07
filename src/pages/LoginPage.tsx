@@ -125,8 +125,8 @@ export function LoginPage() {
   const isDateFull = (date: Date) => {
     const dateStr = formatLocalDate(date);
     const max = getMaxForDate(dateStr);
-    // If max is 0 (closed via override), it is effectively full/closed
-    if (max === 0) return true;
+    // If max is 0 (closed via override), it's closed, not full
+    if (max === 0) return false;
     return getBookingCount(date) >= max;
   };
 

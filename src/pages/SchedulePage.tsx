@@ -272,8 +272,8 @@ export function SchedulePage() {
             )}
           </div>
 
-          {/* Max bookings editor */}
-          {selectedCampusId && (
+          {/* Max bookings editor — only for admin/hr, not supervisor (#40) */}
+          {selectedCampusId && profile?.role !== 'supervisor' && profile?.role !== 'nurse' && (
             <div className="flex justify-center items-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg border bg-white shadow-sm transition-all duration-200 border-gray-300 focus-within:border-maroon-800 focus-within:ring-2 focus-within:ring-maroon-200 focus-within:ring-offset-1 w-full sm:w-auto">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider select-none">Capacity:</span>
               <input
@@ -414,7 +414,7 @@ export function SchedulePage() {
                     <div contentEditable suppressContentEditableWarning
                       onInput={(e) => setTemplateBody(e.currentTarget.textContent || '')}
                       onKeyDown={preventTemplateVarDeletion}
-                      className="w-full min-h-[200px] px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y transition-all shadow-sm hover:border-maroon-200 font-mono whitespace-pre-wrap"
+                      className="w-full min-h-[200px] max-h-[400px] px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y transition-all shadow-sm hover:border-maroon-200 font-mono whitespace-pre-wrap"
                       style={{ overflowY: 'auto' }}
                       dangerouslySetInnerHTML={{ __html: renderTemplateVars(templateBody) }}
                     />

@@ -586,6 +586,7 @@ export function ReschedulePage() {
                                                                                 <input
                                                                                     type="date"
                                                                                     value={targetDate}
+                                                                                    max="9999-12-31"
                                                                                     onChange={(e) => setManualTargetDates(prev => ({ ...prev, [apt.id]: e.target.value }))}
                                                                                     className={`w-full px-2 py-1 bg-white border rounded text-xs focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all ${!targetDate ? 'border-maroon-200 ring-2 ring-maroon-50' : 'border-gray-200'}`}
                                                                                 />

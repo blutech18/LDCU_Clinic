@@ -406,7 +406,7 @@ export function NurseAssignmentPage() {
                   Assigned Campus
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Assign
+                  Change Campus
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
                   Delete

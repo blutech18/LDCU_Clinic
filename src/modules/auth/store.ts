@@ -273,6 +273,12 @@ export const useAuthStore = create<AuthState>()(
 
           if (profileError) throw profileError;
 
+          // Block pending/unverified accounts from logging in (#17)
+          if (profile && profile.role === 'pending' && 'is_verified' in profile && !profile.is_verified) {
+            await supabase.auth.signOut();
+            throw new Error('Your account is pending approval. Please wait for an admin to verify your account before logging in.');
+          }
+
           // Check if user is verified (if is_verified field exists)
           if (profile && 'is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'hr' && profile.role !== 'pending') {
             await supabase.auth.signOut();

@@ -79,7 +79,13 @@ export function AdminBookingSettingsPage() {
                             min={1}
                             max={500}
                             value={maxBookings}
-                            onChange={(e) => setMaxBookings(parseInt(e.target.value) || 1)}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') { setMaxBookings(0 as any); return; }
+                                const num = parseInt(val);
+                                if (!isNaN(num)) setMaxBookings(Math.min(500, Math.max(1, num)));
+                            }}
+                            onBlur={() => { if (!maxBookings || maxBookings < 1) setMaxBookings(1); }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                         />
                     </div>

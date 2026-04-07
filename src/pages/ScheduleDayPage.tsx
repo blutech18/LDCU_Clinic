@@ -406,8 +406,30 @@ export function ScheduleDayPage() {
     }, 4000);
   };
 
+  // ── Date restriction helpers ──
+  const isPastDate = useMemo(() => {
+    if (!selectedDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(selectedDate);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
+  }, [selectedDate]);
+
+  const isClosedDate = !!(dayOverrides[dateStr]?.is_closed);
+  const isExcludedWeekend = selectedDate ? (
+    (selectedDate.getDay() === 0 && !scheduleConfig?.include_sunday) ||
+    (selectedDate.getDay() === 6 && !scheduleConfig?.include_saturday)
+  ) : false;
+  const isRestrictedDate = isPastDate || isClosedDate || isHoliday || isExcludedWeekend;
+
   const handleWalkInBook = async () => {
     if (!campusId || !dateStr) return;
+    // Enforce date restrictions (Issues #42, #41, #32, #19)
+    if (isPastDate) { setWalkInError('Cannot create appointments on past dates.'); return; }
+    if (isClosedDate) { setWalkInError('Cannot create appointments on closed dates.'); return; }
+    if (isHoliday) { setWalkInError('Cannot create appointments on holiday dates.'); return; }
+    if (isExcludedWeekend) { setWalkInError('Cannot create appointments on excluded weekend dates.'); return; }
     if (!walkInName.trim()) { setWalkInError('Please enter patient name.'); return; }
     if (!walkInContact.trim() || walkInContact.trim().length !== 11) { setWalkInError('Please enter a valid 11-digit contact number.'); return; }
     if (!walkInEmail.trim()) { setWalkInError('Please enter email username.'); return; }
@@ -1373,6 +1395,17 @@ export function ScheduleDayPage() {
                   /* ── Walk-in Tab ── */
                 ) : activeTab === 'walkin' ? (
                   <div className="space-y-4">
+                    {isRestrictedDate && (
+                      <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl border border-red-100 mb-4">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                        <p className="text-sm font-medium">
+                          {isPastDate ? 'This is a past date — new appointments cannot be created.' :
+                           isClosedDate ? 'This date is closed — new appointments cannot be created.' :
+                           isHoliday ? 'This is a holiday — new appointments cannot be created.' :
+                           'This is an excluded weekend — new appointments cannot be created.'}
+                        </p>
+                      </div>
+                    )}
                     {walkInSuccess && (
                       <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-xl border border-green-100">
                         <Check className="w-5 h-5 flex-shrink-0" />
@@ -1487,7 +1520,7 @@ export function ScheduleDayPage() {
                         <p className="text-sm">{walkInError}</p>
                       </div>
                     )}
-                    <button onClick={handleWalkInBook} disabled={isSaving}
+                    <button onClick={handleWalkInBook} disabled={isSaving || isRestrictedDate}
                       className="w-full sm:w-auto sm:px-8 py-3 px-4 bg-maroon-800 text-white font-medium rounded-xl hover:bg-maroon-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center gap-2">
                       {isSaving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Booking…</>) : (<><UserPlus className="w-4 h-4" />Book Walk-in Appointment</>)}
                     </button>
@@ -1524,8 +1557,8 @@ export function ScheduleDayPage() {
                             <input type="range" min={1} max={200} value={dayMaxBookings}
                               onChange={e => setDayMaxBookings(parseInt(e.target.value))}
                               className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-maroon-800" />
-                            <input type="number" min={1} max={500} value={dayMaxBookings}
-                              onChange={e => setDayMaxBookings(Math.max(1, parseInt(e.target.value) || 1))}
+                            <input type="number" min={1} max={200} value={dayMaxBookings}
+                              onChange={e => setDayMaxBookings(Math.min(200, Math.max(1, parseInt(e.target.value) || 1)))}
                               className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold text-maroon-800 focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm" />
                           </div>
                           <div className="flex gap-2 flex-wrap">
@@ -1847,13 +1880,25 @@ export function ScheduleDayPage() {
                         <label htmlFor="modal-session-end" className="block text-xs text-gray-600 font-medium mb-1.5">
                           Ends at <span className="text-gray-400 font-normal">(optional)</span>
                         </label>
-                        <input
-                          id="modal-session-end"
-                          type="time"
-                          value={reminderModal.sessionEnd}
-                          onChange={e => setReminderModal(prev => prev ? { ...prev, sessionEnd: e.target.value } : null)}
-                          className={`w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium bg-gray-50 outline-none transition-all focus:bg-white ${accent.ring}`}
-                        />
+                        <div className="relative">
+                          <input
+                            id="modal-session-end"
+                            type="time"
+                            value={reminderModal.sessionEnd}
+                            onChange={e => setReminderModal(prev => prev ? { ...prev, sessionEnd: e.target.value } : null)}
+                            className={`w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium bg-gray-50 outline-none transition-all focus:bg-white ${accent.ring}`}
+                          />
+                          {reminderModal.sessionEnd && (
+                            <button
+                              type="button"
+                              onClick={() => setReminderModal(prev => prev ? { ...prev, sessionEnd: '' } : null)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                              aria-label="Clear end time"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

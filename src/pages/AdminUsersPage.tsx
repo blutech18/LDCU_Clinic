@@ -356,10 +356,14 @@ export function AdminUsersPage() {
                                     <tr key={user.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-maroon-100 rounded-full flex items-center justify-center">
-                                                    <span className="text-maroon-800 font-medium">
-                                                        {user.first_name?.[0]?.toUpperCase() || 'U'}
-                                                    </span>
+                                                <div className="w-10 h-10 bg-maroon-100 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                    {user.avatar_url ? (
+                                                        <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                    ) : (
+                                                        <span className="text-maroon-800 font-medium">
+                                                            {user.first_name?.[0]?.toUpperCase() || 'U'}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-gray-900">

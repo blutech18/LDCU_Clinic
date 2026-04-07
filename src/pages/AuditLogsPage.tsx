@@ -3,6 +3,7 @@ import { Filter, MapPin, RefreshCw, Search, Eye, Clock, CalendarRange, Info } fr
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { supabase } from '~/lib/supabase';
+import { SearchableSelect } from '~/components/ui';
 import type { Campus } from '~/types';
 
 interface UserOption {
@@ -66,7 +67,7 @@ export function AuditLogsPage() {
   useEffect(() => {
     setPage(0); // Reset to first page on filter change
     fetchLogs(0);
-  }, [filters]);
+  }, [filters, searchTerm]);
 
   useEffect(() => {
     fetchLogs(page);
@@ -145,7 +146,18 @@ export function AuditLogsPage() {
 
       setLogs(filteredData);
 
-      setTotalCount(count ?? 0);
+      // If client-side filters (role, search) reduced the results, use the filtered count
+      // Fix #22: When role or search filters are active, pagination should use filtered count
+      const effectiveCount = (filters.role || searchTerm) ? filteredData.length : (count ?? 0);
+      setTotalCount(effectiveCount);
+      
+      // Fix #22: When using client-side filters, we need all results on current page
+      // so pagination reflects the actual filtered set
+      if (filters.role || searchTerm) {
+        setLogs(filteredData);
+      } else {
+        setLogs(filteredData);
+      }
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {
@@ -273,18 +285,12 @@ export function AuditLogsPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">User</label>
-            <select
+            <SearchableSelect
               value={filters.userId}
-              onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
-              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
-            >
-              <option value="">All Users</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.first_name} {user.last_name} ({user.role})
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setFilters({ ...filters, userId: value })}
+              options={users.map((user) => ({ value: user.id, label: `${user.first_name} ${user.last_name} (${user.role})` }))}
+              placeholder="All Users"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">User Role</label>
@@ -306,6 +312,7 @@ export function AuditLogsPage() {
             <input
               type="date"
               value={filters.startDate}
+              max="9999-12-31"
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
               className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
             />
@@ -315,6 +322,7 @@ export function AuditLogsPage() {
             <input
               type="date"
               value={filters.endDate}
+              max="9999-12-31"
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
             />

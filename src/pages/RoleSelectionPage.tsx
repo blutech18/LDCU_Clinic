@@ -22,8 +22,15 @@ export function RoleSelectionPage() {
         return <Navigate to="/login" replace />;
     }
 
-    // Already selected a role and not pending → go to dashboard
+    // Already selected a role and not pending → go to appropriate dashboard (#13)
     if (profile && profile.role !== 'pending' && profile.role_selected !== false) {
+        // Route to the correct dashboard based on role
+        if (profile.role === 'student') return <Navigate to="/student/booking" replace />;
+        if (profile.role === 'staff') return <Navigate to="/staff/booking" replace />;
+        if (profile.role === 'admin') return <Navigate to="/admin" replace />;
+        if (profile.role === 'supervisor') return <Navigate to="/schedule" replace />;
+        if (profile.role === 'nurse') return <Navigate to="/schedule" replace />;
+        if (profile.role === 'hr') return <Navigate to="/hr" replace />;
         return <Navigate to="/dashboard" replace />;
     }
 

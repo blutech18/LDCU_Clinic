@@ -260,6 +260,7 @@ export function AppointmentsPage() {
                 <input
                   type="date"
                   value={startDate}
+                  max="9999-12-31"
                   onChange={(e) => setStartDate(e.target.value)}
                   className="flex-1 h-full bg-transparent px-1.5 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
                 />
@@ -269,6 +270,7 @@ export function AppointmentsPage() {
                 <input
                   type="date"
                   value={endDate}
+                  max="9999-12-31"
                   onChange={(e) => setEndDate(e.target.value)}
                   className="flex-1 h-full bg-transparent px-1.5 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
                 />
@@ -528,10 +530,12 @@ export function AppointmentsPage() {
                   </button>
                   <button
                     onClick={() => setPendingStatus('no_show')}
+                    disabled={selectedAppointment?.status === 'no_show'}
                     className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'no_show' ? 'bg-gray-100 border-gray-500 text-gray-800 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                      }`}
+                      } ${selectedAppointment?.status === 'no_show' ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider">No Show</span>
+                    {selectedAppointment?.status === 'no_show' && <span className="text-[9px] text-gray-400">Read-only</span>}
                   </button>
                 </div>
               </div>
