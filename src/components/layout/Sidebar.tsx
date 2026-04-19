@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt, FaUserNurse, FaClipboardList, FaUsers, FaEnvelope, FaCalendarCheck } from 'react-icons/fa';
+import { FaHome, FaCalendarAlt, FaUser, FaHistory, FaCog, FaSignOutAlt, FaUserNurse, FaClipboardList, FaUsers, FaEnvelope, FaCalendarCheck, FaBuilding } from 'react-icons/fa';
 import { useState } from 'react';
 import { useAuthStore } from '~/modules/auth';
 import { LogoutModal } from '~/components/modals/LogoutModal';
@@ -21,6 +21,7 @@ const menuItems = [
 // Supervisor-only menu items
 const supervisorItems = [
     { path: '/supervisor/nurses', icon: FaUserNurse, label: 'Nurse Assignment' },
+    { path: '/supervisor/campuses', icon: FaBuilding, label: 'Campus Management' },
     { path: '/supervisor/audit-logs', icon: FaClipboardList, label: 'Audit Logs' },
 ];
 
@@ -36,6 +37,7 @@ const Sidebar = ({ isOpen, isMobile }: SidebarProps) => {
             { path: '/admin/booking-settings', icon: FaCog, label: 'Booking Settings', exact: false },
             { path: '/admin/email-templates', icon: FaEnvelope, label: 'Email Templates', exact: false },
             { path: '/admin/schedule-config', icon: FaCalendarCheck, label: 'Schedule Config', exact: false },
+            { path: '/admin/campuses', icon: FaBuilding, label: 'Campus Management', exact: false },
           ]
         : [];
 

@@ -20,6 +20,7 @@ import { PublicCalendarPage } from './pages/PublicCalendarPage';
 import { ReschedulePage } from './pages/ReschedulePage';
 import { NurseAssignmentPage } from './pages/NurseAssignmentPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
+import { CampusManagementPage } from './pages/CampusManagementPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -152,10 +153,12 @@ function App() {
         <Route path="/profile" element={<ClinicStaffRoute><ProfilePage /></ClinicStaffRoute>} />
         <Route path="/supervisor/nurses" element={<SupervisorRoute><NurseAssignmentPage /></SupervisorRoute>} />
         <Route path="/supervisor/audit-logs" element={<SupervisorRoute><AuditLogsPage /></SupervisorRoute>} />
+        <Route path="/supervisor/campuses" element={<SupervisorRoute><CampusManagementPage /></SupervisorRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
         <Route path="/admin/booking-settings" element={<AdminRoute><AdminBookingSettingsPage /></AdminRoute>} />
         <Route path="/admin/email-templates" element={<AdminRoute><AdminEmailTemplatesPage /></AdminRoute>} />
         <Route path="/admin/schedule-config" element={<AdminRoute><AdminScheduleConfigPage /></AdminRoute>} />
+        <Route path="/admin/campuses" element={<AdminRoute><CampusManagementPage /></AdminRoute>} />
       </Route>
 
       {/* HR Dashboard — standalone page, no sidebar */}
