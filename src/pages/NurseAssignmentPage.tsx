@@ -406,9 +406,6 @@ export function NurseAssignmentPage() {
                   Assigned Campus
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Change Campus
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
                   Delete
                 </th>
               </tr>
@@ -416,7 +413,7 @@ export function NurseAssignmentPage() {
             <tbody className="divide-y divide-gray-100">
               {nurses.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                     No active nurses found. Click "Add Nurse" to invite a nurse by email.
                   </td>
                 </tr>
@@ -452,27 +449,15 @@ export function NurseAssignmentPage() {
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         <div className="flex items-center justify-center">
-                          {assignedCampus ? (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-700">
-                                {assignedCampus.name}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-400 italic">Unassigned</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <div className="flex items-center justify-center">
                           <button
                             onClick={() => openCampusModal(nurse)}
-                            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-gray-200 transition-opacity hover:opacity-80 active:scale-95 ${nurse.assigned_campus_id
+                            title="Click to change campus assignment"
+                            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border transition-opacity hover:opacity-80 active:scale-95 ${nurse.assigned_campus_id
                               ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
                               }`}
                           >
+                            {assignedCampus && <MapPin className="w-3.5 h-3.5" />}
                             <span className="uppercase tracking-wider font-bold">
                               {assignedCampus ? assignedCampus.name : 'UNASSIGNED'}
                             </span>

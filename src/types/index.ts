@@ -113,6 +113,7 @@ export interface ScheduleConfig {
   campus_id: string;
   include_saturday: boolean;
   include_sunday: boolean;
+  disabled_weekdays: number[];   // 0=Sun … 6=Sat
   holiday_dates: string[];
   created_at: string;
   updated_at: string;

@@ -201,7 +201,7 @@ export function DashboardPage() {
               <AlertCircle className="w-5 h-5 text-red-500" />
               Needs Reschedule
             </h2>
-            <Link to="/appointments" className="text-sm font-semibold text-maroon-800 hover:text-maroon-600 transition-colors">
+            <Link to="/reschedule" className="text-sm font-semibold text-maroon-800 hover:text-maroon-600 transition-colors">
               View all &rarr;
             </Link>
           </div>
@@ -217,8 +217,10 @@ export function DashboardPage() {
           ) : (
             <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
               {needsRescheduleAppointments.map((apt) => (
-                <div
+                // Click → go to Reschedule (not Appointments) (#21)
+                <Link
                   key={apt.id}
+                  to="/reschedule"
                   className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl hover:bg-red-50 transition-colors"
                 >
                   <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -237,7 +239,7 @@ export function DashboardPage() {
                   <span className="ml-3 shrink-0 px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 rounded-lg border border-red-200/50">
                     {apt.appointment_type.replace(/_/g, ' ')}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}

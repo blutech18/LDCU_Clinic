@@ -246,9 +246,11 @@ export function LoginPage() {
                     const effectiveMax = getMaxForDate(dateStr);
 
                     const dow = day.getDay();
-                    const isSat = dow === 6;
-                    const isSun = dow === 0;
-                    const isOffDay = (isSun && !scheduleConfig?.include_sunday) || (isSat && !scheduleConfig?.include_saturday);
+                    const disabledWeekdays = new Set(scheduleConfig?.disabled_weekdays || []);
+                    // Legacy fallback for weekends (#4)
+                    if (scheduleConfig?.include_sunday === false) disabledWeekdays.add(0);
+                    if (scheduleConfig?.include_saturday === false) disabledWeekdays.add(6);
+                    const isOffDay = disabledWeekdays.has(dow);
                     const isActiveDay = !isOffDay && !holiday && !isClosedOverride;
                     const isPast = isBefore(day, today);
 

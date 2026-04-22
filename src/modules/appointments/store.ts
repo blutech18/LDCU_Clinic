@@ -260,8 +260,11 @@ export const useAppointmentStore = create<AppointmentState>()(
           .eq('campus_id', campusId)
           .single();
 
-        const includeSaturday = schedConfig?.include_saturday || false;
-        const includeSunday = schedConfig?.include_sunday || false;
+        // Backward-compat: merge legacy weekend booleans into disabled_weekdays (#4)
+        const disabledSet = new Set<number>(schedConfig?.disabled_weekdays || []);
+        if (!(schedConfig?.include_sunday ?? true)) disabledSet.add(0);
+        if (!(schedConfig?.include_saturday ?? true)) disabledSet.add(6);
+        const disabledWeekdays = Array.from(disabledSet);
         const holidayDates: string[] = schedConfig?.holiday_dates || [];
 
         // Always start from TOMORROW, regardless of the original appointment date
@@ -276,8 +279,7 @@ export const useAppointmentStore = create<AppointmentState>()(
           d.setDate(d.getDate() + i);
           const dow = d.getDay();
 
-          if (dow === 0 && !includeSunday) continue;
-          if (dow === 6 && !includeSaturday) continue;
+          if (disabledWeekdays.includes(dow)) continue;
 
           const dateStr = d.toISOString().split('T')[0];
 

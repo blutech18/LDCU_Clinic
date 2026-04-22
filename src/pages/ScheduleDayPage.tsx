@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
-import { formatLocalDate } from '~/lib/utils';
+import { formatLocalDate, clampDateYear } from '~/lib/utils';
 import { sendBulkReminders, sendBookingConfirmation } from '~/lib/email';
 import { supabase } from '~/lib/supabase';
 import { SearchableSelect } from '~/components/ui';
@@ -366,17 +366,44 @@ export function ScheduleDayPage() {
       if (unfinished.length === 0) { setRescheduleError('No appointments to reschedule.'); return; }
       const missing = unfinished.filter(a => !manualTargetDates[a.id]);
       if (missing.length > 0) { setRescheduleError(`Please select a date for all ${missing.length} uncompleted appointment(s).`); return; }
+
+      // Block manual reschedules that would exceed daily campus capacity (#27)
+      const perTargetNew: Record<string, number> = {};
+      for (const apt of unfinished) {
+        const td = manualTargetDates[apt.id];
+        if (!td) continue;
+        perTargetNew[td] = (perTargetNew[td] || 0) + 1;
+      }
+      for (const td of Object.keys(perTargetNew)) {
+        const existing = bookingCounts[td] || 0;
+        if (existing + perTargetNew[td] > maxBookingsPerDay) {
+          setRescheduleError(`Target date ${td} would exceed capacity (${existing + perTargetNew[td]}/${maxBookingsPerDay}). Please pick a different date.`);
+          return;
+        }
+      }
+
       for (const apt of unfinished) {
         const td = manualTargetDates[apt.id];
         if (td) {
-          const { error } = await supabase.from('appointments').update({ appointment_date: td, status: 'scheduled' }).eq('id', apt.id);
+          // Use DB function with locking/capacity checks to prevent overbooking races.
+          const { error } = await supabase.rpc('reschedule_appointment', {
+            p_appointment_id: apt.id,
+            p_target_date: td,
+            p_campus_id: campusId,
+          });
           if (error) throw error;
         }
       }
       setRescheduleSuccess(true);
       await refreshData();
       setTimeout(() => navigate('/schedule'), 2000);
-    } catch { setRescheduleError('Failed to reschedule.'); }
+    } catch (error: any) {
+      if (error?.message?.includes('FULLY_BOOKED')) {
+        setRescheduleError('One or more target dates are fully booked. Please pick different dates.');
+      } else {
+        setRescheduleError('Failed to reschedule.');
+      }
+    }
   };
 
   const handleSendReminders = async (timeOfDay?: 'AM' | 'PM', overrideStartTime?: string, overrideEndTime?: string) => {
@@ -417,10 +444,10 @@ export function ScheduleDayPage() {
   }, [selectedDate]);
 
   const isClosedDate = !!(dayOverrides[dateStr]?.is_closed);
-  const isExcludedWeekend = selectedDate ? (
-    (selectedDate.getDay() === 0 && !scheduleConfig?.include_sunday) ||
-    (selectedDate.getDay() === 6 && !scheduleConfig?.include_saturday)
-  ) : false;
+  const disabledSet = new Set(scheduleConfig?.disabled_weekdays || []);
+  if (scheduleConfig?.include_sunday === false) disabledSet.add(0);
+  if (scheduleConfig?.include_saturday === false) disabledSet.add(6);
+  const isExcludedWeekend = selectedDate ? disabledSet.has(selectedDate.getDay()) : false;
   const isRestrictedDate = isPastDate || isClosedDate || isHoliday || isExcludedWeekend;
 
   const handleWalkInBook = async () => {
@@ -631,6 +658,7 @@ export function ScheduleDayPage() {
       await updateScheduleConfig(campusId, {
         include_saturday: scheduleConfig.include_saturday,
         include_sunday: scheduleConfig.include_sunday,
+        disabled_weekdays: scheduleConfig.disabled_weekdays,
         holiday_dates: next,
       });
       await fetchScheduleConfig(campusId);
@@ -821,6 +849,16 @@ export function ScheduleDayPage() {
                                             <span className="text-xs text-gray-600">{apt.patient_phone}</span>
                                           </div>
                                         )}
+                                        {(() => {
+                                          const raw = apt.notes || '';
+                                          const cleaned = raw.split('\n').filter(l => !/^(Walk-in\s*(\|\s*Department:[^\n]*)?|Department:\s*)/i.test(l.trim())).join('\n').trim();
+                                          return cleaned ? (
+                                            <div className="flex items-start gap-1.5">
+                                              <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0 mt-0.5">Notes</span>
+                                              <span className="text-xs text-gray-600 whitespace-pre-wrap break-words">{cleaned}</span>
+                                            </div>
+                                          ) : null;
+                                        })()}
                                       </div>
                                     </motion.div>
                                   ))}
@@ -915,6 +953,16 @@ export function ScheduleDayPage() {
                                             <span className="text-xs text-gray-600">{apt.patient_phone}</span>
                                           </div>
                                         )}
+                                        {(() => {
+                                          const raw = apt.notes || '';
+                                          const cleaned = raw.split('\n').filter(l => !/^(Walk-in\s*(\|\s*Department:[^\n]*)?|Department:\s*)/i.test(l.trim())).join('\n').trim();
+                                          return cleaned ? (
+                                            <div className="flex items-start gap-1.5">
+                                              <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0 mt-0.5">Notes</span>
+                                              <span className="text-xs text-gray-600 whitespace-pre-wrap break-words">{cleaned}</span>
+                                            </div>
+                                          ) : null;
+                                        })()}
                                       </div>
                                     </motion.div>
                                   ))}
@@ -1109,6 +1157,16 @@ export function ScheduleDayPage() {
                                         <span className="text-xs text-gray-600">{apt.patient_phone}</span>
                                       </div>
                                     )}
+                                    {(() => {
+                                      const raw = apt.notes || '';
+                                      const cleaned = raw.split('\n').filter(l => !/^(Walk-in\s*(\|\s*Department:[^\n]*)?|Department:\s*)/i.test(l.trim())).join('\n').trim();
+                                      return cleaned ? (
+                                        <div className="flex items-start gap-1.5">
+                                          <span className="text-[10px] text-gray-400 uppercase tracking-wide flex-shrink-0 mt-0.5">Notes</span>
+                                          <span className="text-xs text-gray-600 whitespace-pre-wrap break-words">{cleaned}</span>
+                                        </div>
+                                      ) : null;
+                                    })()}
                                   </div>
                                 </motion.div>
                               ))}
@@ -1351,7 +1409,16 @@ export function ScheduleDayPage() {
                                     <input
                                       type="date"
                                       value={targetDate}
-                                      onChange={e => setManualTargetDates(prev => ({ ...prev, [apt.id]: e.target.value }))}
+                                      min="1900-01-01"
+                                      max="9999-12-31"
+                                      onChange={e => setManualTargetDates(prev => ({ ...prev, [apt.id]: clampDateYear(e.target.value) }))}
+                                      onBlur={e => setManualTargetDates(prev => ({ ...prev, [apt.id]: clampDateYear(e.target.value) }))}
+                                      onInput={(e) => { if (!e.currentTarget.validity.valid) setManualTargetDates(prev => ({ ...prev, [apt.id]: '' })); }}
+                                      onPaste={(e) => {
+                                        e.preventDefault();
+                                        const pasted = e.clipboardData.getData('text');
+                                        setManualTargetDates(prev => ({ ...prev, [apt.id]: clampDateYear(pasted) }));
+                                      }}
                                       className={`flex-1 px-2.5 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all ${!targetDate ? 'border-maroon-300 bg-maroon-50/30' : overLimit ? 'border-red-300 bg-red-50/30' : 'border-gray-200 bg-white'
                                         }`}
                                     />
@@ -1539,7 +1606,7 @@ export function ScheduleDayPage() {
                         </div>
                         <button
                           onClick={() => setDayIsClosed(!dayIsClosed)}
-                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-red-400 focus:ring-offset-2 flex-shrink-0 ml-4 ${dayIsClosed ? 'bg-red-500' : 'bg-gray-300'
+                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-red-400 focus:ring-offset-2 flex-shrink-0 ml-4 disabled:opacity-50 disabled:cursor-not-allowed ${dayIsClosed ? 'bg-red-500' : 'bg-gray-300'
                             }`}
                         >
                           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${dayIsClosed ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -1585,7 +1652,7 @@ export function ScheduleDayPage() {
                                     setDayMaxPmBookings(Math.floor(dayMaxBookings / 2));
                                   }
                                 }}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${customizeAmPm ? 'bg-maroon-800' : 'bg-gray-300'}`}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${customizeAmPm ? 'bg-maroon-800' : 'bg-gray-300'}`}
                               >
                                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${customizeAmPm ? 'translate-x-6' : 'translate-x-1'}`} />
                               </button>
@@ -1596,19 +1663,11 @@ export function ScheduleDayPage() {
                                 <div>
                                   <label className="block text-xs font-medium text-gray-600 mb-1.5">Morning Slots (8 AM - 12 PM)</label>
                                   <div className="flex items-center gap-3">
-                                    <input
-                                      type="range"
-                                      min={0}
-                                      max={dayMaxBookings}
-                                      value={dayMaxAmBookings || 0}
+                                    <input type="range" min={0} max={dayMaxBookings} value={dayMaxAmBookings || 0}
                                       onChange={e => setDayMaxAmBookings(parseInt(e.target.value))}
                                       className="flex-1 h-2 bg-amber-200 rounded-full appearance-none cursor-pointer accent-amber-600"
                                     />
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={dayMaxBookings}
-                                      value={dayMaxAmBookings || 0}
+                                    <input type="number" min={0} max={dayMaxBookings} value={dayMaxAmBookings || 0}
                                       onChange={e => setDayMaxAmBookings(Math.max(0, parseInt(e.target.value) || 0))}
                                       className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-center font-semibold text-amber-700 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
                                     />
@@ -1617,26 +1676,15 @@ export function ScheduleDayPage() {
                                 <div>
                                   <label className="block text-xs font-medium text-gray-600 mb-1.5">Afternoon Slots (1 PM - 5 PM)</label>
                                   <div className="flex items-center gap-3">
-                                    <input
-                                      type="range"
-                                      min={0}
-                                      max={dayMaxBookings}
-                                      value={dayMaxPmBookings || 0}
+                                    <input type="range" min={0} max={dayMaxBookings} value={dayMaxPmBookings || 0}
                                       onChange={e => setDayMaxPmBookings(parseInt(e.target.value))}
                                       className="flex-1 h-2 bg-blue-200 rounded-full appearance-none cursor-pointer accent-blue-600"
                                     />
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={dayMaxBookings}
-                                      value={dayMaxPmBookings || 0}
+                                    <input type="number" min={0} max={dayMaxBookings} value={dayMaxPmBookings || 0}
                                       onChange={e => setDayMaxPmBookings(Math.max(0, parseInt(e.target.value) || 0))}
                                       className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-center font-semibold text-blue-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                                     />
                                   </div>
-                                </div>
-                                <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg p-2">
-                                  <strong>Total:</strong> {(dayMaxAmBookings || 0) + (dayMaxPmBookings || 0)} slots ({dayMaxAmBookings || 0} AM + {dayMaxPmBookings || 0} PM)
                                 </div>
                               </div>
                             )}
@@ -1658,7 +1706,7 @@ export function ScheduleDayPage() {
                         <button
                           onClick={handleToggleHoliday}
                           disabled={isSavingHoliday || !scheduleConfig}
-                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex-shrink-0 ml-4 disabled:opacity-50 ${isHoliday ? 'bg-orange-500' : 'bg-gray-300'
+                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex-shrink-0 ml-4 disabled:opacity-50 disabled:cursor-not-allowed ${isHoliday ? 'bg-orange-500' : 'bg-gray-300'
                             }`}
                         >
                           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${isHoliday ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -1680,7 +1728,7 @@ export function ScheduleDayPage() {
                       value={dayNotes}
                       onChange={e => setDayNotes(e.target.value)}
                       placeholder="Notes (optional) — e.g. Special event, limited staffing…"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none resize-none text-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-gray-50"
                       rows={2}
                     />
 
@@ -1909,6 +1957,29 @@ export function ScheduleDayPage() {
                     <code className={`text-sm font-bold font-mono ${accent.text}`}>{previewLabel}</code>
                   </div>
 
+                  {/* AM/PM window + ordering validation (#28) */}
+                  {(() => {
+                    const [startH] = reminderModal.sessionStart.split(':').map(Number);
+                    const sessionValid = isAM ? startH < 12 : startH >= 12;
+                    const orderValid = !reminderModal.sessionEnd || reminderModal.sessionEnd > reminderModal.sessionStart;
+                    const endH = reminderModal.sessionEnd ? Number(reminderModal.sessionEnd.split(':')[0]) : null;
+                    const endInWindow = endH === null ? true : (isAM ? endH <= 12 : endH >= 12 || endH === 0);
+                    const validationError = !sessionValid
+                      ? `Start time must be in the ${isAM ? 'morning (before 12:00)' : 'afternoon (12:00 or later)'}.`
+                      : !orderValid
+                        ? 'End time must be after start time.'
+                        : !endInWindow
+                          ? `End time must stay within the ${isAM ? 'morning' : 'afternoon'} session.`
+                          : null;
+                    if (!validationError) return null;
+                    return (
+                      <div className="flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>{validationError}</span>
+                      </div>
+                    );
+                  })()}
+
                   {/* Zero-recipient warning */}
                   {recipientCount === 0 && (
                     <div className="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600">
@@ -1929,7 +2000,14 @@ export function ScheduleDayPage() {
                   </button>
                   <button
                     type="button"
-                    disabled={recipientCount === 0 || isSendingReminders}
+                    disabled={(() => {
+                      const [startH] = reminderModal.sessionStart.split(':').map(Number);
+                      const sessionValid = isAM ? startH < 12 : startH >= 12;
+                      const orderValid = !reminderModal.sessionEnd || reminderModal.sessionEnd > reminderModal.sessionStart;
+                      const endH = reminderModal.sessionEnd ? Number(reminderModal.sessionEnd.split(':')[0]) : null;
+                      const endInWindow = endH === null ? true : (isAM ? endH <= 12 : endH >= 12 || endH === 0);
+                      return recipientCount === 0 || isSendingReminders || !sessionValid || !orderValid || !endInWindow;
+                    })()}
                     onClick={() => handleSendReminders(reminderModal.timeOfDay, reminderModal.sessionStart, reminderModal.sessionEnd || undefined)}
                     className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${accent.bg} ${accent.hover}`}
                   >

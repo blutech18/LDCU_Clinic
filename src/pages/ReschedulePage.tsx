@@ -15,7 +15,7 @@ import { ChevronLeft, ChevronRight, Calendar, RefreshCw, AlertCircle, Check, Use
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
-import { formatLocalDate } from '~/lib/utils';
+import { formatLocalDate, clampDateYear } from '~/lib/utils';
 import { supabase } from '~/lib/supabase';
 import type { Appointment } from '~/types';
 
@@ -233,6 +233,20 @@ export function ReschedulePage() {
             if (missing.length > 0) {
                 setRescheduleError(`Please select a target date for all ${missing.length} uncompleted appointment(s).`);
                 return;
+            }
+
+            // Block reschedule when any target date would exceed campus capacity (#27)
+            const perTargetNew: Record<string, number> = {};
+            unfinished.forEach(apt => {
+                const td = manualTargetDates[apt.id];
+                if (td) perTargetNew[td] = (perTargetNew[td] || 0) + 1;
+            });
+            for (const td of Object.keys(perTargetNew)) {
+                const existing = bookingCounts[td] || 0;
+                if (existing + perTargetNew[td] > maxBookingsPerDay) {
+                    setRescheduleError(`Target date ${td} would exceed capacity (${existing + perTargetNew[td]}/${maxBookingsPerDay}). Please pick a different date.`);
+                    return;
+                }
             }
 
             // Move each appointment to its target date
@@ -586,8 +600,16 @@ export function ReschedulePage() {
                                                                                 <input
                                                                                     type="date"
                                                                                     value={targetDate}
+                                                                                    min="1900-01-01"
                                                                                     max="9999-12-31"
-                                                                                    onChange={(e) => setManualTargetDates(prev => ({ ...prev, [apt.id]: e.target.value }))}
+                                                                                    onChange={(e) => setManualTargetDates(prev => ({ ...prev, [apt.id]: clampDateYear(e.target.value) }))}
+                                                                                    onBlur={(e) => setManualTargetDates(prev => ({ ...prev, [apt.id]: clampDateYear(e.target.value) }))}
+                                                                                    onInput={(e) => { if (!e.currentTarget.validity.valid) setManualTargetDates(prev => ({ ...prev, [apt.id]: '' })); }}
+                                                                                    onPaste={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        const pasted = e.clipboardData.getData('text');
+                                                                                        setManualTargetDates(prev => ({ ...prev, [apt.id]: clampDateYear(pasted) }));
+                                                                                    }}
                                                                                     className={`w-full px-2 py-1 bg-white border rounded text-xs focus:ring-2 focus:ring-maroon-500/20 focus:border-maroon-500 outline-none transition-all ${!targetDate ? 'border-maroon-200 ring-2 ring-maroon-50' : 'border-gray-200'}`}
                                                                                 />
                                                                             </div>

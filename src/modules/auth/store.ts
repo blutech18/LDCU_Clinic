@@ -209,7 +209,6 @@ export const useAuthStore = create<AuthState>()(
     },
 
     fetchProfile: async (userId: string) => {
-      set({ isLoading: true });
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -218,12 +217,11 @@ export const useAuthStore = create<AuthState>()(
           .single();
 
         if (error) throw error;
-        set({ profile: data, isAuthenticated: true, isLoading: false });
+        set({ profile: data, isAuthenticated: !!data });
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Error fetching profile:', error);
         }
-        set({ isLoading: false });
         throw error;
       }
     },

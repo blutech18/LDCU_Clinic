@@ -88,13 +88,15 @@ export function StudentBookingPage() {
         const end = endOfMonth(addMonths(currentMonth, 1));
         const startStr = formatLocalDate(start);
         const endStr = formatLocalDate(end);
+        // Only fetch after campus is known so appointments / counts are
+        // strictly scoped to the selected campus (#6)
+        if (!selectedCampus) return;
         fetchAppointments({
             dateRange: { start: startStr, end: endStr },
+            campusId: selectedCampus,
         });
-        fetchBookingCounts(startStr, endStr, selectedCampus || undefined);
-        if (selectedCampus) {
-            fetchDayOverrides(selectedCampus, startStr, endStr);
-        }
+        fetchBookingCounts(startStr, endStr, selectedCampus);
+        fetchDayOverrides(selectedCampus, startStr, endStr);
     }, [currentMonth, fetchAppointments, fetchBookingCounts, fetchDayOverrides, selectedCampus]);
 
     // Set default campus and fetch related data
@@ -205,10 +207,10 @@ export function StudentBookingPage() {
         if (isHoliday(date)) return false;
 
         const dayOfWeek = date.getDay();
-        // Sunday
-        if (dayOfWeek === 0 && !(scheduleConfig?.include_sunday)) return false;
-        // Saturday
-        if (dayOfWeek === 6 && !(scheduleConfig?.include_saturday)) return false;
+        const disabledSet = new Set(scheduleConfig?.disabled_weekdays || []);
+        if (scheduleConfig?.include_sunday === false) disabledSet.add(0);
+        if (scheduleConfig?.include_saturday === false) disabledSet.add(6);
+        if (disabledSet.has(dayOfWeek)) return false;
 
         return true;
     };
@@ -314,6 +316,7 @@ export function StudentBookingPage() {
             const endStr = formatLocalDate(end);
             await fetchAppointments({
                 dateRange: { start: startStr, end: endStr },
+                ...(selectedCampus && { campusId: selectedCampus }),
             });
             await fetchBookingCounts(startStr, endStr, selectedCampus || undefined);
             if (selectedCampus) {
@@ -441,9 +444,10 @@ export function StudentBookingPage() {
                                             const effectiveMax = getMaxForDate(dateStr);
 
                                             const dow = day.getDay();
-                                            const isSat = dow === 6;
-                                            const isSun = dow === 0;
-                                            const isOffDay = (isSun && !scheduleConfig?.include_sunday) || (isSat && !scheduleConfig?.include_saturday);
+                                            const disabledSet = new Set(scheduleConfig?.disabled_weekdays || []);
+                                            if (scheduleConfig?.include_sunday === false) disabledSet.add(0);
+                                            if (scheduleConfig?.include_saturday === false) disabledSet.add(6);
+                                            const isOffDay = disabledSet.has(dow);
                                             const holiday = isHoliday(day);
                                             const isActiveDay = !isOffDay && !holiday && !isClosedOverride;
                                             const today = new Date();
@@ -917,6 +921,25 @@ export function StudentBookingPage() {
                                         </p>
                                     </div>
                                 </div>
+
+                                {/* Notes (#35) — strip internal "Department:" prefix line */}
+                                {(() => {
+                                    const raw: string = selectedAppointment.notes || '';
+                                    const cleaned = raw
+                                        .split('\n')
+                                        .filter((l) => !/^Department:\s*/i.test(l.trim()))
+                                        .join('\n')
+                                        .trim();
+                                    if (!cleaned) return null;
+                                    return (
+                                        <div className="pt-4 border-t border-gray-100 space-y-1">
+                                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Notes</p>
+                                            <p className="font-medium text-gray-800 whitespace-pre-wrap break-words text-sm">
+                                                {cleaned}
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </motion.div>
                     </motion.div>

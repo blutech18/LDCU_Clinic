@@ -11,9 +11,9 @@ interface ClinicStaffRouteProps {
  * Blocks: student, staff, hr, pending
  */
 export function ClinicStaffRoute({ children }: ClinicStaffRouteProps) {
-  const { profile, isAuthenticated, isInitialized, isLoading } = useAuthStore();
+  const { profile, isAuthenticated, isInitialized } = useAuthStore();
 
-  if (!isInitialized || isLoading) {
+  if (!isInitialized) {
     return (
       <div className="flex-1 flex items-center justify-center py-16">
         <div className="text-center">

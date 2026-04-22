@@ -26,7 +26,15 @@ export function SchedulePage() {
   // ── Stores ──
   const { fetchAppointments, fetchBookingCounts, bookingCounts, isLoading } = useAppointmentStore();
   const { campuses, fetchCampuses, selectedCampusId, setSelectedCampus, fetchBookingSetting, bookingSetting, updateBookingSetting, fetchEmailTemplates, emailTemplates, upsertEmailTemplate, fetchScheduleConfig, scheduleConfig, dayOverrides, fetchDayOverrides, syncPhHolidays } = useScheduleStore();
-  const { profile } = useAuthStore();
+  const { profile, fetchProfile } = useAuthStore();
+
+  // Refresh nurse profile on mount so newly-assigned campus is recognized (#37)
+  useEffect(() => {
+    if (profile?.id && profile.role === 'nurse') {
+      fetchProfile(profile.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Nurse role helpers
   const isNurse = profile?.role === 'nurse';
@@ -172,20 +180,13 @@ export function SchedulePage() {
     catch (error) { console.error('Error:', error); }
   };
 
-  const renderTemplateVars = (text: string) =>
-    text
-      .replace(/\{\{name\}\}/g, '<span class="template-var" contenteditable="false" style="background-color:#f3f4f6;color:#9ca3af;padding:2px 4px;border-radius:4px;user-select:none;cursor:not-allowed;">{{name}}</span>')
-      .replace(/\{\{date\}\}/g, '<span class="template-var" contenteditable="false" style="background-color:#f3f4f6;color:#9ca3af;padding:2px 4px;border-radius:4px;user-select:none;cursor:not-allowed;">{{date}}</span>')
-      .replace(/\{\{type\}\}/g, '<span class="template-var" contenteditable="false" style="background-color:#f3f4f6;color:#9ca3af;padding:2px 4px;border-radius:4px;user-select:none;cursor:not-allowed;">{{type}}</span>');
-
-  const preventTemplateVarDeletion = (e: React.KeyboardEvent) => {
-    const selection = window.getSelection();
-    if (selection && (e.key === 'Backspace' || e.key === 'Delete')) {
-      const range = selection.getRangeAt(0);
-      const node = range.startContainer.parentElement;
-      if (node?.classList.contains('template-var')) e.preventDefault();
-    }
-  };
+  // Render template variables (used in mirror preview) (#15)
+  const renderTemplatePreview = (text: string): React.ReactNode[] =>
+    text.split(/(\{\{[^}]+\}\})/g).map((part, i) =>
+      /^\{\{[^}]+\}\}$/.test(part)
+        ? <span key={`ph-${i}`} className="bg-gray-100 text-gray-400 px-1 rounded font-mono">{part}</span>
+        : <span key={`tx-${i}`}>{part}</span>
+    );
 
   // ── Dynamic Legend Visibility ──
   const hasClosedDays = useMemo(() => calendarDays.some(d => isSameMonth(d, currentMonth) && dayOverrides[formatLocalDate(d)]?.is_closed), [calendarDays, dayOverrides, currentMonth]);
@@ -338,8 +339,8 @@ export function SchedulePage() {
 
                 return (
                   <button key={idx} onClick={() => isCurrentMonth && handleDateClick(day)} disabled={!isCurrentMonth}
-                    className={`flex flex-col items-center justify-center p-1 border-b border-r border-gray-100 transition-all duration-200 cursor-pointer
-                      ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-maroon-50'}
+                    className={`flex flex-col items-center justify-center p-1 border-b border-r border-gray-100 transition-all duration-200
+                      ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-maroon-50'}
                       ${(day.getDay() === 0 || day.getDay() === 6) ? 'bg-gray-50' : 'bg-white'}
                       ${isHoliday && isCurrentMonth ? '!bg-orange-50' : ''}
                       ${isClosed && isCurrentMonth && !isHoliday ? 'bg-gray-100' : ''}
@@ -401,22 +402,40 @@ export function SchedulePage() {
               <div className="border-t p-4 sm:p-6 space-y-5 bg-gray-50/50">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Subject Line</label>
-                  <div contentEditable suppressContentEditableWarning
-                    onInput={(e) => setTemplateSubject(e.currentTarget.textContent || '')}
-                    onKeyDown={(e) => { preventTemplateVarDeletion(e); if (e.key === 'Enter') e.preventDefault(); }}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-all shadow-sm hover:border-maroon-200"
-                    dangerouslySetInnerHTML={{ __html: renderTemplateVars(templateSubject) }}
-                  />
+                  {/* Mirror renderer + real input overlay so caret stays put (#15) */}
+                  <div className="relative h-[46px] w-full rounded-xl border border-gray-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-all shadow-sm hover:border-maroon-200">
+                    <div aria-hidden className="absolute inset-0 px-4 flex items-center text-sm whitespace-nowrap overflow-hidden pointer-events-none select-none">
+                      {renderTemplatePreview(templateSubject)}
+                    </div>
+                    <input
+                      type="text"
+                      value={templateSubject}
+                      onChange={(e) => setTemplateSubject(e.target.value)}
+                      className="absolute inset-0 w-full h-full px-4 bg-transparent outline-none text-transparent text-sm"
+                      style={{ caretColor: '#111827' }}
+                      spellCheck={false}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Message Body</label>
-                  <div className="relative">
-                    <div contentEditable suppressContentEditableWarning
-                      onInput={(e) => setTemplateBody(e.currentTarget.textContent || '')}
-                      onKeyDown={preventTemplateVarDeletion}
-                      className="w-full min-h-[200px] max-h-[400px] px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm resize-y transition-all shadow-sm hover:border-maroon-200 font-mono whitespace-pre-wrap"
-                      style={{ overflowY: 'auto' }}
-                      dangerouslySetInnerHTML={{ __html: renderTemplateVars(templateBody) }}
+                  <div className="relative w-full rounded-xl border border-gray-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-maroon-500 focus-within:border-maroon-500 transition-all shadow-sm hover:border-maroon-200">
+                    {/* Mirror drives height */}
+                    <div
+                      aria-hidden
+                      className="px-4 py-3 text-sm font-mono whitespace-pre-wrap break-words pointer-events-none select-none"
+                      style={{ minHeight: 200, maxHeight: 400, overflowY: 'auto', wordBreak: 'break-word' }}
+                    >
+                      {renderTemplatePreview(templateBody)}
+                      {'\u00a0'}
+                    </div>
+                    {/* Real textarea overlays mirror and owns the caret */}
+                    <textarea
+                      value={templateBody}
+                      onChange={(e) => setTemplateBody(e.target.value)}
+                      className="absolute inset-0 w-full h-full px-4 py-3 text-sm font-mono bg-transparent resize-none outline-none"
+                      style={{ caretColor: '#111827', color: 'transparent' }}
+                      spellCheck={false}
                     />
                     <div className="absolute bottom-3 right-3 text-xs text-gray-400 pointer-events-none">Markdown supported</div>
                   </div>

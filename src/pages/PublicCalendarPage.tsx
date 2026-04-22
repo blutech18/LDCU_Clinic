@@ -16,7 +16,7 @@ export function PublicCalendarPage() {
     const [direction, setDirection] = useState(0);
     const [selectedCampusId, setSelectedCampusId] = useState<string | null>(null);
     const { fetchBookingCounts, bookingCounts } = useAppointmentStore();
-    const { campuses, fetchCampuses, fetchScheduleConfig, bookingSetting, fetchBookingSetting, dayOverrides, fetchDayOverrides } = useScheduleStore();
+    const { campuses, fetchCampuses, fetchScheduleConfig, scheduleConfig, bookingSetting, fetchBookingSetting, dayOverrides, fetchDayOverrides } = useScheduleStore();
 
     const today = new Date();
 
@@ -206,7 +206,11 @@ export function PublicCalendarPage() {
                                         const hasAppts = hasAppointments(day);
                                         const count = bookingCounts[dateStr] || 0;
                                         const effectiveMax = getMaxForDate(dateStr);
-                                        const isFull = effectiveMax > 0 && count >= effectiveMax;
+                                        const override = dayOverrides[dateStr];
+                                        const isClosed = !!override?.is_closed;
+                                        const isHolidayDay = (scheduleConfig?.holiday_dates ?? []).includes(dateStr);
+                                        // Only mark full for active days (#38)
+                                        const isFull = !isClosed && !isHolidayDay && effectiveMax > 0 && count >= effectiveMax;
 
                                         return (
                                             <button
@@ -217,6 +221,8 @@ export function PublicCalendarPage() {
                           transition-all duration-200 hover:bg-maroon-50 cursor-pointer
                           ${!isCurrentMonth ? 'text-gray-300' : ''}
                           ${isWeekendDay ? 'bg-gray-50' : ''}
+                          ${isHolidayDay && isCurrentMonth ? 'bg-orange-50' : ''}
+                          ${isClosed && isCurrentMonth && !isHolidayDay ? 'bg-gray-100' : ''}
                           ${isFull && isCurrentMonth ? 'bg-red-50' : ''}
                         `}
                                             >
@@ -225,12 +231,20 @@ export function PublicCalendarPage() {
                             w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full
                             text-sm sm:text-base font-medium
                             ${isToday ? 'bg-maroon-800 text-white' : ''}
-                            ${hasAppts && !isToday ? 'ring-2 ring-maroon-300' : ''}
+                            ${isHolidayDay && isCurrentMonth && !isToday ? 'text-orange-600' : ''}
+                            ${isClosed && isCurrentMonth && !isHolidayDay && !isToday ? 'text-gray-400 line-through' : ''}
+                            ${hasAppts && !isToday && !isClosed && !isHolidayDay ? 'ring-2 ring-maroon-300' : ''}
                           `}
                                                 >
                                                     {format(day, 'd')}
                                                 </span>
-                                                {isCurrentMonth && count > 0 && (
+                                                {isCurrentMonth && isHolidayDay && (
+                                                    <span className="mt-0.5 text-[9px] font-semibold text-orange-500 uppercase tracking-wide leading-none">Holiday</span>
+                                                )}
+                                                {isCurrentMonth && isClosed && !isHolidayDay && (
+                                                    <span className="mt-0.5 text-[10px] font-medium text-gray-400">Closed</span>
+                                                )}
+                                                {isCurrentMonth && !isClosed && !isHolidayDay && count > 0 && (
                                                     <span className={`mt-0.5 text-[10px] font-medium ${isFull ? 'text-red-500' : 'text-maroon-600'}`}>
                                                         {count}/{effectiveMax}
                                                     </span>

@@ -289,7 +289,7 @@ export function AdminUsersPage() {
                     )}
                     <button
                         onClick={() => setShowAddUserModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white rounded-lg font-medium hover:bg-maroon-900 transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white rounded-lg font-medium hover:bg-maroon-900 transition-colors shadow-sm cursor-pointer"
                     >
                         <UserPlus className="w-4 h-4" />
                         Add User
@@ -315,7 +315,7 @@ export function AdminUsersPage() {
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
-                                className={`px-4 py-2 rounded-lg font-medium text-sm capitalize transition-colors ${filter === f
+                                className={`px-4 py-2 rounded-lg font-medium text-sm capitalize transition-colors cursor-pointer ${filter === f
                                     ? 'bg-maroon-800 text-white'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
@@ -356,9 +356,9 @@ export function AdminUsersPage() {
                                     <tr key={user.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-maroon-100 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                <div className="w-10 h-10 aspect-square bg-maroon-100 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
                                                     {user.avatar_url ? (
-                                                        <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                        <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                                     ) : (
                                                         <span className="text-maroon-800 font-medium">
                                                             {user.first_name?.[0]?.toUpperCase() || 'U'}
@@ -375,17 +375,19 @@ export function AdminUsersPage() {
                                         </td>
                                         <td className="px-4 py-4 text-center text-gray-600">{user.email}</td>
                                         <td className="px-4 py-4 text-center">
-                                            <select
-                                                value={user.role}
-                                                onChange={(e) => changeRole(user.id, e.target.value)}
-                                                className="px-2 py-1 text-center border border-gray-300 rounded text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
-                                            >
-                                                {availableRoles.map(role => (
-                                                    <option key={role.value} value={role.value}>
-                                                        {role.label}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            <div className="flex justify-center">
+                                                <select
+                                                    value={user.role}
+                                                    onChange={(e) => changeRole(user.id, e.target.value)}
+                                                    className="w-[140px] px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none bg-white cursor-pointer"
+                                                >
+                                                    {availableRoles.map(role => (
+                                                        <option key={role.value} value={role.value}>
+                                                            {role.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <span
@@ -402,7 +404,7 @@ export function AdminUsersPage() {
                                                 {!user.is_verified ? (
                                                     <button
                                                         onClick={() => verifyUser(user.id, true)}
-                                                        className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded text-sm font-medium hover:bg-green-200 transition-colors"
+                                                        className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded text-sm font-medium hover:bg-green-200 transition-colors cursor-pointer"
                                                     >
                                                         <Check className="w-4 h-4" />
                                                         Verify
@@ -410,7 +412,7 @@ export function AdminUsersPage() {
                                                 ) : (
                                                     <button
                                                         onClick={() => verifyUser(user.id, false)}
-                                                        className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium hover:bg-red-200 transition-colors"
+                                                        className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium hover:bg-red-200 transition-colors cursor-pointer"
                                                     >
                                                         <X className="w-4 h-4" />
                                                         Revoke

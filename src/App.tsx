@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '~/modules/auth';
 import { HomePage } from './pages/HomePage';
@@ -33,19 +33,46 @@ import { HRRoute } from './components/HRRoute';
 import { RoleSelectionPage } from './pages/RoleSelectionPage';
 import { HRDashboardPage } from './pages/HRDashboardPage';
 
+function PrivacyPolicyEntryRoute() {
+  const { profile, isAuthenticated } = useAuthStore();
+
+  if (isAuthenticated && profile) {
+    if (profile.role === 'hr') {
+      return <Navigate to="/hr/privacy-policy" replace />;
+    }
+    if (['supervisor', 'nurse', 'doctor', 'admin'].includes(profile.role)) {
+      return <Navigate to="/app/privacy-policy" replace />;
+    }
+  }
+
+  return <PrivacyPolicyPage />;
+}
+
 // Redirects users based on their role — only rendered after isInitialized is true
 function RoleBasedRedirect() {
-  const { profile } = useAuthStore();
+  const { profile, logout } = useAuthStore();
 
   if (!profile) {
     return <Navigate to="/login" replace />;
   }
+
+  // Server-assigned staff roles always go straight to their dashboards (#13)
+  if (profile.role === 'hr') {
+    return <Navigate to="/hr/dashboard" replace />;
+  }
+  if (profile.role === 'admin' || profile.role === 'supervisor' || profile.role === 'nurse') {
+    return <Navigate to="/supervisor/dashboard" replace />;
+  }
+
+  // Pending users who already selected a role are NOT allowed in until approved (#17)
+  if (profile.role === 'pending' && profile.role_selected === true) {
+    // Sign them out and return to login
+    logout();
+    return <Navigate to="/login" replace state={{ pendingApproval: true }} />;
+  }
+
   // New users who haven't selected a role yet → role selection page
   if (profile.role_selected === false || profile.role === 'pending') {
-    // Pending users who already chose staff → let them use booking while waiting for HR
-    if (profile.role === 'pending' && profile.role_selected === true) {
-      return <Navigate to="/student/booking" replace />;
-    }
     return <Navigate to="/select-role" replace />;
   }
   if (profile.role === 'student') {
@@ -54,25 +81,45 @@ function RoleBasedRedirect() {
   if (profile.role === 'staff') {
     return <Navigate to="/staff/booking" replace />;
   }
-  if (profile.role === 'hr') {
-    return <Navigate to="/hr/dashboard" replace />;
-  }
-  // Everyone else goes to the supervisor dashboard
+  // Fallback
   return <Navigate to="/supervisor/dashboard" replace />;
 }
 
 function App() {
   const { initialize, isInitialized } = useAuthStore();
+  const [initTimedOut, setInitTimedOut] = useState(false);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
+  useEffect(() => {
+    if (isInitialized) {
+      setInitTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setInitTimedOut(true), 10000);
+    return () => clearTimeout(timer);
+  }, [isInitialized]);
+
   // Single global loading gate — renders ONE spinner for the whole app
   if (!isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-maroon-800">
-        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+        {initTimedOut ? (
+          <div className="text-center text-white px-6">
+            <div className="text-xl font-bold mb-2">Unable to load</div>
+            <p className="text-white/70 text-sm mb-4">The app is taking longer than expected to start.</p>
+            <button
+              onClick={() => { setInitTimedOut(false); globalThis.location.reload(); }}
+              className="px-4 py-2 bg-white text-maroon-800 rounded-lg font-medium hover:bg-white/90 transition-colors"
+            >
+              Reload Page
+            </button>
+          </div>
+        ) : (
+          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+        )}
       </div>
     );
   }
@@ -82,7 +129,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/calendar" element={<PublicCalendarPage />} />
-      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyEntryRoute />} />
       <Route path="/view-schedules" element={<ViewSchedulesPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
@@ -159,10 +206,12 @@ function App() {
         <Route path="/admin/email-templates" element={<AdminRoute><AdminEmailTemplatesPage /></AdminRoute>} />
         <Route path="/admin/schedule-config" element={<AdminRoute><AdminScheduleConfigPage /></AdminRoute>} />
         <Route path="/admin/campuses" element={<AdminRoute><CampusManagementPage /></AdminRoute>} />
+        <Route path="/app/privacy-policy" element={<ClinicStaffRoute><PrivacyPolicyPage embedded /></ClinicStaffRoute>} />
       </Route>
 
       {/* HR Dashboard — standalone page, no sidebar */}
       <Route path="/hr/dashboard" element={<HRRoute><HRDashboardPage /></HRRoute>} />
+      <Route path="/hr/privacy-policy" element={<HRRoute><PrivacyPolicyPage /></HRRoute>} />
     </Routes>
   );
 }

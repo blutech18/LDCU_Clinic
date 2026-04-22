@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Users, Check, X, Search, Settings, Save, Mail, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { useScheduleStore } from '~/modules/schedule';
 import { useAdminStore } from '~/modules/admin';
+import { clampDateYear } from '~/lib/utils';
 
 export function AdminPage() {
     const { users, isLoadingUsers: isLoading, fetchUsers, verifyUser, changeRole } = useAdminStore();
@@ -17,6 +18,8 @@ export function AdminPage() {
 
     const [includeSaturday, setIncludeSaturday] = useState(false);
     const [includeSunday, setIncludeSunday] = useState(false);
+    // Per-day weekday toggle: disabled indices 0=Sun … 6=Sat (#4)
+    const [disabledWeekdays, setDisabledWeekdays] = useState<number[]>([]);
     const [holidayDates, setHolidayDates] = useState<string[]>([]);
     const [newHolidayDate, setNewHolidayDate] = useState('');
     const [savingScheduleConfig, setSavingScheduleConfig] = useState(false);
@@ -51,6 +54,7 @@ export function AdminPage() {
     useEffect(() => {
         setIncludeSaturday(scheduleConfig?.include_saturday || false);
         setIncludeSunday(scheduleConfig?.include_sunday || false);
+        setDisabledWeekdays(scheduleConfig?.disabled_weekdays || []);
         setHolidayDates(scheduleConfig?.holiday_dates || []);
     }, [scheduleConfig]);
 
@@ -61,6 +65,7 @@ export function AdminPage() {
             await updateScheduleConfig(selectedSettingsCampus, {
                 include_saturday: includeSaturday,
                 include_sunday: includeSunday,
+                disabled_weekdays: disabledWeekdays,
                 holiday_dates: holidayDates,
             });
             setScheduleConfigSaved(true);
@@ -177,7 +182,7 @@ export function AdminPage() {
             <div className="flex gap-2 mb-6">
                 <button
                     onClick={() => setActiveTab('users')}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${
                         activeTab === 'users' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
@@ -186,7 +191,7 @@ export function AdminPage() {
                 </button>
                 <button
                     onClick={() => setActiveTab('settings')}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${
                         activeTab === 'settings' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
@@ -195,7 +200,7 @@ export function AdminPage() {
                 </button>
                 <button
                     onClick={() => setActiveTab('templates')}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${
                         activeTab === 'templates' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
@@ -204,7 +209,7 @@ export function AdminPage() {
                 </button>
                 <button
                     onClick={() => setActiveTab('schedule')}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${
                         activeTab === 'schedule' ? 'bg-maroon-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
@@ -227,7 +232,7 @@ export function AdminPage() {
                             <select
                                 value={selectedSettingsCampus}
                                 onChange={(e) => setSelectedSettingsCampus(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
                             >
                                 {campuses.map((campus) => (
                                     <option key={campus.id} value={campus.id}>
@@ -253,7 +258,7 @@ export function AdminPage() {
                         <button
                             onClick={handleSaveBookingSettings}
                             disabled={savingSettings}
-                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                         >
                             {savingSettings ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -292,7 +297,7 @@ export function AdminPage() {
                         <select
                             value={selectedSettingsCampus}
                             onChange={(e) => setSelectedSettingsCampus(e.target.value)}
-                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
                         >
                             {campuses.map((campus) => (
                                 <option key={campus.id} value={campus.id}>
@@ -302,47 +307,59 @@ export function AdminPage() {
                         </select>
                     </div>
 
-                    {/* Day Toggles */}
+                    {/* Day Toggles — all 7 weekdays (#4) */}
                     <div className="border rounded-lg p-4 mb-6">
                         <h3 className="font-medium text-gray-900 mb-3">Available Days</h3>
-                        <p className="text-sm text-gray-500 mb-4">Monday to Friday are always enabled. Toggle Saturday and Sunday below.</p>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <div className="relative">
-                                    <input
-                                        type="checkbox"
-                                        checked={includeSaturday}
-                                        onChange={(e) => setIncludeSaturday(e.target.checked)}
-                                        className="sr-only"
-                                    />
-                                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                                        includeSaturday ? 'bg-maroon-800' : 'bg-gray-300'
-                                    }`}>
-                                        <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform mt-0.5 ${
-                                            includeSaturday ? 'translate-x-[22px]' : 'translate-x-0.5'
-                                        }`} />
-                                    </div>
-                                </div>
-                                <span className="text-sm font-medium text-gray-700">Include Saturday</span>
-                            </label>
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <div className="relative">
-                                    <input
-                                        type="checkbox"
-                                        checked={includeSunday}
-                                        onChange={(e) => setIncludeSunday(e.target.checked)}
-                                        className="sr-only"
-                                    />
-                                    <div className={`w-11 h-6 rounded-full transition-colors ${
-                                        includeSunday ? 'bg-maroon-800' : 'bg-gray-300'
-                                    }`}>
-                                        <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform mt-0.5 ${
-                                            includeSunday ? 'translate-x-[22px]' : 'translate-x-0.5'
-                                        }`} />
-                                    </div>
-                                </div>
-                                <span className="text-sm font-medium text-gray-700">Include Sunday</span>
-                            </label>
+                        <p className="text-sm text-gray-500 mb-4">Toggle which days are available for appointments at this campus.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                                { label: 'Sunday',    day: 0 },
+                                { label: 'Monday',    day: 1 },
+                                { label: 'Tuesday',   day: 2 },
+                                { label: 'Wednesday', day: 3 },
+                                { label: 'Thursday',  day: 4 },
+                                { label: 'Friday',    day: 5 },
+                                { label: 'Saturday',  day: 6 },
+                            ].map(({ label, day }) => {
+                                const enabled = !disabledWeekdays.includes(day);
+                                return (
+                                    <label key={day} className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                checked={enabled}
+                                                onChange={(e) => {
+                                                    setDisabledWeekdays(prev =>
+                                                        e.target.checked
+                                                            ? prev.filter(d => d !== day)
+                                                            : [...prev, day].sort((a, b) => a - b)
+                                                    );
+                                                }}
+                                                className="sr-only"
+                                            />
+                                            <div className={`w-11 h-6 rounded-full transition-colors ${
+                                                enabled ? 'bg-maroon-800' : 'bg-gray-300'
+                                            }`}>
+                                                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform mt-0.5 ${
+                                                    enabled ? 'translate-x-[22px]' : 'translate-x-0.5'
+                                                }`} />
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{label}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        {/* Visual day pills */}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, idx) => {
+                                const enabled = !disabledWeekdays.includes(idx);
+                                return (
+                                    <span key={d} className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${enabled ? 'bg-maroon-100 text-maroon-800 border-maroon-200' : 'bg-gray-100 text-gray-400 border-gray-200 line-through'}`}>
+                                        {d}
+                                    </span>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -354,13 +371,20 @@ export function AdminPage() {
                             <input
                                 type="date"
                                 value={newHolidayDate}
-                                onChange={(e) => setNewHolidayDate(e.target.value)}
+                                onChange={(e) => setNewHolidayDate(clampDateYear(e.target.value))}
+                                onBlur={(e) => setNewHolidayDate(clampDateYear(e.target.value))}
+                                onInput={(e) => { if (!e.currentTarget.validity.valid) setNewHolidayDate(''); }}
+                                onPaste={(e) => {
+                                    e.preventDefault();
+                                    const pasted = e.clipboardData.getData('text');
+                                    setNewHolidayDate(clampDateYear(pasted));
+                                }}
                                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                             />
                             <button
                                 onClick={addHolidayDate}
                                 disabled={!newHolidayDate}
-                                className="px-3 py-2 bg-maroon-800 text-white rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-1 text-sm"
+                                className="px-3 py-2 bg-maroon-800 text-white rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-1 text-sm cursor-pointer"
                             >
                                 <Plus className="w-4 h-4" />
                                 Add
@@ -373,7 +397,7 @@ export function AdminPage() {
                                 {holidayDates.map((hd) => (
                                     <div key={hd} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">
                                         <span>{new Date(hd + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                        <button onClick={() => removeHolidayDate(hd)} className="ml-1 hover:text-red-900 transition-colors">
+                                        <button onClick={() => removeHolidayDate(hd)} className="ml-1 hover:text-red-900 transition-colors cursor-pointer">
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -386,7 +410,7 @@ export function AdminPage() {
                         <button
                             onClick={handleSaveScheduleConfig}
                             disabled={savingScheduleConfig}
-                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                         >
                             {savingScheduleConfig ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -418,7 +442,7 @@ export function AdminPage() {
                         <select
                             value={selectedSettingsCampus}
                             onChange={(e) => setSelectedSettingsCampus(e.target.value)}
-                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                            className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
                         >
                             {campuses.map((campus) => (
                                 <option key={campus.id} value={campus.id}>
@@ -482,7 +506,7 @@ export function AdminPage() {
                         <button
                             onClick={handleSaveTemplates}
                             disabled={savingTemplates}
-                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                         >
                             {savingTemplates ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -521,7 +545,7 @@ export function AdminPage() {
                             <button
                                 key={f}
                                 onClick={() => setFilter(f)}
-                                className={`px-4 py-2 rounded-lg font-medium text-sm capitalize transition-colors ${filter === f
+                                className={`px-4 py-2 rounded-lg font-medium text-sm capitalize transition-colors cursor-pointer ${filter === f
                                         ? 'bg-maroon-800 text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}

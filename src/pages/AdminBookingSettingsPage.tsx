@@ -63,7 +63,7 @@ export function AdminBookingSettingsPage() {
                         <select
                             value={selectedCampus}
                             onChange={(e) => setSelectedCampus(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
                         >
                             {campuses.map((campus) => (
                                 <option key={campus.id} value={campus.id}>
@@ -78,14 +78,19 @@ export function AdminBookingSettingsPage() {
                             type="number"
                             min={1}
                             max={500}
-                            value={maxBookings}
+                            value={maxBookings === 0 ? '' : maxBookings}
+                            onFocus={(e) => e.currentTarget.select()}
                             onChange={(e) => {
+                                // Allow empty & partial values while typing — clamp on blur (#5)
                                 const val = e.target.value;
                                 if (val === '') { setMaxBookings(0 as any); return; }
-                                const num = parseInt(val);
-                                if (!isNaN(num)) setMaxBookings(Math.min(500, Math.max(1, num)));
+                                const num = parseInt(val, 10);
+                                if (!isNaN(num) && num <= 500) setMaxBookings(num);
                             }}
-                            onBlur={() => { if (!maxBookings || maxBookings < 1) setMaxBookings(1); }}
+                            onBlur={() => {
+                                if (!maxBookings || maxBookings < 1) setMaxBookings(1);
+                                else if (maxBookings > 500) setMaxBookings(500);
+                            }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                         />
                     </div>
@@ -95,7 +100,7 @@ export function AdminBookingSettingsPage() {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
                         {saving ? (
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

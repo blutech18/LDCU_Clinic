@@ -22,16 +22,54 @@ export function Header() {
     }
   };
 
-  // Hide navigation links on the landing page and login page
-  const showNavigation = location.pathname !== '/' && location.pathname !== '/login';
+  // Hide navigation links on landing/login. Also hide top nav links for
+  // student/staff while viewing privacy policy to avoid wrong-context jumps.
+  const isStudentOrStaff = profile?.role === 'student' || profile?.role === 'staff';
+  const isStudentStaffPrivacy = isStudentOrStaff && location.pathname === '/privacy-policy';
+  const showNavigation =
+    location.pathname !== '/' &&
+    location.pathname !== '/login' &&
+    !isStudentStaffPrivacy;
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Calendar },
-    { name: 'Schedule', href: '/schedule', icon: Calendar },
-    { name: 'My Appointments', href: '/appointments', icon: History },
-    { name: 'Profile', href: '/profile', icon: User },
-    ...(profile?.role === 'admin' ? [{ name: 'Admin', href: '/admin', icon: Settings }] : []),
-  ];
+  // Role-aware profile path so students/staff land on the right settings page (#20)
+  let profileHref = '/profile';
+  if (profile?.role === 'student') {
+    profileHref = '/student/profile';
+  } else if (profile?.role === 'staff') {
+    profileHref = '/staff/profile';
+  }
+
+  const navigation = (() => {
+    if (!profile) return [];
+
+    if (profile.role === 'student') {
+      return [
+        { name: 'Book Appointment', href: '/student/booking', icon: Calendar },
+        { name: 'Profile', href: '/student/profile', icon: User },
+      ];
+    }
+
+    if (profile.role === 'staff') {
+      return [
+        { name: 'Book Appointment', href: '/staff/booking', icon: Calendar },
+        { name: 'Profile', href: '/staff/profile', icon: User },
+      ];
+    }
+
+    if (profile.role === 'hr') {
+      return [
+        { name: 'Dashboard', href: '/hr/dashboard', icon: Calendar },
+      ];
+    }
+
+    return [
+      { name: 'Dashboard', href: '/supervisor/dashboard', icon: Calendar },
+      { name: 'Schedule', href: '/schedule', icon: Calendar },
+      { name: 'My Appointments', href: '/appointments', icon: History },
+      { name: 'Profile', href: profileHref, icon: User },
+      ...(profile.role === 'admin' ? [{ name: 'Admin', href: '/admin', icon: Settings }] : []),
+    ];
+  })();
 
   const handleLogout = () => {
     logout();

@@ -69,8 +69,25 @@ export function ProfilePage() {
         e.preventDefault();
         if (!profile?.id) return;
 
+        // Enforce required first/last name (#2)
+        if (!formData.first_name.trim()) {
+            setMessage({ type: 'error', text: 'First name is required.' });
+            return;
+        }
+        if (!formData.last_name.trim()) {
+            setMessage({ type: 'error', text: 'Last name is required.' });
+            return;
+        }
+
         if (formData.contact_number && formData.contact_number.length !== 11) {
             setMessage({ type: 'error', text: 'Contact number must be exactly 11 digits.' });
+            return;
+        }
+
+        // Admin must have a campus selected; nurses see their assigned campus read-only
+        const roleRequiresCampus = ['admin'].includes(profile.role);
+        if (roleRequiresCampus && !formData.campus_id) {
+            setMessage({ type: 'error', text: 'Please select a campus before saving your profile.' });
             return;
         }
 
@@ -78,9 +95,19 @@ export function ProfilePage() {
         setMessage(null);
 
         try {
+            // Only send fields that actually have values so Supabase/RLS doesn't
+            // reject empty UUIDs for columns like campus_id (#10)
+            const payload: Record<string, any> = {
+                first_name: formData.first_name.trim(),
+                last_name: formData.last_name.trim(),
+                middle_name: formData.middle_name.trim() || null,
+                contact_number: formData.contact_number.trim() || null,
+            };
+            if (formData.campus_id) payload.campus_id = formData.campus_id;
+
             const { error } = await supabase
                 .from('profiles')
-                .update(formData)
+                .update(payload)
                 .eq('id', profile.id);
 
             if (error) throw error;
@@ -92,19 +119,19 @@ export function ProfilePage() {
                 resourceId: profile.id,
                 campusId: formData.campus_id || undefined,
                 details: {
-                    updated_fields: Object.keys(formData),
+                    updated_fields: Object.keys(payload),
                     previous_campus: profile.campus_id,
                     new_campus: formData.campus_id,
                 },
             });
 
 
-            setProfile({ ...profile, ...formData } as typeof profile);
+            setProfile({ ...profile, ...payload } as typeof profile);
             setMessage({ type: 'success', text: 'Profile updated successfully!' });
             setIsEditing(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to update profile:', error);
-            setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+            setMessage({ type: 'error', text: error?.message || 'Failed to update profile. Please try again.' });
         } finally {
             setIsSaving(false);
         }
@@ -285,6 +312,7 @@ export function ProfilePage() {
                                             name="first_name"
                                             value={formData.first_name}
                                             onChange={handleChange}
+                                            maxLength={50}
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -303,6 +331,7 @@ export function ProfilePage() {
                                             name="last_name"
                                             value={formData.last_name}
                                             onChange={handleChange}
+                                            maxLength={50}
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -321,6 +350,7 @@ export function ProfilePage() {
                                             name="middle_name"
                                             value={formData.middle_name}
                                             onChange={handleChange}
+                                            maxLength={50}
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -371,7 +401,7 @@ export function ProfilePage() {
                                     )}
                                 </div>
 
-                                {(profile?.role !== 'supervisor' || profile?.role === 'supervisor') && (
+                                {(profile?.role === 'admin' || profile?.role === 'nurse') && (
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <MapPin className="w-4 h-4 text-maroon-800" />

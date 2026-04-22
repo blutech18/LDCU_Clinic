@@ -7,7 +7,7 @@ interface AdminRouteProps {
 }
 
 export function AdminRoute({ children }: AdminRouteProps) {
-    const { profile, isLoading, isInitialized, isAuthenticated, verifyRole } = useAuthStore();
+    const { profile, isInitialized, isAuthenticated, verifyRole } = useAuthStore();
     const [isVerifying, setIsVerifying] = useState(true);
     const [roleValid, setRoleValid] = useState(true);
 
@@ -28,7 +28,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
         return () => { cancelled = true; };
     }, [isInitialized, isAuthenticated, verifyRole]);
 
-    if (isLoading || !isInitialized || isVerifying) {
+    if (!isInitialized || isVerifying) {
         return (
             <div className="flex-1 flex items-center justify-center py-16">
                 <div className="text-center">

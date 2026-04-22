@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, Save, Check, Plus, Trash2 } from 'lucide-react';
 import { useScheduleStore } from '~/modules/schedule';
+import { clampDateYear } from '~/lib/utils';
 
 // Toggle switch component
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -27,6 +28,8 @@ export function AdminScheduleConfigPage() {
     const [selectedCampus, setSelectedCampus] = useState('');
     const [includeSaturday, setIncludeSaturday] = useState(false);
     const [includeSunday, setIncludeSunday] = useState(false);
+    // Per-day weekday toggle: disabled indices 0=Sun … 6=Sat (#4)
+    const [disabledWeekdays, setDisabledWeekdays] = useState<number[]>([]);
     // Keep full YYYY-MM-DD dates to stay compatible with syncPhHolidays and the rest of the app
     const [holidayDates, setHolidayDates] = useState<string[]>([]);
     const [newHolidayDate, setNewHolidayDate] = useState('');
@@ -54,6 +57,7 @@ export function AdminScheduleConfigPage() {
         if (scheduleConfig === undefined) return;
         setIncludeSaturday(scheduleConfig?.include_saturday ?? false);
         setIncludeSunday(scheduleConfig?.include_sunday ?? false);
+        setDisabledWeekdays(scheduleConfig?.disabled_weekdays || []);
         // Deduplicate on load
         const raw: string[] = scheduleConfig?.holiday_dates || [];
         setHolidayDates(Array.from(new Set(raw)).sort());
@@ -67,6 +71,7 @@ export function AdminScheduleConfigPage() {
             await updateScheduleConfig(selectedCampus, {
                 include_saturday: includeSaturday,
                 include_sunday: includeSunday,
+                disabled_weekdays: disabledWeekdays,
                 holiday_dates: holidayDates,
             });
             // Re-fetch from DB to confirm the save actually persisted
@@ -118,7 +123,7 @@ export function AdminScheduleConfigPage() {
                     <select
                         value={selectedCampus}
                         onChange={(e) => setSelectedCampus(e.target.value)}
-                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
                     >
                         {campuses.map((campus) => (
                             <option key={campus.id} value={campus.id}>
@@ -128,29 +133,47 @@ export function AdminScheduleConfigPage() {
                     </select>
                 </div>
 
-                {/* Day Toggles */}
+                {/* Day Toggles — all 7 weekdays (#4) */}
                 <div className="border rounded-lg p-4 mb-6">
                     <h3 className="font-medium text-gray-900 mb-1">Available Days</h3>
-                    <p className="text-sm text-gray-500 mb-4">Monday to Friday are always enabled. Toggle Saturday and Sunday below.</p>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <Toggle
-                            checked={includeSaturday}
-                            onChange={setIncludeSaturday}
-                            label="Include Saturday"
-                        />
-                        <Toggle
-                            checked={includeSunday}
-                            onChange={setIncludeSunday}
-                            label="Include Sunday"
-                        />
+                    <p className="text-sm text-gray-500 mb-4">Toggle which days are available for appointments at this campus.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                            { label: 'Sunday',    day: 0 },
+                            { label: 'Monday',    day: 1 },
+                            { label: 'Tuesday',   day: 2 },
+                            { label: 'Wednesday', day: 3 },
+                            { label: 'Thursday',  day: 4 },
+                            { label: 'Friday',    day: 5 },
+                            { label: 'Saturday',  day: 6 },
+                        ].map(({ label, day }) => {
+                            const enabled = !disabledWeekdays.includes(day);
+                            return (
+                                <Toggle
+                                    key={day}
+                                    checked={enabled}
+                                    onChange={(v) => {
+                                        setDisabledWeekdays(prev =>
+                                            v
+                                                ? prev.filter(d => d !== day)
+                                                : [...prev, day].sort((a, b) => a - b)
+                                        );
+                                    }}
+                                    label={label}
+                                />
+                            );
+                        })}
                     </div>
                     {/* Visual day pills */}
                     <div className="mt-4 flex flex-wrap gap-2">
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d) => (
-                            <span key={d} className="px-3 py-1 text-xs font-semibold rounded-full bg-maroon-100 text-maroon-800 border border-maroon-200">{d}</span>
-                        ))}
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${includeSaturday ? 'bg-maroon-100 text-maroon-800 border-maroon-200' : 'bg-gray-100 text-gray-400 border-gray-200 line-through'}`}>Sat</span>
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${includeSunday ? 'bg-maroon-100 text-maroon-800 border-maroon-200' : 'bg-gray-100 text-gray-400 border-gray-200 line-through'}`}>Sun</span>
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, idx) => {
+                            const enabled = !disabledWeekdays.includes(idx);
+                            return (
+                                <span key={d} className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${enabled ? 'bg-maroon-100 text-maroon-800 border-maroon-200' : 'bg-gray-100 text-gray-400 border-gray-200 line-through'}`}>
+                                    {d}
+                                </span>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -163,7 +186,14 @@ export function AdminScheduleConfigPage() {
                         <input
                             type="date"
                             value={newHolidayDate}
-                            onChange={(e) => setNewHolidayDate(e.target.value)}
+                            onChange={(e) => setNewHolidayDate(clampDateYear(e.target.value))}
+                            onBlur={(e) => setNewHolidayDate(clampDateYear(e.target.value))}
+                            onInput={(e) => { if (!e.currentTarget.validity.valid) setNewHolidayDate(''); }}
+                            onPaste={(e) => {
+                                e.preventDefault();
+                                const pasted = e.clipboardData.getData('text');
+                                setNewHolidayDate(clampDateYear(pasted));
+                            }}
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm"
                         />
                         <button
@@ -201,7 +231,7 @@ export function AdminScheduleConfigPage() {
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2"
+                            className="px-6 py-2 bg-maroon-800 text-white font-medium rounded-lg hover:bg-maroon-900 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                         >
                             {saving ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

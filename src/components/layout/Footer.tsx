@@ -1,6 +1,16 @@
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '~/modules/auth';
 
 export function Footer() {
+  const { profile } = useAuthStore();
+
+  let privacyHref = '/privacy-policy';
+  if (profile?.role === 'hr') {
+    privacyHref = '/hr/privacy-policy';
+  } else if (['supervisor', 'nurse', 'doctor', 'admin'].includes(profile?.role || '')) {
+    privacyHref = '/app/privacy-policy';
+  }
+
   return (
     <footer className="h-auto bg-maroon-800 text-white flex-shrink-0 border-t border-maroon-700 flex flex-col items-center justify-center px-4 py-4 gap-2">
       <div className="flex flex-col items-center gap-1 text-center">
@@ -12,7 +22,7 @@ export function Footer() {
         </p>
       </div>
       <Link
-        to="/privacy-policy"
+        to={privacyHref}
         className="text-xs text-white/60 hover:text-white/90 transition-colors underline underline-offset-2 mt-1"
       >
         Privacy Policy

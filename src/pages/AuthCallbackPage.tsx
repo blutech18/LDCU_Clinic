@@ -50,7 +50,23 @@ export function AuthCallbackPage() {
             return;
           }
 
+          // Block pending users who already selected a role but haven't been approved yet (#17)
+          if (existingProfile.role === 'pending' && existingProfile.role_selected === true) {
+            await supabase.auth.signOut();
+            setError('Your account is pending approval. Please wait for HR/Admin to approve your account before signing in.');
+            setTimeout(() => navigate('/login'), 4000);
+            return;
+          }
+
           setProfile(existingProfile);
+
+          // Server-assigned staff roles always bypass the role-selection screen (#13)
+          const staffRoles = ['admin', 'supervisor', 'nurse', 'hr'];
+          if (staffRoles.includes(existingProfile.role)) {
+            navigate('/dashboard');
+            return;
+          }
+
           // If user hasn't selected a role yet, redirect to role selection
           if (existingProfile.role_selected === false || existingProfile.role === 'pending') {
             // Fix role to 'pending' if it was auto-set to 'student' by old DB default
@@ -122,6 +138,8 @@ export function AuthCallbackPage() {
             role: 'pending',
             is_verified: true,
             role_selected: false,
+            // Persist Google avatar so Admin User Management & audit logs show it (#11)
+            avatar_url: userMetadata?.avatar_url || userMetadata?.picture || null,
           };
 
           const { data: upsertedProfile, error: createError } = await supabase

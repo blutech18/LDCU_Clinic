@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppointmentStore } from '~/modules/appointments';
 import { useScheduleStore } from '~/modules/schedule';
 import { useAuthStore } from '~/modules/auth';
-import { formatDate } from '~/lib/utils';
+import { formatDate, clampDateYear } from '~/lib/utils';
 import type { AppointmentStatus, AppointmentType } from '~/types';
 import { supabase } from '~/lib/supabase';
 
@@ -36,6 +36,36 @@ export function AppointmentsPage() {
   // Pagination
   const PAGE_SIZE = 25;
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Prevent invalid manual typing in native date inputs (e.g. 6+ digit years).
+  const handleDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const allowedKeys = new Set([
+      'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
+    ]);
+    if (allowedKeys.has(e.key)) return;
+
+    // Let users use shortcuts like Ctrl/Cmd+A/C/V/X.
+    if (e.ctrlKey || e.metaKey) return;
+
+    const isDigit = /^\d$/.test(e.key);
+    const isDash = e.key === '-';
+    if (!isDigit && !isDash) {
+      e.preventDefault();
+      return;
+    }
+
+    const input = e.currentTarget;
+    const value = input.value || '';
+    const start = input.selectionStart ?? value.length;
+    const end = input.selectionEnd ?? value.length;
+    const nextValue = `${value.slice(0, start)}${e.key}${value.slice(end)}`;
+
+    // Allow only YYYY-MM-DD shape while typing.
+    if (!/^\d{0,4}(-\d{0,2}){0,2}$/.test(nextValue)) {
+      e.preventDefault();
+    }
+  };
 
   const toggleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -216,42 +246,51 @@ export function AppointmentsPage() {
           {/* Filters Wrap */}
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap lg:flex-nowrap gap-3 items-center w-full lg:w-auto">
             {profile?.role !== 'nurse' && (
-              <select
-                value={campusFilter}
-                onChange={(e) => setCampusFilter(e.target.value)}
-                className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[140px] lg:w-[150px]"
-              >
-                <option value="">All Campuses</option>
-                {campuses.map((campus) => (
-                  <option key={campus.id} value={campus.id}>
-                    {campus.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative w-full sm:w-[140px] lg:w-[150px]">
+                <select
+                  value={campusFilter}
+                  onChange={(e) => setCampusFilter(e.target.value)}
+                  className="h-[42px] w-full pl-3 pr-9 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+                >
+                  <option value="">All Campuses</option>
+                  {campuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>
+                      {campus.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              </div>
             )}
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | '')}
-              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[140px] lg:w-[150px]"
-            >
-              <option value="">All Statuses</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="no_show">No Show</option>
-            </select>
+            <div className="relative w-full sm:w-[140px] lg:w-[150px]">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | '')}
+                className="h-[42px] w-full pl-3 pr-9 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+              >
+                <option value="">All Statuses</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="no_show">No Show</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
 
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as AppointmentType | '')}
-              className="h-[42px] px-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none w-full sm:w-[140px] lg:w-[150px]"
-            >
-              <option value="">All Types</option>
-              <option value="physical_exam">Physical Exam</option>
-              <option value="consultation">Consultation</option>
-              <option value="dental">Dental</option>
-            </select>
+            <div className="relative w-full sm:w-[140px] lg:w-[150px]">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as AppointmentType | '')}
+                className="h-[42px] w-full pl-3 pr-9 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none text-sm transition-shadow cursor-pointer appearance-none"
+              >
+                <option value="">All Types</option>
+                <option value="physical_exam">Physical Exam</option>
+                <option value="consultation">Consultation</option>
+                <option value="dental">Dental</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
 
             {/* Date Range Wrapper */}
             <div className="col-span-2 sm:col-span-auto grid grid-cols-2 sm:flex sm:flex-row gap-3 w-full sm:w-auto">
@@ -260,8 +299,18 @@ export function AppointmentsPage() {
                 <input
                   type="date"
                   value={startDate}
+                  min="1900-01-01"
                   max="9999-12-31"
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onKeyDown={handleDateKeyDown}
+                  onChange={(e) => setStartDate(clampDateYear(e.target.value))}
+                  onBlur={(e) => setStartDate(clampDateYear(e.target.value))}
+                  onInput={(e) => { if (!e.currentTarget.validity.valid) setStartDate(''); }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    setStartDate(clampDateYear(pasted));
+                  }}
+                  onDrop={(e) => e.preventDefault()}
                   className="flex-1 h-full bg-transparent px-1.5 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
                 />
               </div>
@@ -270,8 +319,18 @@ export function AppointmentsPage() {
                 <input
                   type="date"
                   value={endDate}
+                  min="1900-01-01"
                   max="9999-12-31"
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onKeyDown={handleDateKeyDown}
+                  onChange={(e) => setEndDate(clampDateYear(e.target.value))}
+                  onBlur={(e) => setEndDate(clampDateYear(e.target.value))}
+                  onInput={(e) => { if (!e.currentTarget.validity.valid) setEndDate(''); }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    setEndDate(clampDateYear(pasted));
+                  }}
+                  onDrop={(e) => e.preventDefault()}
                   className="flex-1 h-full bg-transparent px-1.5 sm:px-3 outline-none text-sm text-gray-700 cursor-pointer min-w-0 w-full"
                 />
               </div>
@@ -506,24 +565,36 @@ export function AppointmentsPage() {
 
               {/* Body */}
               <div className="px-5 py-2">
+                {/* Once an appointment is marked No Show, its status is final and cannot be changed (#12) */}
+                {selectedAppointment?.status === 'no_show' && (
+                  <div className="mb-3 flex items-start gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Locked</span>
+                    <p className="text-xs text-gray-600 leading-snug">
+                      This appointment is marked as <strong>No Show</strong> and can no longer be edited.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setPendingStatus('scheduled')}
-                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'scheduled' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/30'
+                    disabled={selectedAppointment?.status === 'no_show'}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${pendingStatus === 'scheduled' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/30'
                       }`}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider">Scheduled</span>
                   </button>
                   <button
                     onClick={() => setPendingStatus('completed')}
-                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'completed' ? 'bg-green-50 border-green-500 text-green-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-300 hover:bg-green-50/30'
+                    disabled={selectedAppointment?.status === 'no_show'}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${pendingStatus === 'completed' ? 'bg-green-50 border-green-500 text-green-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-green-300 hover:bg-green-50/30'
                       }`}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider">Completed</span>
                   </button>
                   <button
                     onClick={() => setPendingStatus('cancelled')}
-                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'cancelled' ? 'bg-red-50 border-red-500 text-red-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-red-300 hover:bg-red-50/30'
+                    disabled={selectedAppointment?.status === 'no_show'}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${pendingStatus === 'cancelled' ? 'bg-red-50 border-red-500 text-red-700 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-red-300 hover:bg-red-50/30'
                       }`}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider">Cancelled</span>
@@ -531,11 +602,11 @@ export function AppointmentsPage() {
                   <button
                     onClick={() => setPendingStatus('no_show')}
                     disabled={selectedAppointment?.status === 'no_show'}
-                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${pendingStatus === 'no_show' ? 'bg-gray-100 border-gray-500 text-gray-800 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                      } ${selectedAppointment?.status === 'no_show' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${pendingStatus === 'no_show' ? 'bg-gray-100 border-gray-500 text-gray-800 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                      }`}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider">No Show</span>
-                    {selectedAppointment?.status === 'no_show' && <span className="text-[9px] text-gray-400">Read-only</span>}
+                    {selectedAppointment?.status === 'no_show' && <span className="text-[9px] text-gray-400">Final</span>}
                   </button>
                 </div>
               </div>

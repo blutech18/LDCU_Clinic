@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { supabase } from '~/lib/supabase';
 import { SearchableSelect } from '~/components/ui';
+import { clampDateYear } from '~/lib/utils';
 import type { Campus } from '~/types';
 
 interface UserOption {
@@ -104,8 +105,14 @@ export function AuditLogsPage() {
   const fetchLogs = async (pageNum = 0) => {
     try {
       setLoading(true);
-      const from = pageNum * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+
+      const needsClientFilter = !!(filters.role || searchTerm);
+
+      // When a client-side filter (role / search) is active we must pull a
+      // larger window (then filter + paginate client-side) so pagination
+      // matches the filtered count (#18, #22).
+      const from = needsClientFilter ? 0 : pageNum * PAGE_SIZE;
+      const to = needsClientFilter ? 999 : (from + PAGE_SIZE - 1);
 
       let query = supabase
         .from('audit_logs')
@@ -128,34 +135,28 @@ export function AuditLogsPage() {
       if (error) throw error;
 
       let filteredData = data || [];
-      // role is a nested field — client-side filter only
+      // role is a nested field — client-side filter (#22)
       if (filters.role) {
         filteredData = filteredData.filter(log => log.user?.role === filters.role);
       }
-      // search term filter
+      // search term — now applied against the full fetched window (#18)
       if (searchTerm) {
         const s = searchTerm.toLowerCase();
         filteredData = filteredData.filter(log =>
           log.user?.first_name?.toLowerCase().includes(s) ||
           log.user?.last_name?.toLowerCase().includes(s) ||
           log.user?.email?.toLowerCase().includes(s) ||
+          `${log.user?.first_name || ''} ${log.user?.last_name || ''}`.toLowerCase().includes(s) ||
           log.action.toLowerCase().includes(s) ||
           log.resource_type.toLowerCase().includes(s)
         );
       }
 
-      setLogs(filteredData);
-
-      // If client-side filters (role, search) reduced the results, use the filtered count
-      // Fix #22: When role or search filters are active, pagination should use filtered count
-      const effectiveCount = (filters.role || searchTerm) ? filteredData.length : (count ?? 0);
-      setTotalCount(effectiveCount);
-      
-      // Fix #22: When using client-side filters, we need all results on current page
-      // so pagination reflects the actual filtered set
-      if (filters.role || searchTerm) {
-        setLogs(filteredData);
+      if (needsClientFilter) {
+        setTotalCount(filteredData.length);
+        setLogs(filteredData.slice(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE));
       } else {
+        setTotalCount(count ?? 0);
         setLogs(filteredData);
       }
     } catch (error) {
@@ -225,7 +226,7 @@ export function AuditLogsPage() {
         </div>
         <button
           onClick={() => fetchLogs(page)}
-          className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white rounded-lg hover:bg-maroon-900 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-maroon-800 text-white rounded-lg hover:bg-maroon-900 transition-colors cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
           Refresh
@@ -259,7 +260,7 @@ export function AuditLogsPage() {
             <select
               value={filters.campusId}
               onChange={(e) => setFilters({ ...filters, campusId: e.target.value })}
-              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
             >
               <option value="">All Campuses</option>
               {campuses.map((campus) => (
@@ -274,7 +275,7 @@ export function AuditLogsPage() {
             <select
               value={filters.action}
               onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
             >
               <option value="">All Actions</option>
               <option value="CREATE">Create</option>
@@ -297,7 +298,7 @@ export function AuditLogsPage() {
             <select
               value={filters.role}
               onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
+              className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none cursor-pointer"
             >
               <option value="">All Roles</option>
               <option value="supervisor">Supervisor</option>
@@ -312,8 +313,16 @@ export function AuditLogsPage() {
             <input
               type="date"
               value={filters.startDate}
+              min="1900-01-01"
               max="9999-12-31"
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, startDate: clampDateYear(e.target.value) })}
+              onBlur={(e) => setFilters({ ...filters, startDate: clampDateYear(e.target.value) })}
+              onInput={(e) => { if (!e.currentTarget.validity.valid) setFilters(prev => ({ ...prev, startDate: '' })); }}
+              onPaste={(e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData('text');
+                setFilters(prev => ({ ...prev, startDate: clampDateYear(pasted) }));
+              }}
               className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
             />
           </div>
@@ -322,8 +331,16 @@ export function AuditLogsPage() {
             <input
               type="date"
               value={filters.endDate}
+              min="1900-01-01"
               max="9999-12-31"
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, endDate: clampDateYear(e.target.value) })}
+              onBlur={(e) => setFilters({ ...filters, endDate: clampDateYear(e.target.value) })}
+              onInput={(e) => { if (!e.currentTarget.validity.valid) setFilters(prev => ({ ...prev, endDate: '' })); }}
+              onPaste={(e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData('text');
+                setFilters(prev => ({ ...prev, endDate: clampDateYear(pasted) }));
+              }}
               className="w-full px-3 py-2 h-[42px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
             />
           </div>
@@ -434,7 +451,7 @@ export function AuditLogsPage() {
                           setSelectedLog(log);
                           setIsDetailsModalOpen(true);
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5 text-gray-500" />
                         View
@@ -454,7 +471,7 @@ export function AuditLogsPage() {
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0 || loading}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
           >
             ← Prev
           </button>
@@ -462,7 +479,7 @@ export function AuditLogsPage() {
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={(page + 1) * PAGE_SIZE >= totalCount || loading}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
           >
             Next →
           </button>
@@ -576,7 +593,7 @@ export function AuditLogsPage() {
               <div className="p-4 bg-gray-50/80 border-t border-gray-100">
                 <button
                   onClick={() => setIsDetailsModalOpen(false)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-sm"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-sm cursor-pointer"
                 >
                   Close Notification
                 </button>

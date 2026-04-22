@@ -33,7 +33,7 @@ interface ScheduleState {
   fetchEmailTemplates: (campusId: string) => Promise<void>;
   upsertEmailTemplate: (template: Partial<EmailTemplate> & { campus_id: string; template_type: string }) => Promise<void>;
   fetchScheduleConfig: (campusId: string) => Promise<void>;
-  updateScheduleConfig: (campusId: string, config: { include_saturday: boolean; include_sunday: boolean; holiday_dates: string[] }) => Promise<void>;
+  updateScheduleConfig: (campusId: string, config: { include_saturday?: boolean; include_sunday?: boolean; disabled_weekdays?: number[]; holiday_dates: string[] }) => Promise<void>;
   syncPhHolidays: (campusId: string, year: number) => Promise<void>;
   fetchDayOverrides: (campusId: string, startDate: string, endDate: string) => Promise<void>;
   setSelectedCampus: (campusId: string | null) => void;
@@ -80,24 +80,27 @@ export const useScheduleStore = create<ScheduleState>()(
           const { data, error } = await supabase.from('campuses').select('*').order('name');
           if (error) throw error;
 
-          // Filter campuses for nurses - they can only see their assigned campus
+          const allCampuses = data || [];
+
+          // Filter campuses for nurses - they can only see their assigned campus (#24)
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             const { data: profile } = await supabase
               .from('profiles')
               .select('role, assigned_campus_id')
               .eq('id', user.id)
-              .single();
+              .maybeSingle();
 
             if (profile?.role === 'nurse' && profile.assigned_campus_id) {
-              // Nurse can only see their assigned campus
-              const filteredCampuses = (data || []).filter(c => c.id === profile.assigned_campus_id);
+              const filteredCampuses = allCampuses.filter(c => c.id === profile.assigned_campus_id);
               set({ campuses: filteredCampuses, selectedCampusId: profile.assigned_campus_id });
               return;
             }
           }
 
-          set({ campuses: data || [] });
+          // Always overwrite so a stale persisted list (e.g. a nurse's filtered
+          // one) doesn't shadow the full list after account switches (#24).
+          set({ campuses: allCampuses });
         } catch (error) {
           console.error('Error fetching campuses:', error);
         }
@@ -217,6 +220,15 @@ export const useScheduleStore = create<ScheduleState>()(
             .single();
 
           if (error && error.code !== 'PGRST116') throw error;
+
+          // Backward-compat: merge legacy weekend booleans into disabled_weekdays (#4)
+          if (data) {
+            const disabledSet = new Set<number>(data.disabled_weekdays || []);
+            if (!data.include_sunday && !disabledSet.has(0)) disabledSet.add(0);
+            if (!data.include_saturday && !disabledSet.has(6)) disabledSet.add(6);
+            data.disabled_weekdays = Array.from(disabledSet).sort((a, b) => a - b);
+          }
+
           set({ scheduleConfig: data || null });
         } catch (error) {
           console.error('Error fetching schedule config:', error);
@@ -224,18 +236,33 @@ export const useScheduleStore = create<ScheduleState>()(
         }
       },
 
-      updateScheduleConfig: async (campusId, config) => {
+      updateScheduleConfig: async (campusId, config: {
+        include_saturday?: boolean;
+        include_sunday?: boolean;
+        disabled_weekdays?: number[];
+        holiday_dates: string[];
+      }) => {
         try {
+          // Keep legacy booleans in sync with the new array (#4)
+          const disabled = new Set<number>(config.disabled_weekdays || []);
+          const legacySat = config.include_saturday ?? !disabled.has(6);
+          const legacySun = config.include_sunday ?? !disabled.has(0);
+          const payload = {
+            campus_id: campusId,
+            include_saturday: legacySat,
+            include_sunday: legacySun,
+            disabled_weekdays: Array.from(disabled).sort((a, b) => a - b),
+            holiday_dates: config.holiday_dates,
+            updated_at: new Date().toISOString(),
+          };
+
           const { error } = await supabase
             .from('schedule_config')
-            .upsert(
-              { campus_id: campusId, ...config, updated_at: new Date().toISOString() },
-              { onConflict: 'campus_id' }
-            );
+            .upsert(payload, { onConflict: 'campus_id' });
 
           if (error) throw error;
 
-          set({ scheduleConfig: { campus_id: campusId, ...config } as ScheduleConfig });
+          set({ scheduleConfig: { ...payload, id: '' } as ScheduleConfig });
         } catch (error) {
           console.error('Error updating schedule config:', error);
           throw error;
@@ -268,6 +295,7 @@ export const useScheduleStore = create<ScheduleState>()(
           const config = {
             include_saturday: existing?.include_saturday ?? false,
             include_sunday: existing?.include_sunday ?? false,
+            disabled_weekdays: existing?.disabled_weekdays ?? [],
             holiday_dates: merged,
           };
 

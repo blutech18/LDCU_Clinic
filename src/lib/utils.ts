@@ -42,6 +42,23 @@ export function getWeekBounds(date: Date): { start: Date; end: Date } {
   return { start, end };
 }
 
+/**
+ * Clamp a YYYY-MM-DD date string so its year is 4 digits and within 1900-9999.
+ * Protects against users typing 5/6-digit years into native date inputs
+ * (Issues #33, #34).
+ */
+export function clampDateYear(value: string): string {
+  if (!value) return '';
+  // Expected format: YYYY-MM-DD (or YYYYYY-MM-DD when user types too many digits)
+  const match = value.match(/^(\d{1,7})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  let year = parseInt(match[1], 10);
+  if (isNaN(year)) return '';
+  if (year < 1900) year = 1900;
+  if (year > 9999) year = 9999;
+  return `${String(year).padStart(4, '0')}-${match[2]}-${match[3]}`;
+}
+
 export function calculateAge(dateOfBirth: string): number {
   const today = new Date();
   const birthDate = new Date(dateOfBirth);

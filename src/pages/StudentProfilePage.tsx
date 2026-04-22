@@ -521,8 +521,10 @@ function Field({
     readonly icon?: React.ReactNode;
     readonly children: React.ReactNode;
 }) {
+    // min-w-0 + relative/isolate keeps the input border/focus ring from
+    // overflowing into neighbouring grid cells (#9)
     return (
-        <div>
+        <div className="min-w-0 relative isolate">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                 {icon}
                 {label}
