@@ -81,7 +81,7 @@ export function RoleSelectionPage() {
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">Request Submitted!</h2>
                     <p className="text-sm sm:text-base text-gray-600 mb-5 sm:mb-6 leading-relaxed">
                         Your staff role request has been sent for <span className="font-semibold text-maroon-800">HR approval</span>.
-                        You can continue using the app as a student in the meantime.
+                        You will be able to log in once your account has been approved.
                     </p>
                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 sm:p-4 mb-6 sm:mb-8">
                         <div className="flex items-center justify-center gap-2 text-amber-700 text-xs sm:text-sm font-medium">
@@ -90,10 +90,13 @@ export function RoleSelectionPage() {
                         </div>
                     </div>
                     <button
-                        onClick={() => navigate('/student/booking', { replace: true })}
+                        onClick={async () => {
+                            await supabase.auth.signOut();
+                            navigate('/login?pending=true', { replace: true });
+                        }}
                         className="w-full bg-maroon-800 text-white py-3 sm:py-3.5 px-6 rounded-xl font-bold text-sm sm:text-base hover:bg-maroon-700 transition-all duration-300 shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
                     >
-                        Continue to App
+                        Back to Login
                         <ArrowRight className="w-4 h-4" />
                     </button>
                 </motion.div>

@@ -27,6 +27,16 @@ export function StudentRoute({ children }: StudentRouteProps) {
         return <Navigate to="/login" replace />;
     }
 
+    // Block pending-approval users (staff who selected role but aren't approved yet)
+    if (profile.role === 'pending' && profile.role_selected === true) {
+        return <Navigate to="/login?pending=true" replace />;
+    }
+
+    // Block unverified users (admin revoked verification)
+    if (profile.is_verified === false) {
+        return <Navigate to="/login?pending=true" replace />;
+    }
+
     if (!roleValid || (profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'pending')) {
         return <Navigate to="/dashboard" replace />;
     }
