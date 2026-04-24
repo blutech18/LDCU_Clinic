@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, LogIn } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWeekend, getDay } from 'date-fns';
 import { Header, Footer } from '~/components/layout';
 import { SignInPromptModal } from '~/components/modals/SignInPromptModal';
@@ -110,44 +109,50 @@ export function PublicCalendarPage() {
         }),
     };
 
+    const getCampusGridSpanClass = (index: number) => {
+        // Mobile/tablet balancing: avoid visual empty slots in final row.
+        // Use first campus ("Main Campus") as the balancing chip.
+        const isFirst = index === 0;
+        const mobileOddFirst = campuses.length % 2 === 1 && isFirst;
+        const tabletTwoRemainderFirst = campuses.length % 3 === 2 && isFirst;
+
+        // Reset span on web/desktop so balancing only applies to mobile/tablet.
+        return `${mobileOddFirst ? 'col-span-2' : ''} ${tabletTwoRemainderFirst ? 'sm:col-span-2' : ''} lg:col-span-1`.trim();
+    };
+
     return (
         <div className="min-h-screen flex flex-col bg-gray-50">
             <Header />
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-4xl mx-auto">
-                    {/* Header */}
-                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
+                    {/* Header + Campus selector in one responsive row */}
+                    <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="shrink-0">
                             <h1 className="text-2xl font-bold text-gray-900">Clinic Calendar</h1>
                             <p className="text-gray-600">View available appointment slots</p>
                         </div>
-                        <Link
-                            to="/login"
-                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-maroon-800 text-white rounded-lg hover:bg-maroon-700 transition-colors font-medium"
-                        >
-                            <LogIn className="w-5 h-5" />
-                            Sign In to Book
-                        </Link>
-                    </div>
 
-                    {/* Campus Selector */}
-                    {campuses.length > 1 && (
-                        <div className="mb-4 flex flex-wrap gap-2">
-                            {campuses.map(campus => (
-                                <button
-                                    key={campus.id}
-                                    onClick={() => setSelectedCampusId(campus.id)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${
-                                        selectedCampusId === campus.id
-                                            ? 'bg-maroon-800 text-white border-maroon-800'
-                                            : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
-                                    }`}
-                                >
-                                    {campus.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                        {/* Keep campus buttons on a single row; horizontal scroll on tight widths */}
+                        {campuses.length > 1 && (
+                            <div className="w-full lg:flex-1 lg:min-w-0">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 w-full lg:max-w-fit lg:ml-auto">
+                                    {campuses.map((campus, index) => (
+                                        <button
+                                            key={campus.id}
+                                            onClick={() => setSelectedCampusId(campus.id)}
+                                            className={`${getCampusGridSpanClass(index)} h-10 w-full min-w-0 inline-flex items-center justify-center whitespace-nowrap truncate leading-none px-3 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${
+                                                selectedCampusId === campus.id
+                                                    ? 'bg-maroon-800 text-white border-maroon-800'
+                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
+                                            }`}
+                                        >
+                                            {campus.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Calendar Card */}
                     <div className="bg-white rounded-xl shadow-md overflow-hidden">

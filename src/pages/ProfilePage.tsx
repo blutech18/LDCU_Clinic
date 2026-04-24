@@ -6,6 +6,12 @@ import { useScheduleStore } from '~/modules/schedule';
 import { supabase } from '~/lib/supabase';
 import { logUserAction } from '~/lib/auditLog';
 
+function formatMissingRequiredMessage(missing: string[]): string {
+    if (missing.length === 1) return `${missing[0]} is required.`;
+    if (missing.length === 2) return `${missing[0]} and ${missing[1]} are required.`;
+    return `${missing.slice(0, -1).join(', ')}, and ${missing[missing.length - 1]} are required.`;
+}
+
 export function ProfilePage() {
     const { profile, avatarUrl, setProfile } = useAuthStore();
     const { campuses, fetchCampuses } = useScheduleStore();
@@ -20,7 +26,6 @@ export function ProfilePage() {
         last_name: profile?.last_name || '',
         middle_name: profile?.middle_name || '',
         contact_number: profile?.contact_number || '',
-        campus_id: profile?.campus_id || '',
     });
 
     // Fetch fresh profile data on mount
@@ -44,21 +49,22 @@ export function ProfilePage() {
     }, [profile?.id]);
 
     useEffect(() => {
-        fetchCampuses();
+        if (profile?.role === 'nurse') fetchCampuses();
         refreshProfile();
-    }, [fetchCampuses, refreshProfile]);
+    }, [fetchCampuses, refreshProfile, profile?.role]);
 
+    // Do not overwrite the form while the user is editing — avoids losing cleared fields
+    // and prevents accidental submit of stale values (#2).
     useEffect(() => {
-        if (profile) {
+        if (profile && !isEditing) {
             setFormData({
                 first_name: profile.first_name || '',
                 last_name: profile.last_name || '',
                 middle_name: profile.middle_name || '',
                 contact_number: profile.contact_number || '',
-                campus_id: profile.campus_id || '',
             });
         }
-    }, [profile]);
+    }, [profile, isEditing]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -69,13 +75,17 @@ export function ProfilePage() {
         e.preventDefault();
         if (!profile?.id) return;
 
-        // Enforce required first/last name (#2)
-        if (!formData.first_name.trim()) {
-            setMessage({ type: 'error', text: 'First name is required.' });
-            return;
-        }
-        if (!formData.last_name.trim()) {
-            setMessage({ type: 'error', text: 'Last name is required.' });
+        setMessage(null);
+
+        const first = formData.first_name.trim();
+        const last = formData.last_name.trim();
+        const middle = formData.middle_name.trim();
+
+        const missing: string[] = [];
+        if (!first) missing.push('First name');
+        if (!last) missing.push('Last name');
+        if (missing.length > 0) {
+            setMessage({ type: 'error', text: formatMissingRequiredMessage(missing) });
             return;
         }
 
@@ -84,26 +94,15 @@ export function ProfilePage() {
             return;
         }
 
-        // Admin must have a campus selected; nurses see their assigned campus read-only
-        const roleRequiresCampus = ['admin'].includes(profile.role);
-        if (roleRequiresCampus && !formData.campus_id) {
-            setMessage({ type: 'error', text: 'Please select a campus before saving your profile.' });
-            return;
-        }
-
         setIsSaving(true);
-        setMessage(null);
 
         try {
-            // Only send fields that actually have values so Supabase/RLS doesn't
-            // reject empty UUIDs for columns like campus_id (#10)
             const payload: Record<string, any> = {
-                first_name: formData.first_name.trim(),
-                last_name: formData.last_name.trim(),
-                middle_name: formData.middle_name.trim() || null,
+                first_name: first,
+                last_name: last,
+                middle_name: middle || null,
                 contact_number: formData.contact_number.trim() || null,
             };
-            if (formData.campus_id) payload.campus_id = formData.campus_id;
 
             const { error } = await supabase
                 .from('profiles')
@@ -117,11 +116,9 @@ export function ProfilePage() {
                 action: 'UPDATE',
                 resourceType: 'profile',
                 resourceId: profile.id,
-                campusId: formData.campus_id || undefined,
+                campusId: profile.campus_id || undefined,
                 details: {
                     updated_fields: Object.keys(payload),
-                    previous_campus: profile.campus_id,
-                    new_campus: formData.campus_id,
                 },
             });
 
@@ -263,7 +260,7 @@ export function ProfilePage() {
                     </div>
 
                     {/* Profile Form Section */}
-                    <form onSubmit={handleSubmit} className="p-6 sm:p-10">
+                    <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-10">
                         <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
                             <div>
                                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">Personal Information</h3>
@@ -272,7 +269,18 @@ export function ProfilePage() {
                             {!isEditing ? (
                                 <button
                                     type="button"
-                                    onClick={() => setIsEditing(true)}
+                                    onClick={() => {
+                                        if (profile) {
+                                            setFormData({
+                                                first_name: profile.first_name || '',
+                                                last_name: profile.last_name || '',
+                                                middle_name: profile.middle_name || '',
+                                                contact_number: profile.contact_number || '',
+                                            });
+                                        }
+                                        setMessage(null);
+                                        setIsEditing(true);
+                                    }}
                                     className="px-4 py-2 text-sm font-bold text-maroon-800 bg-maroon-50 hover:bg-maroon-100 border border-maroon-200 rounded-xl transition-all duration-300 shadow-sm hover:shadow active:scale-95 flex items-center gap-2"
                                 >
                                     <User className="w-4 h-4" />
@@ -288,7 +296,6 @@ export function ProfilePage() {
                                             last_name: profile?.last_name || '',
                                             middle_name: profile?.middle_name || '',
                                             contact_number: profile?.contact_number || '',
-                                            campus_id: profile?.campus_id || '',
                                         });
                                     }}
                                     className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-all duration-300 active:scale-95"
@@ -304,7 +311,7 @@ export function ProfilePage() {
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <div className="w-1.5 h-1.5 bg-maroon-800 rounded-full"></div>
-                                        First Name
+                                        First Name <span className="text-red-600">*</span>
                                     </label>
                                     {isEditing ? (
                                         <input
@@ -313,6 +320,8 @@ export function ProfilePage() {
                                             value={formData.first_name}
                                             onChange={handleChange}
                                             maxLength={50}
+                                            autoComplete="given-name"
+                                            aria-required="true"
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -323,7 +332,7 @@ export function ProfilePage() {
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <div className="w-1.5 h-1.5 bg-maroon-800 rounded-full"></div>
-                                        Last Name
+                                        Last Name <span className="text-red-600">*</span>
                                     </label>
                                     {isEditing ? (
                                         <input
@@ -332,6 +341,8 @@ export function ProfilePage() {
                                             value={formData.last_name}
                                             onChange={handleChange}
                                             maxLength={50}
+                                            autoComplete="family-name"
+                                            aria-required="true"
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -342,7 +353,8 @@ export function ProfilePage() {
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                        Middle Name
+                                        Middle Name{' '}
+                                        <span className="text-gray-400 normal-case font-normal text-[11px]">(optional)</span>
                                     </label>
                                     {isEditing ? (
                                         <input
@@ -351,6 +363,7 @@ export function ProfilePage() {
                                             value={formData.middle_name}
                                             onChange={handleChange}
                                             maxLength={50}
+                                            autoComplete="additional-name"
                                             className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium"
                                         />
                                     ) : (
@@ -401,37 +414,16 @@ export function ProfilePage() {
                                     )}
                                 </div>
 
-                                {(profile?.role === 'admin' || profile?.role === 'nurse') && (
+                                {profile?.role === 'nurse' && (
                                 <div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2 ml-1">
                                         <MapPin className="w-4 h-4 text-maroon-800" />
-                                        {profile?.role === 'nurse' ? 'Assigned Campus' : 'Campus'}
+                                        Assigned Campus
                                     </label>
-                                    {isEditing && profile?.role !== 'nurse' ? (
-                                        <div className="relative">
-                                            <select
-                                                name="campus_id"
-                                                value={formData.campus_id}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl focus:bg-white focus:border-maroon-500 focus:ring-4 focus:ring-maroon-500/10 outline-none text-sm transition-all font-medium appearance-none"
-                                            >
-                                                <option value="">Select campus...</option>
-                                                {campuses.map((campus) => (
-                                                    <option key={campus.id} value={campus.id}>
-                                                        {campus.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="inline-flex items-center px-4 py-2 bg-maroon-50 border border-maroon-100 rounded-2xl">
-                                            <div className="w-2 h-2 bg-maroon-600 rounded-full mr-2.5 animate-pulse"></div>
-                                            <p className="text-maroon-900 text-sm font-bold">{getCampusName(displayCampusId)}</p>
-                                        </div>
-                                    )}
+                                    <div className="inline-flex items-center px-4 py-2 bg-maroon-50 border border-maroon-100 rounded-2xl">
+                                        <div className="w-2 h-2 bg-maroon-600 rounded-full mr-2.5 animate-pulse"></div>
+                                        <p className="text-maroon-900 text-sm font-bold">{getCampusName(displayCampusId)}</p>
+                                    </div>
                                 </div>
                                 )}
                             </div>

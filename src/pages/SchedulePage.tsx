@@ -57,6 +57,7 @@ export function SchedulePage() {
   const [templateBody, setTemplateBody] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [isTemplateDirty, setIsTemplateDirty] = useState(false);
 
   // ── Settings ──
   const [tempMaxBookings, setTempMaxBookings] = useState<number | string>(50);
@@ -97,13 +98,20 @@ export function SchedulePage() {
   }, [selectedCampusId, fetchBookingSetting, fetchEmailTemplates, fetchScheduleConfig, syncPhHolidays]);
 
   useEffect(() => {
+    // Reset dirty state when switching campuses so fetched template can hydrate fields.
+    setIsTemplateDirty(false);
+  }, [selectedCampusId]);
+
+  useEffect(() => {
+    // Avoid clobbering cursor/input while user is actively editing (#15).
+    if (isTemplateDirty) return;
     const t = emailTemplates.find(t => t.template_type === 'appointment_reminder');
     if (t) { setTemplateSubject(t.subject); setTemplateBody(t.body); }
     else {
       setTemplateSubject('Appointment Reminder - {{date}} | LDCU Clinic');
       setTemplateBody('Hello {{name}},\n\nThis is a friendly reminder about your upcoming appointment at the LDCU University Clinic.\n\nDate: {{date}}\nType: {{type}}\n\nPlease arrive 10-15 minutes before your scheduled time. Bring a valid ID and any relevant medical documents.\n\nIf you need to reschedule, please contact us as soon as possible.\n\nThank you,\nLDCU University Clinic');
     }
-  }, [emailTemplates]);
+  }, [emailTemplates, isTemplateDirty]);
 
   useEffect(() => {
     const start = startOfMonth(subMonths(currentMonth, 1));
@@ -157,6 +165,7 @@ export function SchedulePage() {
     setSavingTemplate(true);
     try {
       await upsertEmailTemplate({ campus_id: campusId, template_type: 'appointment_reminder', subject: templateSubject, body: templateBody });
+      setIsTemplateDirty(false);
       setTemplateSaved(true); setTimeout(() => setTemplateSaved(false), 3000);
     } catch (err) { console.error('Failed:', err); alert('Failed to save template.'); }
     setSavingTemplate(false);
@@ -187,6 +196,14 @@ export function SchedulePage() {
         ? <span key={`ph-${i}`} className="bg-gray-100 text-gray-400 px-1 rounded font-mono">{part}</span>
         : <span key={`tx-${i}`}>{part}</span>
     );
+
+  const getCampusGridSpanClass = (index: number) => {
+    // Mobile/tablet balancing for campus chips using first campus as anchor.
+    const isFirst = index === 0;
+    const mobileOddFirst = campuses.length % 2 === 1 && isFirst;
+    const tabletTwoRemainderFirst = campuses.length % 3 === 2 && isFirst;
+    return `${mobileOddFirst ? 'col-span-2' : ''} ${tabletTwoRemainderFirst ? 'sm:col-span-2' : ''} lg:col-span-1`.trim();
+  };
 
   // ── Dynamic Legend Visibility ──
   const hasClosedDays = useMemo(() => calendarDays.some(d => isSameMonth(d, currentMonth) && dayOverrides[formatLocalDate(d)]?.is_closed), [calendarDays, dayOverrides, currentMonth]);
@@ -242,7 +259,7 @@ export function SchedulePage() {
 
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center w-full md:w-auto gap-2 sm:gap-3">
           {/* Campus Indicator/Buttons */}
-          <div className="flex flex-wrap gap-2">
+          <div className="w-full">
             {isNurse ? (
               // Nurses see a static indicator of their assigned campus
               campuses
@@ -250,7 +267,7 @@ export function SchedulePage() {
                 .map(campus => (
                   <div
                     key={campus.id}
-                    className="flex-1 sm:flex-none flex items-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-semibold bg-maroon-50 text-maroon-900 border border-maroon-100 shadow-sm"
+                    className="h-10 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 rounded-lg text-sm font-semibold bg-maroon-50 text-maroon-900 border border-maroon-100 shadow-sm"
                   >
                     <MapPin className="w-4 h-4 text-maroon-700" />
                     {campus.name}
@@ -258,18 +275,20 @@ export function SchedulePage() {
                 ))
             ) : (
               // Other roles see the clickable buttons to switch campuses
-              campuses.map(campus => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 w-full">
+              {campuses.map((campus, index) => (
                 <button
                   key={campus.id}
                   onClick={() => setSelectedCampus(campus.id)}
-                  className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm whitespace-nowrap ${selectedCampusId === campus.id
+                  className={`${getCampusGridSpanClass(index)} h-10 w-full min-w-0 inline-flex items-center justify-center whitespace-nowrap truncate leading-none px-3 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
                     ? 'bg-maroon-800 text-white border-maroon-800 ring-2 ring-maroon-200 ring-offset-1'
                     : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
                     }`}
                 >
                   {campus.name}
                 </button>
-              ))
+              ))}
+              </div>
             )}
           </div>
 
@@ -333,18 +352,24 @@ export function SchedulePage() {
                 const override = dayOverrides[dateStr];
                 const isClosed = override?.is_closed || false;
                 const isHoliday = (scheduleConfig?.holiday_dates ?? []).includes(dateStr);
+                const disabledSet = new Set<number>(scheduleConfig?.disabled_weekdays || []);
+                // Legacy fallback for older configs without disabled_weekdays
+                if (scheduleConfig?.include_sunday === false) disabledSet.add(0);
+                if (scheduleConfig?.include_saturday === false) disabledSet.add(6);
+                const isOffDay = disabledSet.has(day.getDay());
                 const full = count >= dayMax && dayMax > 0;
                 const today = new Date(); today.setHours(0, 0, 0, 0);
                 const isPast = isBefore(day, today);
+                const canOpenDay = isCurrentMonth && !isOffDay && !isHoliday && !isClosed;
 
                 return (
-                  <button key={idx} onClick={() => isCurrentMonth && handleDateClick(day)} disabled={!isCurrentMonth}
+                  <button key={idx} onClick={() => canOpenDay && handleDateClick(day)} disabled={!canOpenDay}
                     className={`flex flex-col items-center justify-center p-1 border-b border-r border-gray-100 transition-all duration-200
-                      ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-maroon-50'}
-                      ${(day.getDay() === 0 || day.getDay() === 6) ? 'bg-gray-50' : 'bg-white'}
+                      ${!canOpenDay ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-maroon-50'}
+                      ${isOffDay ? 'bg-gray-50' : (day.getDay() === 0 || day.getDay() === 6) ? 'bg-gray-50' : 'bg-white'}
                       ${isHoliday && isCurrentMonth ? '!bg-orange-50' : ''}
                       ${isClosed && isCurrentMonth && !isHoliday ? 'bg-gray-100' : ''}
-                      ${full && isCurrentMonth && isWeekday && !isPast && !isClosed && !isHoliday ? 'bg-red-50' : ''}
+                      ${full && isCurrentMonth && isWeekday && !isPast && !isClosed && !isHoliday && !isOffDay ? 'bg-red-50' : ''}
                       ${override && !isClosed && isCurrentMonth ? 'bg-amber-50/50' : ''}`}
                   >
                     <span className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-sm sm:text-lg font-medium
@@ -410,7 +435,7 @@ export function SchedulePage() {
                     <input
                       type="text"
                       value={templateSubject}
-                      onChange={(e) => setTemplateSubject(e.target.value)}
+                      onChange={(e) => { setTemplateSubject(e.target.value); setIsTemplateDirty(true); }}
                       className="absolute inset-0 w-full h-full px-4 bg-transparent outline-none text-transparent text-sm"
                       style={{ caretColor: '#111827' }}
                       spellCheck={false}
@@ -432,7 +457,7 @@ export function SchedulePage() {
                     {/* Real textarea overlays mirror and owns the caret */}
                     <textarea
                       value={templateBody}
-                      onChange={(e) => setTemplateBody(e.target.value)}
+                      onChange={(e) => { setTemplateBody(e.target.value); setIsTemplateDirty(true); }}
                       className="absolute inset-0 w-full h-full px-4 py-3 text-sm font-mono bg-transparent resize-none outline-none"
                       style={{ caretColor: '#111827', color: 'transparent' }}
                       spellCheck={false}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Check, X, Search, UserPlus, Mail, User, Phone, Shield, Trash2 } from 'lucide-react';
+import { Users, Check, X, Search, UserPlus, Mail, User, Phone, Shield, Trash2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminStore } from '~/modules/admin';
 import { useScheduleStore } from '~/modules/schedule';
@@ -16,6 +16,7 @@ export function AdminUsersPage() {
     const [createError, setCreateError] = useState<string | null>(null);
     const [createSuccess, setCreateSuccess] = useState(false);
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
     
@@ -43,6 +44,29 @@ export function AdminUsersPage() {
         fetchUsers();
         fetchDepartments();
     }, [fetchUsers, fetchDepartments]);
+
+    // Keep user table fresh when profile rows change (verify/revoke/role/avatar updates).
+    useEffect(() => {
+        const channel = supabase
+            .channel('admin-users-profiles')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
+                await fetchUsers();
+            })
+            .subscribe();
+
+        return () => {
+            void supabase.removeChannel(channel);
+        };
+    }, [fetchUsers]);
+
+    const handleRefreshUsers = async () => {
+        setIsRefreshing(true);
+        try {
+            await fetchUsers();
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
@@ -294,6 +318,15 @@ export function AdminUsersPage() {
                         <UserPlus className="w-4 h-4" />
                         Add User
                     </button>
+                    <button
+                        onClick={handleRefreshUsers}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                        title="Refresh users table"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">Refresh</span>
+                    </button>
                 </div>
             </div>
 
@@ -356,13 +389,17 @@ export function AdminUsersPage() {
                                     <tr key={user.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 aspect-square bg-maroon-100 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                                    {user.avatar_url ? (
-                                                        <img src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                                    ) : (
-                                                        <span className="text-maroon-800 font-medium">
-                                                            {user.first_name?.[0]?.toUpperCase() || 'U'}
-                                                        </span>
+                                                <div className="relative w-10 h-10 aspect-square bg-maroon-100 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                    <span className="text-maroon-800 font-medium">
+                                                        {user.first_name?.[0]?.toUpperCase() || 'U'}
+                                                    </span>
+                                                    {user.avatar_url && (
+                                                        <img
+                                                            src={user.avatar_url}
+                                                            alt={`${user.first_name} ${user.last_name}`}
+                                                            className="absolute inset-0 w-full h-full object-cover rounded-full"
+                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                        />
                                                     )}
                                                 </div>
                                                 <div>

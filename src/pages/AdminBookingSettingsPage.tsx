@@ -4,7 +4,7 @@ import { useScheduleStore } from '~/modules/schedule';
 
 export function AdminBookingSettingsPage() {
     const { campuses, fetchCampuses, fetchBookingSetting, bookingSetting, updateBookingSetting } = useScheduleStore();
-    const [maxBookings, setMaxBookings] = useState<number>(50);
+    const [maxBookings, setMaxBookings] = useState<number | string>(50);
     const [selectedCampus, setSelectedCampus] = useState('');
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -29,11 +29,22 @@ export function AdminBookingSettingsPage() {
         setMaxBookings(bookingSetting?.max_bookings_per_day || 50);
     }, [bookingSetting]);
 
+    const parseMaxBookingsValue = (): number | null => {
+        const raw = typeof maxBookings === 'string' ? maxBookings.trim() : String(maxBookings);
+        if (raw === '') return null;
+        const n = parseInt(raw, 10);
+        if (!Number.isFinite(n) || n < 1 || n > 500) return null;
+        return n;
+    };
+
     const handleSave = async () => {
         if (!selectedCampus) return;
+        const n = parseMaxBookingsValue();
+        if (n === null) return;
         setSaving(true);
         try {
-            await updateBookingSetting(selectedCampus, maxBookings);
+            await updateBookingSetting(selectedCampus, n);
+            setMaxBookings(n);
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch (error) {
@@ -78,18 +89,13 @@ export function AdminBookingSettingsPage() {
                             type="number"
                             min={1}
                             max={500}
-                            value={maxBookings === 0 ? '' : maxBookings}
+                            value={maxBookings}
                             onFocus={(e) => e.currentTarget.select()}
-                            onChange={(e) => {
-                                // Allow empty & partial values while typing — clamp on blur (#5)
-                                const val = e.target.value;
-                                if (val === '') { setMaxBookings(0 as any); return; }
-                                const num = parseInt(val, 10);
-                                if (!isNaN(num) && num <= 500) setMaxBookings(num);
-                            }}
+                            onChange={(e) => setMaxBookings(e.target.value)}
                             onBlur={() => {
-                                if (!maxBookings || maxBookings < 1) setMaxBookings(1);
-                                else if (maxBookings > 500) setMaxBookings(500);
+                                const n = parseMaxBookingsValue();
+                                const fallback = bookingSetting?.max_bookings_per_day || 50;
+                                setMaxBookings(n === null ? fallback : n);
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                         />

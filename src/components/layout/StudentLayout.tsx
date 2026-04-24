@@ -45,30 +45,30 @@ export function StudentLayout({ children }: StudentLayoutProps) {
             {/* Header */}
             <header className="bg-maroon-800 border-b border-maroon-700 sticky top-0 z-50 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
+                    <div className="flex items-center justify-between h-16 min-w-0">
                         {/* Logo */}
-                        <Link to={bookingPath} className="flex items-center gap-3 group">
+                        <Link to={bookingPath} className="flex items-center gap-3 group min-w-0">
                             <div className="w-10 h-10 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                                 <img src="/ldcu-logo.png" alt="LDCU Logo" className="w-full h-full object-contain" />
                             </div>
-                            <div className="flex flex-col">
-                                <h1 className="text-lg font-bold text-white whitespace-nowrap">Medical and Dental Clinic</h1>
+                            <div className="flex flex-col min-w-0">
+                                <h1 className="text-lg font-bold text-white whitespace-nowrap truncate">Medical and Dental Clinic</h1>
                             </div>
                         </Link>
 
                         {/* User Info & Actions */}
-                        <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
                             {/* User Profile Dropdown */}
                             <div className="relative" ref={dropdownRef}>
                                 <button
                                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    className="flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg hover:bg-maroon-700 transition-colors group"
+                                    className="flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg hover:bg-maroon-700 transition-colors group min-w-0 max-w-[220px] lg:max-w-[320px]"
                                 >
-                                    <div className="hidden sm:block text-right">
-                                        <p className="text-sm font-medium text-white group-hover:text-gray-100 transition-colors">
+                                    <div className="hidden sm:block text-right min-w-0">
+                                        <p className="text-sm font-medium text-white group-hover:text-gray-100 transition-colors truncate">
                                             {profile?.first_name} {profile?.last_name}
                                         </p>
-                                        <p className="text-xs text-maroon-200 capitalize">{profile?.role}</p>
+                                        <p className="text-xs text-maroon-200 capitalize truncate">{profile?.role}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-10 h-10 bg-gold-500 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white/20">

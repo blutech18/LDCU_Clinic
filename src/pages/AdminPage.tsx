@@ -9,7 +9,7 @@ export function AdminPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'templates' | 'schedule'>('users');
-    const [maxBookings, setMaxBookings] = useState<number>(50);
+    const [maxBookings, setMaxBookings] = useState<number | string>(50);
     const [selectedSettingsCampus, setSelectedSettingsCampus] = useState('');
     const [savingSettings, setSavingSettings] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
@@ -130,11 +130,22 @@ export function AdminPage() {
         setMaxBookings(bookingSetting?.max_bookings_per_day || 50);
     }, [bookingSetting]);
 
+    const parseMaxBookingsValue = (): number | null => {
+        const raw = typeof maxBookings === 'string' ? maxBookings.trim() : String(maxBookings);
+        if (raw === '') return null;
+        const n = parseInt(raw, 10);
+        if (!Number.isFinite(n) || n < 1 || n > 500) return null;
+        return n;
+    };
+
     const handleSaveBookingSettings = async () => {
         if (!selectedSettingsCampus) return;
+        const n = parseMaxBookingsValue();
+        if (n === null) return;
         setSavingSettings(true);
         try {
-            await updateBookingSetting(selectedSettingsCampus, maxBookings);
+            await updateBookingSetting(selectedSettingsCampus, n);
+            setMaxBookings(n);
             setSettingsSaved(true);
             setTimeout(() => setSettingsSaved(false), 2000);
         } catch (error) {
@@ -248,7 +259,12 @@ export function AdminPage() {
                                 min={1}
                                 max={500}
                                 value={maxBookings}
-                                onChange={(e) => setMaxBookings(parseInt(e.target.value) || 1)}
+                                onChange={(e) => setMaxBookings(e.target.value)}
+                                onBlur={() => {
+                                    const n = parseMaxBookingsValue();
+                                    const fallback = bookingSetting?.max_bookings_per_day || 50;
+                                    setMaxBookings(n === null ? fallback : n);
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-maroon-500 focus:border-maroon-500 outline-none"
                             />
                         </div>

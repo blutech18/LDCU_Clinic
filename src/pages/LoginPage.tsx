@@ -153,6 +153,19 @@ export function LoginPage() {
     }),
   };
 
+  const getCampusGridSpanClass = (index: number) => {
+    // Mobile/tablet balancing: avoid visual empty slots in the final row.
+    // Use first campus ("Main Campus") as the balancing chip.
+    // - For odd counts in 2-col mobile, first chip spans both columns.
+    // - For counts ending with 2 items in 3-col tablet, first chip spans 2 columns.
+    const isFirst = index === 0;
+    const mobileOddFirst = campuses.length % 2 === 1 && isFirst;
+    const tabletTwoRemainderFirst = campuses.length % 3 === 2 && isFirst;
+
+    // Reset span on web/desktop so balancing only applies to mobile/tablet.
+    return `${mobileOddFirst ? 'col-span-2' : ''} ${tabletTwoRemainderFirst ? 'sm:col-span-2' : ''} lg:col-span-1`.trim();
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
@@ -160,20 +173,20 @@ export function LoginPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-6">
 
           {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Clinic Calendar</h1>
               <p className="text-gray-600 text-sm mt-1">View appointments and sign in to book</p>
             </div>
 
             {/* Campus Buttons */}
-            <div className="w-full mt-2 md:w-auto md:mt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
-                {campuses.map(campus => (
+            <div className="w-full mt-2 lg:w-auto lg:mt-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 w-full">
+                {campuses.map((campus, index) => (
                   <button
                     key={campus.id}
                     onClick={() => setSelectedCampusId(campus.id)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
+                    className={`${getCampusGridSpanClass(index)} h-10 w-full min-w-0 inline-flex items-center justify-center whitespace-nowrap truncate leading-none px-3 rounded-lg text-sm font-medium transition-all duration-200 border shadow-sm ${selectedCampusId === campus.id
                       ? 'bg-maroon-800 text-white border-maroon-800'
                       : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700'
                       }`}

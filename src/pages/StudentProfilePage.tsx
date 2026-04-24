@@ -10,6 +10,11 @@ import { SearchableSelect } from '~/components/ui';
 
 // cancelOnly = true means just clear requested_role, don't navigate
 type RoleConfirm = { role: 'student' | 'staff'; cancelOnly?: boolean } | null;
+const NAME_LIMITS = {
+    first_name: 100,
+    last_name: 100,
+    middle_name: 100,
+} as const;
 
 export function StudentProfilePage() {
     const navigate = useNavigate();
@@ -57,7 +62,7 @@ export function StudentProfilePage() {
     }, [fetchDepartments]);
 
     useEffect(() => {
-        if (profile) {
+        if (profile && !isEditing) {
             setFormData({
                 first_name: profile.first_name || '',
                 last_name: profile.last_name || '',
@@ -66,10 +71,15 @@ export function StudentProfilePage() {
                 department_id: profile.department_id || '',
             });
         }
-    }, [profile]);
+    }, [profile, isEditing]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
+        if (name in NAME_LIMITS) {
+            const key = name as keyof typeof NAME_LIMITS;
+            setFormData(prev => ({ ...prev, [name]: value.slice(0, NAME_LIMITS[key]) }));
+            return;
+        }
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -77,21 +87,49 @@ export function StudentProfilePage() {
         e.preventDefault();
         if (!profile?.id) return;
 
+        if (!formData.first_name.trim()) {
+            setMessage({ type: 'error', text: 'First name is required.' });
+            return;
+        }
+        if (!formData.last_name.trim()) {
+            setMessage({ type: 'error', text: 'Last name is required.' });
+            return;
+        }
+        if (formData.first_name.trim().length > NAME_LIMITS.first_name) {
+            setMessage({ type: 'error', text: `First name must be ${NAME_LIMITS.first_name} characters or fewer.` });
+            return;
+        }
+        if (formData.last_name.trim().length > NAME_LIMITS.last_name) {
+            setMessage({ type: 'error', text: `Last name must be ${NAME_LIMITS.last_name} characters or fewer.` });
+            return;
+        }
+        if (formData.middle_name.trim().length > NAME_LIMITS.middle_name) {
+            setMessage({ type: 'error', text: `Middle name must be ${NAME_LIMITS.middle_name} characters or fewer.` });
+            return;
+        }
         if (formData.contact_number && formData.contact_number.length !== 11) {
             setMessage({ type: 'error', text: 'Contact number must be exactly 11 digits.' });
             return;
         }
 
+        const payload = {
+            first_name: formData.first_name.trim(),
+            last_name: formData.last_name.trim(),
+            middle_name: formData.middle_name.trim() || null,
+            contact_number: formData.contact_number.trim() || null,
+            department_id: formData.department_id || null,
+        };
+
         setIsSaving(true);
         setMessage(null);
         try {
-            const { error } = await supabase.from('profiles').update(formData).eq('id', profile.id);
+            const { error } = await supabase.from('profiles').update(payload).eq('id', profile.id);
             if (error) throw error;
-            setProfile({ ...profile, ...formData } as typeof profile);
+            setProfile({ ...profile, ...payload } as typeof profile);
             setMessage({ type: 'success', text: 'Profile updated successfully!' });
             setIsEditing(false);
-        } catch {
-            setMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error?.message || 'Failed to update profile. Please try again.' });
         } finally {
             setIsSaving(false);
         }
@@ -248,7 +286,7 @@ export function StudentProfilePage() {
                         </div>
 
                         {/* ── Personal Info Form ── */}
-                        <form onSubmit={handleSubmit} className="p-6 sm:p-8 lg:p-10">
+                        <form onSubmit={handleSubmit} noValidate className="p-6 sm:p-8 lg:p-10">
                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                                 <div>
                                     <h3 className="text-base sm:text-lg font-bold text-gray-900">Personal Information</h3>
@@ -257,7 +295,19 @@ export function StudentProfilePage() {
                                 {!isEditing ? (
                                     <button
                                         type="button"
-                                        onClick={() => setIsEditing(true)}
+                                        onClick={() => {
+                                            if (profile) {
+                                                setFormData({
+                                                    first_name: profile.first_name || '',
+                                                    last_name: profile.last_name || '',
+                                                    middle_name: profile.middle_name || '',
+                                                    contact_number: profile.contact_number || '',
+                                                    department_id: profile.department_id || '',
+                                                });
+                                            }
+                                            setMessage(null);
+                                            setIsEditing(true);
+                                        }}
                                         className="p-2 sm:px-4 sm:py-2 text-sm font-bold text-maroon-800 bg-maroon-50 hover:bg-maroon-100 border border-maroon-200 rounded-xl transition-all active:scale-95 flex items-center gap-2"
                                     >
                                         <Edit2 className="w-4 h-4 sm:w-4 sm:h-4" />
@@ -288,21 +338,21 @@ export function StudentProfilePage() {
                                 {/* First Name */}
                                 <Field label="First Name">
                                     {isEditing
-                                        ? <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} maxLength={50} className={inputClass} />
+                                        ? <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} maxLength={NAME_LIMITS.first_name} className={inputClass} />
                                         : <FieldValue>{profile?.first_name || '-'}</FieldValue>}
                                 </Field>
 
                                 {/* Last Name */}
                                 <Field label="Last Name">
                                     {isEditing
-                                        ? <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} maxLength={50} className={inputClass} />
+                                        ? <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} maxLength={NAME_LIMITS.last_name} className={inputClass} />
                                         : <FieldValue>{profile?.last_name || '-'}</FieldValue>}
                                 </Field>
 
                                 {/* Middle Name */}
                                 <Field label="Middle Name" hint="optional">
                                     {isEditing
-                                        ? <input type="text" name="middle_name" value={formData.middle_name} onChange={handleChange} maxLength={50} className={inputClass} />
+                                        ? <input type="text" name="middle_name" value={formData.middle_name} onChange={handleChange} maxLength={NAME_LIMITS.middle_name} className={inputClass} />
                                         : <FieldValue>{profile?.middle_name || '-'}</FieldValue>}
                                 </Field>
 
@@ -537,7 +587,7 @@ function Field({
 
 function FieldValue({ children }: { readonly children: React.ReactNode }) {
     return (
-        <p className="text-gray-900 py-3 px-4 bg-gray-50/70 rounded-xl text-sm font-semibold">
+        <p className="text-gray-900 py-3 px-4 bg-gray-50/70 rounded-xl text-sm font-semibold whitespace-normal [overflow-wrap:anywhere] leading-snug">
             {children}
         </p>
     );

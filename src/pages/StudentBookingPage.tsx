@@ -73,6 +73,14 @@ export function StudentBookingPage() {
         })
     };
 
+    const getCampusGridSpanClass = (index: number) => {
+        // Mobile/tablet balancing: let first campus ("Main Campus") absorb extra space.
+        const isFirst = index === 0;
+        const mobileOddFirst = campuses.length % 2 === 1 && isFirst;
+        const tabletTwoRemainderFirst = campuses.length % 3 === 2 && isFirst;
+        return `${mobileOddFirst ? 'col-span-2' : ''} ${tabletTwoRemainderFirst ? 'sm:col-span-2' : ''} lg:col-span-1`.trim();
+    };
+
     const paginate = (newDirection: number) => {
         setDirection(newDirection);
         setCurrentMonth(newDirection > 0 ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1));
@@ -143,12 +151,14 @@ export function StudentBookingPage() {
         return globalMaxBookings;
     };
 
-    // Get user's appointments (by both ID and email)
+    // User's appointments for the selected campus only (#6 — avoid cross-campus indicators / list)
     const myAppointments = useMemo(() => {
-        return appointments.filter((apt) => 
-            apt.patient_id === profile?.id || apt.patient_email === profile?.email
-        );
-    }, [appointments, profile?.id, profile?.email]);
+        return appointments.filter((apt) => {
+            const isMine = apt.patient_id === profile?.id || apt.patient_email === profile?.email;
+            const matchesCampus = !selectedCampus || apt.campus_id === selectedCampus;
+            return isMine && matchesCampus;
+        });
+    }, [appointments, profile?.id, profile?.email, selectedCampus]);
 
     // Generate calendar days
     const calendarDays = useMemo(() => {
@@ -369,12 +379,12 @@ export function StudentBookingPage() {
                     <div className="lg:col-span-2 flex flex-col gap-4">
                         {/* Campus Selection above Card */}
                         <div className="w-full">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
-                                {campuses.map(campus => (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 w-full">
+                                {campuses.map((campus, index) => (
                                     <button
                                         key={campus.id}
                                         onClick={() => setSelectedCampus(campus.id)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ease-out border shadow-sm ${selectedCampus === campus.id
+                                        className={`${getCampusGridSpanClass(index)} h-10 w-full min-w-0 inline-flex items-center justify-center whitespace-nowrap truncate leading-none px-3 rounded-xl text-sm font-semibold transition-all duration-300 ease-out border shadow-sm ${selectedCampus === campus.id
                                             ? 'bg-maroon-800 text-white border-maroon-800 scale-[1.03] shadow-md ring-2 ring-maroon-800/20'
                                             : 'bg-white text-gray-700 border-gray-300 hover:border-maroon-500 hover:text-maroon-700 hover:bg-maroon-50/50 hover:-translate-y-0.5'
                                             }`}

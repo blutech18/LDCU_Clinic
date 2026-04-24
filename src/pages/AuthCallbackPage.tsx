@@ -11,6 +11,13 @@ export function AuthCallbackPage() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        const isPendingApproval = (profile: any) => {
+          if (!profile) return false;
+          const unverified = 'is_verified' in profile && profile.is_verified === false;
+          const pendingRoleAwaitingApproval = profile.role === 'pending' && profile.role_selected === true;
+          return unverified || pendingRoleAwaitingApproval;
+        };
+
         // Get the session from the URL (Supabase handles the hash automatically)
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -42,16 +49,8 @@ export function AuthCallbackPage() {
         }
 
         if (existingProfile) {
-          // Profile exists - check verification
-          if ('is_verified' in existingProfile && !existingProfile.is_verified && existingProfile.role !== 'admin' && existingProfile.role !== 'student' && existingProfile.role !== 'staff' && existingProfile.role !== 'hr' && existingProfile.role !== 'pending') {
-            await supabase.auth.signOut();
-            setError('Your account is pending verification. Please wait for admin approval.');
-            setTimeout(() => navigate('/login'), 3000);
-            return;
-          }
-
-          // Block pending users who already selected a role but haven't been approved yet (#17)
-          if (existingProfile.role === 'pending' && existingProfile.role_selected === true) {
+          // Block any account that is still pending approval (#17)
+          if (isPendingApproval(existingProfile)) {
             await supabase.auth.signOut();
             setError('Your account is pending approval. Please wait for HR/Admin to approve your account before signing in.');
             setTimeout(() => navigate('/login'), 4000);

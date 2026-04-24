@@ -34,7 +34,7 @@ export function ReschedulePage() {
     const [rescheduleMode, setRescheduleMode] = useState<'auto' | 'manual'>('auto');
     const [manualTargetDates, setManualTargetDates] = useState<Record<string, string>>({});
     const [editingMaxBookings, setEditingMaxBookings] = useState(false);
-    const [tempMaxBookings, setTempMaxBookings] = useState(50);
+    const [tempMaxBookings, setTempMaxBookings] = useState<number | string>(50);
     const [savingMaxBookings, setSavingMaxBookings] = useState(false);
 
     const variants = {
@@ -164,10 +164,15 @@ export function ReschedulePage() {
     };
 
     const handleSaveMaxBookings = async () => {
-        if (!selectedCampus || tempMaxBookings < 1) return;
+        if (!selectedCampus) return;
+        const raw = typeof tempMaxBookings === 'string' ? tempMaxBookings.trim() : String(tempMaxBookings);
+        if (raw === '') return;
+        const n = parseInt(raw, 10);
+        if (!Number.isFinite(n) || n < 1 || n > 500) return;
         setSavingMaxBookings(true);
         try {
-            await updateBookingSetting(selectedCampus, tempMaxBookings);
+            await updateBookingSetting(selectedCampus, n);
+            setTempMaxBookings(n);
             setEditingMaxBookings(false);
         } catch (error) {
             console.error('Error saving max bookings:', error);
@@ -322,7 +327,15 @@ export function ReschedulePage() {
                                 min={1}
                                 max={500}
                                 value={tempMaxBookings}
-                                onChange={(e) => setTempMaxBookings(parseInt(e.target.value) || 1)}
+                                onChange={(e) => setTempMaxBookings(e.target.value)}
+                                onBlur={() => {
+                                    const raw = typeof tempMaxBookings === 'string' ? tempMaxBookings.trim() : String(tempMaxBookings);
+                                    const n = parseInt(raw, 10);
+                                    const fallback = maxBookingsPerDay;
+                                    if (raw === '' || !Number.isFinite(n) || n < 1) setTempMaxBookings(fallback);
+                                    else if (n > 500) setTempMaxBookings(500);
+                                    else setTempMaxBookings(n);
+                                }}
                                 className="w-16 px-2 py-0.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-maroon-500 outline-none"
                             />
                             <button

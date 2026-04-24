@@ -4,6 +4,10 @@ import type { Appointment, AppointmentType, AppointmentStatus } from '~/types';
 import { supabase } from '~/lib/supabase';
 import { logUserAction } from '~/lib/auditLog';
 
+/** Ignore superseded fetch results when campus/month changes quickly (#6). */
+let appointmentsFetchRequestId = 0;
+let bookingCountsFetchRequestId = 0;
+
 interface AppointmentFilters {
   campusId?: string;
   status?: AppointmentStatus;
@@ -41,6 +45,8 @@ export const useAppointmentStore = create<AppointmentState>()(
     isSaving: false,
 
     fetchAppointments: async (filters) => {
+      appointmentsFetchRequestId += 1;
+      const requestId = appointmentsFetchRequestId;
       set({ isLoading: true });
       try {
         let query = supabase
@@ -62,15 +68,21 @@ export const useAppointmentStore = create<AppointmentState>()(
         const { data, error } = await query.order('appointment_date').order('start_time');
         if (error) throw error;
 
+        if (requestId !== appointmentsFetchRequestId) return;
         set({ appointments: data || [], isLoading: false });
       } catch (error) {
         console.error('Error fetching appointments:', error);
-        set({ isLoading: false });
+        if (requestId === appointmentsFetchRequestId) {
+          set({ isLoading: false });
+        }
         throw error;
       }
     },
 
     fetchBookingCounts: async (startDate, endDate, campusId) => {
+      bookingCountsFetchRequestId += 1;
+      const requestId = bookingCountsFetchRequestId;
+      set({ bookingCounts: {}, amPmBookingCounts: {} });
       try {
         let query = supabase
           .from('appointments')
@@ -83,6 +95,8 @@ export const useAppointmentStore = create<AppointmentState>()(
 
         const { data, error } = await query;
         if (error) throw error;
+
+        if (requestId !== bookingCountsFetchRequestId) return;
 
         const counts: Record<string, number> = {};
         const amPmCounts: Record<string, { AM: number, PM: number }> = {};

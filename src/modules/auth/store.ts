@@ -59,6 +59,13 @@ interface AuthState {
   deleteAccount: () => Promise<void>;
 }
 
+function isPendingApproval(profile: Partial<Profile> | null | undefined): boolean {
+  if (!profile) return false;
+  const unverified = 'is_verified' in profile && profile.is_verified === false;
+  const pendingRoleAwaitingApproval = profile.role === 'pending' && profile.role_selected === true;
+  return unverified || pendingRoleAwaitingApproval;
+}
+
 // Guard to prevent initialize() from running more than once
 let _initStarted = false;
 
@@ -92,8 +99,8 @@ export const useAuthStore = create<AuthState>()(
             .maybeSingle();
 
           if (!error && profile) {
-            // Check verification
-            if ('is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'hr' && profile.role !== 'pending') {
+            // Block any account that is still pending approval (#17)
+            if (isPendingApproval(profile)) {
               await supabase.auth.signOut();
               set({ profile: null, avatarUrl: null, isAuthenticated: false, isLoading: false, isInitialized: true });
               return;
@@ -271,16 +278,10 @@ export const useAuthStore = create<AuthState>()(
 
           if (profileError) throw profileError;
 
-          // Block pending/unverified accounts from logging in (#17)
-          if (profile && profile.role === 'pending' && 'is_verified' in profile && !profile.is_verified) {
+          // Block any account that is still pending approval (#17)
+          if (isPendingApproval(profile)) {
             await supabase.auth.signOut();
-            throw new Error('Your account is pending approval. Please wait for an admin to verify your account before logging in.');
-          }
-
-          // Check if user is verified (if is_verified field exists)
-          if (profile && 'is_verified' in profile && !profile.is_verified && profile.role !== 'admin' && profile.role !== 'student' && profile.role !== 'staff' && profile.role !== 'hr' && profile.role !== 'pending') {
-            await supabase.auth.signOut();
-            throw new Error('Your account is pending verification. Please wait for an admin to approve your account.');
+            throw new Error('Your account is pending approval. Please wait for an admin to approve your account before logging in.');
           }
 
           set({ profile, isAuthenticated: true, isLoading: false });
